@@ -10,20 +10,19 @@
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "build": "pnpm --filter @platter/web build && cargo build --release",
-    "dev": "pnpm --filter @platter/web dev",
-    "dev:api": "cargo run -p platter-cli -- serve",
+    "build": "pnpm --filter @platter/shared build && pnpm --filter @platter/api build && pnpm --filter @platter/web build",
+    "dev": "pnpm --parallel --filter @platter/api --filter @platter/web dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,css,yaml,yml}\"",
-    "test": "pnpm -r test && cargo test --workspace",
-    "test:web": "pnpm --filter @platter/web test",
-    "test:rust": "cargo test --workspace",
+    "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @platter/web test:e2e",
-    "check": "cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --check",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm check"
+    "db:generate": "pnpm --filter @platter/api db:generate",
+    "db:migrate": "pnpm --filter @platter/api db:migrate",
+    "db:seed": "pnpm --filter @platter/api db:seed",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
