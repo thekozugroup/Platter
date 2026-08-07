@@ -1,0 +1,187 @@
+import type { Readable } from 'node:stream';
+import type Docker from 'dockerode';
+import { type Result, attempt, fail, ok } from '@platter/shared';
+
+/**
+ * Container log streaming.
+ *
+ * Docker multiplexes stdout and stderr over one connection with an 8-byte header per frame
+ * (stream type, three reserved bytes, then a big-endian length). dockerode exposes
+ * `modem.demuxStream`, but it writes into two `Writable`s and gives you no line framing — and
+ * frames split mid-line constantly, so naive per-chunk handling produces log lines chopped at
+ * arbitrary byte offsets. That looks like corruption in the console and, worse, breaks the
+ * diagnosis engine's regexes.
+ *
+ * This module therefore does its own demux and its own line assembly, keeping a partial-line
+ * buffer across chunks.
+ */
+
+export interface LogLine {
+  /** Monotonic within a stream. Lets the browser resume without duplicates. */
+  seq: number;
+  stream: 'stdout' | 'stderr';
+  /** Docker's timestamp, when requested. Epoch milliseconds. */
+  timestamp: number | undefined;
+  text: string;
+}
+
+const HEADER_SIZE = 8;
+
+/**
+ * Split a Docker multiplexed stream into whole lines.
+ *
+ * Returned as an async generator so back-pressure works: if the browser stops reading the SSE
+ * response, the generator stops being pulled, the socket's read buffer fills, and Docker slows
+ * down. Push-based designs here end up buffering an unbounded crash loop in memory.
+ */
+export async function* demuxLines(
+  source: Readable,
+  options: { withTimestamps?: boolean; startSeq?: number } = {}
+): AsyncGenerator<LogLine> {
+  let seq = options.startSeq ?? 0;
+  let buffer = Buffer.alloc(0);
+  // Partial line carried across frames, per stream.
+  const partial: Record<'stdout' | 'stderr', string> = { stdout: '', stderr: '' };
+
+  for await (const chunk of source) {
+    buffer = Buffer.concat([buffer, chunk as Buffer]);
+
+    while (buffer.length >= HEADER_SIZE) {
+      const streamType = buffer.readUInt8(0);
+      const payloadLength = buffer.readUInt32BE(4);
+
+      if (buffer.length < HEADER_SIZE + payloadLength) {
+        break; // Wait for the rest of this frame.
+      }
+
+      const payload = buffer.subarray(HEADER_SIZE, HEADER_SIZE + payloadLength).toString('utf8');
+      buffer = buffer.subarray(HEADER_SIZE + payloadLength);
+
+      // Docker uses 1 for stdout and 2 for stderr. Anything else (0 = stdin echo) is ignored.
+      const stream: 'stdout' | 'stderr' = streamType === 2 ? 'stderr' : 'stdout';
+
+      const combined = partial[stream] + payload;
+      const parts = combined.split('\n');
+      // The trailing element is either an incomplete line or an empty string; carry it forward.
+      partial[stream] = parts.pop() ?? '';
+
+      for (const raw of parts) {
+        const line = raw.replace(/\r$/, '');
+        yield toLogLine(line, stream, seq++, options.withTimestamps ?? false);
+      }
+    }
+  }
+
+  // Flush whatever was left when the stream ended — usually the final line of a crash.
+  for (const stream of ['stdout', 'stderr'] as const) {
+    if (partial[stream].length > 0) {
+      yield toLogLine(partial[stream], stream, seq++, options.withTimestamps ?? false);
+    }
+  }
+}
+
+const TIMESTAMP_RE = /^(?<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s(?<rest>[\s\S]*)$/;
+
+function toLogLine(
+  raw: string,
+  stream: 'stdout' | 'stderr',
+  seq: number,
+  withTimestamps: boolean
+): LogLine {
+  if (!withTimestamps) {
+    return { seq, stream, timestamp: undefined, text: raw };
+  }
+  const match = TIMESTAMP_RE.exec(raw);
+  if (!match?.groups) {
+    return { seq, stream, timestamp: undefined, text: raw };
+  }
+  return {
+    seq,
+    stream,
+    timestamp: Date.parse(match.groups.ts ?? ''),
+    text: match.groups.rest ?? '',
+  };
+}
+
+export interface LogStreamOptions {
+  /** Keep the connection open and yield new lines as they arrive. */
+  follow?: boolean;
+  /** Number of historical lines to replay first. */
+  tail?: number;
+  /** Only lines after this epoch-seconds instant. */
+  since?: number;
+  withTimestamps?: boolean;
+  startSeq?: number;
+  /** Abort the underlying HTTP request. Always pass one for `follow: true`. */
+  signal?: AbortSignal;
+}
+
+/**
+ * Open a log stream.
+ *
+ * The caller owns cleanup: when following, pass an `AbortSignal` and abort it, or the socket
+ * stays open and Docker keeps a goroutine alive for it. A leaked follow per page load is how
+ * these UIs end up with hundreds of idle connections after a day.
+ */
+export async function streamLogs(
+  docker: Docker,
+  containerId: string,
+  options: LogStreamOptions = {}
+): Promise<Result<AsyncGenerator<LogLine>>> {
+  const opened = await attempt(async () => {
+    const stream = (await docker.getContainer(containerId).logs({
+      follow: options.follow ?? false,
+      stdout: true,
+      stderr: true,
+      tail: options.tail ?? 500,
+      timestamps: options.withTimestamps ?? true,
+      ...(options.since === undefined ? {} : { since: options.since }),
+      // dockerode's types model `follow` as a literal, so the union has to be widened here.
+    } as never)) as unknown as Readable;
+
+    if (options.signal) {
+      const onAbort = () => stream.destroy();
+      options.signal.addEventListener('abort', onAbort, { once: true });
+      stream.once('close', () => options.signal?.removeEventListener('abort', onAbort));
+    }
+
+    return stream;
+  });
+
+  if (!opened.ok) {
+    const status = (opened.error.cause as { statusCode?: number } | undefined)?.statusCode;
+    if (status === 404) {
+      return fail('container_not_found', `No container with id ${containerId}.`, {
+        details: { containerId },
+      });
+    }
+    return opened as Result<never>;
+  }
+
+  const generator = demuxLines(opened.value, {
+    withTimestamps: options.withTimestamps ?? true,
+    ...(options.startSeq === undefined ? {} : { startSeq: options.startSeq }),
+  });
+  return ok(generator);
+}
+
+/** Collect the last `tail` lines. Used by the diagnosis engine and for crash snapshots. */
+export async function readLogTail(
+  docker: Docker,
+  containerId: string,
+  tail = 500
+): Promise<Result<LogLine[]>> {
+  const stream = await streamLogs(docker, containerId, {
+    follow: false,
+    tail,
+    withTimestamps: true,
+  });
+  if (!stream.ok) {
+    return stream;
+  }
+  const lines: LogLine[] = [];
+  for await (const line of stream.value) {
+    lines.push(line);
+  }
+  return ok(lines);
+}

@@ -1,0 +1,202 @@
+{
+  "data": [
+    {
+      "screenshots": [],
+      "id": 1578679,
+      "gameId": 432,
+      "name": "Recipegraph",
+      "slug": "recipegraph",
+      "links": {
+        "websiteUrl": "https://www.curseforge.com/minecraft/mc-mods/recipegraph",
+        "wikiUrl": null,
+        "issuesUrl": null,
+        "sourceUrl": "https://github.com/petitioner0/recipegraph-1.21.1"
+      },
+      "summary": "RecipeGraph is a recipe scanning and exporting mod for Minecraft. It can scan all recipe data from JEI in game through commands, then export the data as a JSON graph. The exported JSON can be searched and viewed with the bundled index.html.",
+      "status": 4,
+      "downloadCount": 33,
+      "isFeatured": false,
+      "primaryCategoryId": 5191,
+      "categories": [
+        {
+          "id": 5191,
+          "gameId": 432,
+          "name": "Utility & QoL",
+          "slug": "utility-qol",
+          "url": "https://www.curseforge.com/minecraft/mc-mods/utility-qol",
+          "iconUrl": "https://media.forgecdn.net/avatars/456/558/637727379086405233.png",
+          "dateModified": "2021-11-17T11:45:09.143Z",
+          "isClass": false,
+          "classId": 6,
+          "parentCategoryId": 6
+        },
+        {
+          "id": 426,
+          "gameId": 432,
+          "name": "Addons",
+          "slug": "mc-addons",
+          "url": "https://www.curseforge.com/minecraft/mc-mods/mc-addons",
+          "iconUrl": "https://media.forgecdn.net/avatars/5/998/635351477886290676.png",
+          "dateModified": "2014-05-08T17:09:48.63Z",
+          "isClass": false,
+          "classId": 6,
+          "parentCategoryId": 6
+        },
+        {
+          "id": 421,
+          "gameId": 432,
+          "name": "API and Library",
+          "slug": "library-api",
+          "url": "https://www.curseforge.com/minecraft/mc-mods/library-api",
+          "iconUrl": "https://media.forgecdn.net/avatars/6/36/635351496947765531.png",
+          "dateModified": "2014-05-23T03:21:44.06Z",
+          "isClass": false,
+          "classId": 6,
+          "parentCategoryId": 6
+        }
+      ],
+      "classId": 6,
+      "authors": [
+        {
+          "id": 106962906,
+          "name": "Petnr0",
+          "url": "https://www.curseforge.com/members/petnr0",
+          "avatarUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/xarth/404_user_70x70.png"
+        }
+      ],
+      "logo": {
+        "id": 1870945,
+        "modId": 1578679,
+        "title": "639173042460417240.jpg",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/1870/945/256/256/639173042460417240.jpg",
+        "url": "https://media.forgecdn.net/avatars/1870/945/639173042460417240.jpg"
+      },
+      "mainFileId": 8266592,
+      "latestFiles": [
+        {
+          "id": 8266592,
+          "gameId": 432,
+          "modId": 1578679,
+          "isAvailable": true,
+          "displayName": "recipegraph-1.0.0.jar",
+          "fileName": "recipegraph-1.0.0.jar",
+          "releaseType": 1,
+          "fileStatus": 4,
+          "hashes": [
+            {
+              "value": "95e2707d8cb4e2a75fd63edd8888496c0d820c5a",
+              "algo": 1
+            },
+            {
+              "value": "9e1ee1761ce27f8f38aee54ada43e999",
+              "algo": 2
+            }
+          ],
+          "fileDate": "2026-06-17T14:46:43.07Z",
+          "fileLength": 33736,
+          "downloadCount": 7,
+          "fileSizeOnDisk": 77609,
+          "downloadUrl": "https://edge.forgecdn.net/files/8266/592/recipegraph-1.0.0.jar",
+          "gameVersions": [
+            "Client",
+            "Fabric",
+            "1.21.1",
+            "Server"
+          ],
+          "sortableGameVersions": [
+            {
+              "gameVersionName": "Client",
+              "gameVersionPadded": "0",
+              "gameVersion": "",
+              "gameVersionReleaseDate": "2022-12-08T00:00:00Z",
+              "gameVersionTypeId": 75208
+            },
+            {
+              "gameVersionName": "Fabric",
+              "gameVersionPadded": "0",
+              "gameVersion": "",
+              "gameVersionReleaseDate": "2022-09-01T00:00:00Z",
+              "gameVersionTypeId": 68441
+            },
+            {
+              "gameVersionName": "1.21.1",
+              "gameVersionPadded": "0000000001.0000000021.0000000001",
+              "gameVersion": "1.21.1",
+              "gameVersionReleaseDate": "2024-08-08T15:17:53.787Z",
+              "gameVersionTypeId": 77784
+            },
+            {
+              "gameVersionName": "Server",
+              "gameVersionPadded": "0",
+              "gameVersion": "",
+              "gameVersionReleaseDate": "2022-12-08T00:00:00Z",
+              "gameVersionTypeId": 75208
+            }
+          ],
+          "dependencies": [
+            {
+              "modId": 238222,
+              "relationType": 3
+            }
+          ],
+          "alternateFileId": 0,
+          "isServerPack": false,
+          "fileFingerprint": 2715177757,
+          "modules": [
+            {
+              "name": "META-INF",
+              "fingerprint": 1464703643
+            },
+            {
+              "name": "LICENSE_recipegraph",
+              "fingerprint": 171819324
+            },
+            {
+              "name": "com",
+              "fingerprint": 138188583
+            },
+            {
+              "name": "fabric.mod.json",
+              "fingerprint": 1709539665
+            },
+            {
+              "name": "index.html",
+              "fingerprint": 2741400368
+            },
+            {
+              "name": "recipegraph-types.json",
+              "fingerprint": 3494626576
+            }
+          ]
+        }
+      ],
+      "latestFilesIndexes": [
+        {
+          "gameVersion": "1.21.1",
+          "fileId": 8266592,
+          "filename": "recipegraph-1.0.0.jar",
+          "releaseType": 1,
+          "gameVersionTypeId": 77784,
+          "modLoader": 4
+        }
+      ],
+      "latestEarlyAccessFilesIndexes": [],
+      "dateCreated": "2026-06-18T08:41:20.507Z",
+      "dateModified": "2026-06-18T08:47:09.57Z",
+      "dateReleased": "2026-06-17T14:46:43.07Z",
+      "allowModDistribution": true,
+      "gamePopularityRank": 999999,
+      "isAvailable": true,
+      "hasCommentsEnabled": true,
+      "thumbsUpCount": 0,
+      "featuredProjectTag": 0
+    }
+  ],
+  "pagination": {
+    "index": 0,
+    "pageSize": 1,
+    "resultCount": 1,
+    "totalCount": 300
+  }
+}

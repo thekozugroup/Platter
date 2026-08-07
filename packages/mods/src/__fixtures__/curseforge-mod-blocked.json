@@ -1,0 +1,327 @@
+{
+  "data": {
+    "id": 436653,
+    "gameId": 432,
+    "name": "Mineshafts & Monsters",
+    "slug": "mineshafts-monsters",
+    "links": {
+      "websiteUrl": "https://www.curseforge.com/minecraft/modpacks/mineshafts-monsters",
+      "wikiUrl": "https://mineshafts-monsters.fandom.com/wiki/Mineshafts_%26_Monsters_Wiki",
+      "issuesUrl": "https://discord.gg/Gc2vxg4WCW",
+      "sourceUrl": null
+    },
+    "summary": "An RPG modpack that actually gives the player an immersive storyline and complex worldview.",
+    "status": 4,
+    "downloadCount": 2121830,
+    "isFeatured": false,
+    "primaryCategoryId": 4475,
+    "categories": [
+      {
+        "id": 4473,
+        "gameId": 432,
+        "name": "Magic",
+        "slug": "magic",
+        "url": "https://www.curseforge.com/minecraft/modpacks/magic",
+        "iconUrl": "https://media.forgecdn.net/avatars/14/474/635596760578719019.png",
+        "dateModified": "2015-02-16T15:34:17.873Z",
+        "isClass": false,
+        "classId": 4471,
+        "parentCategoryId": 4471,
+        "displayIndex": null
+      },
+      {
+        "id": 4484,
+        "gameId": 432,
+        "name": "Multiplayer",
+        "slug": "multiplayer",
+        "url": "https://www.curseforge.com/minecraft/modpacks/multiplayer",
+        "iconUrl": "https://media.forgecdn.net/avatars/14/481/635596792838491141.png",
+        "dateModified": "2015-02-16T16:28:03.850Z",
+        "isClass": false,
+        "classId": 4471,
+        "parentCategoryId": 4471,
+        "displayIndex": null
+      },
+      {
+        "id": 4479,
+        "gameId": 432,
+        "name": "Hardcore",
+        "slug": "hardcore",
+        "url": "https://www.curseforge.com/minecraft/modpacks/hardcore",
+        "iconUrl": "https://media.forgecdn.net/avatars/14/473/635596760504656528.png",
+        "dateModified": "2015-02-16T15:34:10.467Z",
+        "isClass": false,
+        "classId": 4471,
+        "parentCategoryId": 4471,
+        "displayIndex": null
+      },
+      {
+        "id": 4475,
+        "gameId": 432,
+        "name": "Adventure and RPG",
+        "slug": "adventure-and-rpg",
+        "url": "https://www.curseforge.com/minecraft/modpacks/adventure-and-rpg",
+        "iconUrl": "https://media.forgecdn.net/avatars/14/480/635596775049811800.png",
+        "dateModified": "2015-02-16T15:58:24.980Z",
+        "isClass": false,
+        "classId": 4471,
+        "parentCategoryId": 4471,
+        "displayIndex": null
+      },
+      {
+        "id": 4476,
+        "gameId": 432,
+        "name": "Exploration",
+        "slug": "exploration",
+        "url": "https://www.curseforge.com/minecraft/modpacks/exploration",
+        "iconUrl": "https://media.forgecdn.net/avatars/14/486/635596815896417213.png",
+        "dateModified": "2015-02-16T17:06:29.690Z",
+        "isClass": false,
+        "classId": 4471,
+        "parentCategoryId": 4471,
+        "displayIndex": null
+      }
+    ],
+    "classId": 4471,
+    "authors": [
+      {
+        "id": 101308537,
+        "name": "bstylia14",
+        "url": "https://www.curseforge.com/members/bstylia14"
+      }
+    ],
+    "logo": {
+      "id": 431487,
+      "modId": 436653,
+      "title": "637667061539266129.gif",
+      "description": "",
+      "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/431/487/256/256/637667061539266129_animated.gif",
+      "url": "https://media.forgecdn.net/avatars/431/487/637667061539266129.gif"
+    },
+    "screenshots": [
+      {
+        "id": 412933,
+        "modId": 436653,
+        "title": "Screenshot 6",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/412/933/310/172/te3jmms.png",
+        "url": "https://media.forgecdn.net/attachments/412/933/te3jmms.png"
+      },
+      {
+        "id": 412932,
+        "modId": 436653,
+        "title": "Screenshot 6",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/412/932/310/172/qvci5ia.png",
+        "url": "https://media.forgecdn.net/attachments/412/932/qvci5ia.png"
+      },
+      {
+        "id": 412931,
+        "modId": 436653,
+        "title": "Screenshot 4",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/412/931/310/172/lbaweh9.jpg",
+        "url": "https://media.forgecdn.net/attachments/412/931/lbaweh9.jpg"
+      },
+      {
+        "id": 412930,
+        "modId": 436653,
+        "title": "Screenshot 3",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/412/930/310/172/puedeeh.png",
+        "url": "https://media.forgecdn.net/attachments/412/930/puedeeh.png"
+      },
+      {
+        "id": 412929,
+        "modId": 436653,
+        "title": "Screenshot 2",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/412/929/310/172/heddb18.png",
+        "url": "https://media.forgecdn.net/attachments/412/929/heddb18.png"
+      },
+      {
+        "id": 412927,
+        "modId": 436653,
+        "title": "Screenshot 1",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/412/927/310/172/pvsrfig.png",
+        "url": "https://media.forgecdn.net/attachments/412/927/pvsrfig.png"
+      },
+      {
+        "id": 398153,
+        "modId": 436653,
+        "title": "credit:mikoto",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/398/153/310/172/unknown.png",
+        "url": "https://media.forgecdn.net/attachments/398/153/unknown.png"
+      },
+      {
+        "id": 379677,
+        "modId": 436653,
+        "title": "credit: NocFA",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/379/677/310/172/unknown.png",
+        "url": "https://media.forgecdn.net/attachments/379/677/unknown.png"
+      },
+      {
+        "id": 356348,
+        "modId": 436653,
+        "title": "credit: Mongineer Gaming",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/356/348/310/172/untitled-design-29.png",
+        "url": "https://media.forgecdn.net/attachments/356/348/untitled-design-29.png"
+      },
+      {
+        "id": 355565,
+        "modId": 436653,
+        "title": "credit: nefarious",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/355/565/310/172/2021-04-10_15.jpg",
+        "url": "https://media.forgecdn.net/attachments/355/565/2021-04-10_15.jpg"
+      },
+      {
+        "id": 333777,
+        "modId": 436653,
+        "title": "epic gameplay",
+        "description": "",
+        "thumbnailUrl": "https://media.forgecdn.net/attachments/thumbnails/333/777/310/172/maxresdefault.jpg",
+        "url": "https://media.forgecdn.net/attachments/333/777/maxresdefault.jpg"
+      }
+    ],
+    "mainFileId": 4075706,
+    "latestFiles": [
+      {
+        "id": 3602537,
+        "gameId": 432,
+        "modId": 436653,
+        "isAvailable": true,
+        "displayName": "Mineshafts & Monsters - 1.10.7",
+        "fileName": "Mineshafts  Monsters - 1.10.7.zip",
+        "releaseType": 2,
+        "fileStatus": 4,
+        "hashes": [
+          {
+            "value": "faab1c2b9ebffdad4f164bbf6ec0253ec3000f32",
+            "algo": 1
+          },
+          {
+            "value": "cddc9537bff65475284ced6610ec1f85",
+            "algo": 2
+          }
+        ],
+        "fileDate": "2022-01-11T19:53:48.540Z",
+        "fileLength": 153398920,
+        "downloadCount": 2093,
+        "fileSizeOnDisk": null,
+        "downloadUrl": null,
+        "gameVersions": [
+          "1.16-Snapshot",
+          "1.16.3",
+          "1.16.1",
+          "1.16",
+          "1.16.5",
+          "1.16.4",
+          "1.16.2"
+        ],
+        "sortableGameVersions": [
+          {
+            "gameVersionName": "1.16-Snapshot",
+            "gameVersionPadded": "0000000001.0000000016",
+            "gameVersion": "1.16",
+            "gameVersionReleaseDate": "2020-02-06T00:00:00Z",
+            "gameVersionTypeId": 70886
+          },
+          {
+            "gameVersionName": "1.16.3",
+            "gameVersionPadded": "0000000001.0000000016.0000000003",
+            "gameVersion": "1.16.3",
+            "gameVersionReleaseDate": "2020-09-10T14:44:20.443Z",
+            "gameVersionTypeId": 70886
+          },
+          {
+            "gameVersionName": "1.16.1",
+            "gameVersionPadded": "0000000001.0000000016.0000000001",
+            "gameVersion": "1.16.1",
+            "gameVersionReleaseDate": "2020-06-24T12:41:11.823Z",
+            "gameVersionTypeId": 70886
+          },
+          {
+            "gameVersionName": "1.16",
+            "gameVersionPadded": "0000000001.0000000016",
+            "gameVersion": "1.16",
+            "gameVersionReleaseDate": "2020-06-23T13:41:08.750Z",
+            "gameVersionTypeId": 70886
+          },
+          {
+            "gameVersionName": "1.16.5",
+            "gameVersionPadded": "0000000001.0000000016.0000000005",
+            "gameVersion": "1.16.5",
+            "gameVersionReleaseDate": "2021-01-15T14:14:48.910Z",
+            "gameVersionTypeId": 70886
+          },
+          {
+            "gameVersionName": "1.16.4",
+            "gameVersionPadded": "0000000001.0000000016.0000000004",
+            "gameVersion": "1.16.4",
+            "gameVersionReleaseDate": "2020-11-02T18:40:51.490Z",
+            "gameVersionTypeId": 70886
+          },
+          {
+            "gameVersionName": "1.16.2",
+            "gameVersionPadded": "0000000001.0000000016.0000000002",
+            "gameVersion": "1.16.2",
+            "gameVersionReleaseDate": "2020-08-11T16:42:21.863Z",
+            "gameVersionTypeId": 70886
+          }
+        ],
+        "dependencies": [],
+        "exposeAsAlternative": null,
+        "parentProjectFileId": null,
+        "alternateFileId": 0,
+        "isServerPack": false,
+        "serverPackFileId": 3602586,
+        "isEarlyAccessContent": null,
+        "earlyAccessEndDate": null,
+        "fileFingerprint": 1821875781,
+        "modules": [
+          {
+            "name": "manifest.json",
+            "fingerprint": 319681464
+          }
+        ]
+      }
+    ],
+    "latestFilesIndexes": [
+      {
+        "gameVersion": "1.16.3",
+        "fileId": 4075706,
+        "filename": "Mineshafts  Monsters - 1.11.zip",
+        "releaseType": 1,
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersion": "1.16",
+        "fileId": 4075706,
+        "filename": "Mineshafts  Monsters - 1.11.zip",
+        "releaseType": 1,
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersion": "1.16.5",
+        "fileId": 4075706,
+        "filename": "Mineshafts  Monsters - 1.11.zip",
+        "releaseType": 1,
+        "gameVersionTypeId": 70886
+      }
+    ],
+    "dateCreated": "2021-01-17T11:57:09.433Z",
+    "dateModified": "2022-11-10T07:45:13.003Z",
+    "dateReleased": "2022-11-10T03:21:39.753Z",
+    "allowModDistribution": false,
+    "gamePopularityRank": 12673,
+    "isAvailable": true,
+    "thumbsUpCount": 0,
+    "rating": null,
+    "sync_at": "2026-07-03T19:40:05.601Z"
+  }
+}

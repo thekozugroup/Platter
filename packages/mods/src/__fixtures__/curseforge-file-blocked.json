@@ -1,0 +1,103 @@
+{
+  "data": {
+    "id": 4075706,
+    "gameId": 432,
+    "modId": 436653,
+    "isAvailable": true,
+    "displayName": "Mineshafts & Monsters - 1.11",
+    "fileName": "Mineshafts  Monsters - 1.11.zip",
+    "releaseType": 1,
+    "fileStatus": 4,
+    "hashes": [
+      {
+        "value": "e32c71357091763a38ec3b7aa0c3c5f04c1e62be",
+        "algo": 1
+      },
+      {
+        "value": "1aa295a6af2ed6725a62475a01a4717c",
+        "algo": 2
+      }
+    ],
+    "fileDate": "2022-11-09T18:15:29.910Z",
+    "fileLength": 153423732,
+    "downloadCount": 409696,
+    "fileSizeOnDisk": null,
+    "downloadUrl": null,
+    "gameVersions": [
+      "1.16-Snapshot",
+      "1.16.3",
+      "1.16.1",
+      "1.16",
+      "1.16.5",
+      "1.16.4",
+      "1.16.2"
+    ],
+    "sortableGameVersions": [
+      {
+        "gameVersionName": "1.16-Snapshot",
+        "gameVersionPadded": "0000000001.0000000016",
+        "gameVersion": "1.16",
+        "gameVersionReleaseDate": "2020-02-06T00:00:00Z",
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersionName": "1.16.3",
+        "gameVersionPadded": "0000000001.0000000016.0000000003",
+        "gameVersion": "1.16.3",
+        "gameVersionReleaseDate": "2020-09-10T14:44:20.443Z",
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersionName": "1.16.1",
+        "gameVersionPadded": "0000000001.0000000016.0000000001",
+        "gameVersion": "1.16.1",
+        "gameVersionReleaseDate": "2020-06-24T12:41:11.823Z",
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersionName": "1.16",
+        "gameVersionPadded": "0000000001.0000000016",
+        "gameVersion": "1.16",
+        "gameVersionReleaseDate": "2020-06-23T13:41:08.750Z",
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersionName": "1.16.5",
+        "gameVersionPadded": "0000000001.0000000016.0000000005",
+        "gameVersion": "1.16.5",
+        "gameVersionReleaseDate": "2021-01-15T14:14:48.910Z",
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersionName": "1.16.4",
+        "gameVersionPadded": "0000000001.0000000016.0000000004",
+        "gameVersion": "1.16.4",
+        "gameVersionReleaseDate": "2020-11-02T18:40:51.490Z",
+        "gameVersionTypeId": 70886
+      },
+      {
+        "gameVersionName": "1.16.2",
+        "gameVersionPadded": "0000000001.0000000016.0000000002",
+        "gameVersion": "1.16.2",
+        "gameVersionReleaseDate": "2020-08-11T16:42:21.863Z",
+        "gameVersionTypeId": 70886
+      }
+    ],
+    "dependencies": [],
+    "exposeAsAlternative": null,
+    "parentProjectFileId": null,
+    "alternateFileId": 4075742,
+    "isServerPack": false,
+    "serverPackFileId": 4076357,
+    "isEarlyAccessContent": null,
+    "earlyAccessEndDate": null,
+    "fileFingerprint": 549250034,
+    "modules": [
+      {
+        "name": "manifest.json",
+        "fingerprint": 3098505579
+      }
+    ],
+    "sync_at": "2026-07-03T19:40:06.902Z"
+  }
+}

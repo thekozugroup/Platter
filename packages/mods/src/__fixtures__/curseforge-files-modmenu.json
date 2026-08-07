@@ -1,0 +1,132 @@
+{
+  "data": [
+    {
+      "id": 7808443,
+      "gameId": 432,
+      "modId": 308702,
+      "isAvailable": true,
+      "displayName": "v11.0.4 for 1.21",
+      "fileName": "modmenu-11.0.4.jar",
+      "releaseType": 1,
+      "fileStatus": 4,
+      "hashes": [
+        {
+          "value": "8af1b0b9ee18eab5cd5e5c97c497f0e473c49e9a",
+          "algo": 1
+        },
+        {
+          "value": "b2b9c53a887c100f780708c4f36db6c4",
+          "algo": 2
+        }
+      ],
+      "fileDate": "2026-03-25T00:45:05.477Z",
+      "fileLength": 973059,
+      "downloadCount": 0,
+      "fileSizeOnDisk": 2065523,
+      "downloadUrl": "https://edge.forgecdn.net/files/7808/443/modmenu-11.0.4.jar",
+      "gameVersions": [
+        "1.21",
+        "Fabric",
+        "1.21.1",
+        "Quilt"
+      ],
+      "sortableGameVersions": [
+        {
+          "gameVersionName": "1.21",
+          "gameVersionPadded": "0000000001.0000000021",
+          "gameVersion": "1.21",
+          "gameVersionReleaseDate": "2024-06-14T00:00:00Z",
+          "gameVersionTypeId": 77784
+        },
+        {
+          "gameVersionName": "Fabric",
+          "gameVersionPadded": "0",
+          "gameVersion": "",
+          "gameVersionReleaseDate": "2022-09-01T00:00:00Z",
+          "gameVersionTypeId": 68441
+        },
+        {
+          "gameVersionName": "1.21.1",
+          "gameVersionPadded": "0000000001.0000000021.0000000001",
+          "gameVersion": "1.21.1",
+          "gameVersionReleaseDate": "2024-08-08T15:17:53.787Z",
+          "gameVersionTypeId": 77784
+        },
+        {
+          "gameVersionName": "Quilt",
+          "gameVersionPadded": "0",
+          "gameVersion": "",
+          "gameVersionReleaseDate": "2022-05-26T00:00:00Z",
+          "gameVersionTypeId": 68441
+        }
+      ],
+      "dependencies": [
+        {
+          "modId": 1037459,
+          "relationType": 3
+        },
+        {
+          "modId": 306612,
+          "relationType": 3
+        },
+        {
+          "modId": 306612,
+          "relationType": 3
+        }
+      ],
+      "exposeAsAlternative": null,
+      "parentProjectFileId": null,
+      "alternateFileId": 0,
+      "isServerPack": false,
+      "serverPackFileId": null,
+      "isEarlyAccessContent": null,
+      "earlyAccessEndDate": null,
+      "fileFingerprint": 2045004126,
+      "modules": [
+        {
+          "name": "META-INF",
+          "fingerprint": 1563465068
+        },
+        {
+          "name": "LICENSE",
+          "fingerprint": 3914258567
+        },
+        {
+          "name": "assets",
+          "fingerprint": 1241883084
+        },
+        {
+          "name": "com",
+          "fingerprint": 3282428350
+        },
+        {
+          "name": "fabric.mod.json",
+          "fingerprint": 4203491073
+        },
+        {
+          "name": "high_contrast",
+          "fingerprint": 1211014526
+        },
+        {
+          "name": "mixins.modmenu.json",
+          "fingerprint": 444592166
+        },
+        {
+          "name": "modmenu-refmap.json",
+          "fingerprint": 1434578459
+        },
+        {
+          "name": "programmer_art",
+          "fingerprint": 1402335005
+        }
+      ],
+      "sync_at": "2026-07-14T02:20:27.362Z"
+    }
+  ],
+  "pagination": {
+    "index": 0,
+    "pageSize": 1,
+    "resultCount": 1,
+    "totalCount": 4
+  }
+}
