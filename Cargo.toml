@@ -1,16 +1,9 @@
 [workspace]
 resolver = "2"
-members = [
-    "crates/platter-core",
-    "crates/platter-db",
-    "crates/platter-runtime",
-    "crates/platter-net",
-    "crates/platter-games",
-    "crates/platter-mods",
-    "crates/platter-api",
-    "crates/platter-mcp",
-    "crates/platter-cli",
-]
+# Globbed rather than listed: the crates land incrementally, and an explicit list makes the
+# entire workspace unloadable until the very last one exists. Every directory under crates/
+# is expected to be a member, so the glob is not losing any information.
+members = ["crates/*"]
 
 [workspace.package]
 version = "0.1.0"
