@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Every job runs against the mock orchestration driver, so CI needs no Docker daemon
+  # and tests exercise the same code paths the Docker driver does.
+  DEFAULT_NODE_DRIVER: mock
+  JWT_SECRET: ci-secret-not-used-outside-continuous-integration-0000
+  DATABASE_URL: file:./data/ci.db
+
+jobs:
+  verify:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared contracts
+        run: pnpm --filter @platter/shared build
+
+      - name: Generate Prisma client
+        run: pnpm --filter @platter/api exec prisma generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @platter/shared build
+      - run: pnpm --filter @platter/api exec prisma generate
+
+      - name: Install Playwright browser
+        run: pnpm --filter @platter/web exec playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: platter:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A green build that cannot start is not a green build. This boots the real image
+      # against the mock driver and waits for the readiness endpoint to report healthy.
+      - name: Smoke test the image
+        run: |
+          docker run -d --name platter-smoke \
+            -e JWT_SECRET="$JWT_SECRET" \
+            -e DEFAULT_NODE_DRIVER=mock \
+            -e SEED_ON_START=1 \
+            -p 8080:8080 platter:ci
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/v1/system/ready > /dev/null; then
+              echo "ready after ${attempt}s"
+              curl -fsS http://127.0.0.1:8080/api/v1/system/info
+              docker rm -f platter-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "container never became ready:"
+          docker logs platter-smoke
+          docker rm -f platter-smoke
+          exit 1
