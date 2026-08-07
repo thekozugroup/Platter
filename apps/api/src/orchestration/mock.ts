@@ -111,7 +111,6 @@ export class MockDriver implements OrchestrationDriver {
   readonly stdinWrites: Array<{ serverId: string; line: string }> = [];
 
   private readonly containers = new Map<string, MockContainer>();
-  private readonly images = new Set<string>();
   private readonly failures = new Map<MockFailableMethod, PlatterError[]>();
   private readonly tickMs: number;
   private readonly autoTick: boolean;
@@ -222,7 +221,6 @@ export class MockDriver implements OrchestrationDriver {
       await Promise.resolve();
     }
     onProgress?.({ status: `Pulled ${image}`, progress: 1 });
-    this.images.add(image);
   }
 
   async create(spec: ContainerSpec): Promise<string> {
@@ -296,7 +294,11 @@ export class MockDriver implements OrchestrationDriver {
     this.finish(container, 137, false);
   }
 
-  async remove(serverId: string, options: { removeVolume?: boolean } = {}): Promise<void> {
+  /**
+   * `removeVolume` is ignored on purpose, exactly as it is on Docker: it removes anonymous
+   * volumes, and a server's data lives in a host bind mount that only lifecycle deletes.
+   */
+  async remove(serverId: string, _options: { removeVolume?: boolean } = {}): Promise<void> {
     this.check('remove');
     await Promise.resolve();
     const container = this.containers.get(serverId);
@@ -305,9 +307,6 @@ export class MockDriver implements OrchestrationDriver {
     for (const watcher of container.watchers) watcher(null);
     container.watchers.clear();
     this.containers.delete(serverId);
-    // `removeVolume` is honoured by the caller: the mock's data lives in the same host
-    // directory the real driver bind-mounts, and deleting it is lifecycle's job.
-    void options.removeVolume;
   }
 
   async inspect(serverId: string): Promise<ContainerState> {
@@ -384,16 +383,16 @@ export class MockDriver implements OrchestrationDriver {
     this.stdinWrites.push({ serverId, line });
   }
 
+  /** No timeout to honour: a handler runs synchronously, so it cannot outlive one. */
   async exec(
     serverId: string,
     command: string[],
-    options: { timeoutMs?: number } = {},
+    _options: { timeoutMs?: number } = {},
   ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
     this.check('exec');
     await Promise.resolve();
     const container = this.require(serverId);
     if (!container.running) throw new PlatterError('conflict', 'The container is not running.');
-    void options.timeoutMs;
     return this.execHandler?.(command) ?? { exitCode: 0, stdout: '', stderr: '' };
   }
 
@@ -463,7 +462,6 @@ export class MockDriver implements OrchestrationDriver {
       watchers: new Set(),
     };
     this.containers.set(spec.serverId, container);
-    this.images.add(spec.image);
     return container;
   }
 

@@ -1,253 +1,272 @@
 /**
  * Platter design tokens.
  *
- * Two influences, deliberately combined:
+ * The visual target is Ghost (useghost.sh): a calm, light, near-white interface built from
+ * hairline-bordered cards on white, near-black pill buttons, restrained grey secondary
+ * text, and almost no shadow. Colour appears only where it carries meaning — a status dot,
+ * a destructive action.
  *
- * - **Apple HIG** for structure — a semantic type scale, semantic label/fill/separator
- *   colours rather than raw greys, a 4pt spacing grid, 44px minimum hit targets, and
- *   motion that defers to the content.
- * - **Android 17 frost** for materials. Explicitly *not* Apple's liquid glass: no specular
- *   edge highlights, no refraction or lensing, no rim light. Frost is a heavier blur, a
- *   more opaque tint, a flat hairline border and a soft two-layer shadow. It reads as
- *   frosted acrylic, not as a lens.
+ * Apple's HIG supplies the *structure*: semantic label/fill/separator roles rather than
+ * raw greys, a semantic type scale, a 4pt grid, 44px minimum hit targets, and motion that
+ * explains rather than decorates.
  *
- * Colours are authored in OKLCH so lightness steps are perceptually even and a hue can be
- * retuned without re-picking every stop by hand.
+ * Android 17 frost supplies the *overlay* material only — dialogs, popovers, command
+ * palette, sticky chrome. Explicitly not Apple liquid glass: no specular edge highlights,
+ * no rim lights, no refraction. Flat cards stay flat; frost never appears on a surface
+ * that repeats.
+ *
+ * Colours are authored in OKLCH so lightness steps are perceptually even.
  */
 
 /* ==========================================================================
-   Palette — raw ramps. Nothing in a component should reference these directly;
-   components use the semantic tokens below so theming stays a one-file change.
+   Palette — raw ramps. Components never reference these directly.
    ========================================================================== */
 
 :root {
-  /* Neutral: very slightly cool, so the violet accent does not look grafted on. */
+  /* Neutrals carry almost no chroma. Ghost's greys read as true greys, and any tint
+     here would fight the game artwork the interface is mostly a frame for. */
   --ramp-neutral-0: oklch(100% 0 0);
-  --ramp-neutral-25: oklch(99% 0.002 275);
-  --ramp-neutral-50: oklch(97.6% 0.003 275);
-  --ramp-neutral-100: oklch(95.2% 0.004 275);
-  --ramp-neutral-200: oklch(90.5% 0.006 275);
-  --ramp-neutral-300: oklch(84% 0.008 275);
-  --ramp-neutral-400: oklch(70% 0.011 275);
-  --ramp-neutral-500: oklch(58% 0.013 275);
-  --ramp-neutral-600: oklch(47% 0.014 275);
-  --ramp-neutral-700: oklch(36% 0.014 275);
-  --ramp-neutral-800: oklch(26% 0.013 275);
-  --ramp-neutral-850: oklch(21% 0.012 275);
-  --ramp-neutral-900: oklch(17% 0.012 275);
-  --ramp-neutral-950: oklch(12.5% 0.011 275);
-  --ramp-neutral-1000: oklch(8% 0.01 275);
+  --ramp-neutral-25: oklch(99.2% 0 0);
+  --ramp-neutral-50: oklch(98.2% 0 0);
+  --ramp-neutral-100: oklch(96.4% 0 0);
+  --ramp-neutral-150: oklch(94.4% 0 0);
+  --ramp-neutral-200: oklch(92.2% 0 0);
+  --ramp-neutral-300: oklch(87% 0 0);
+  --ramp-neutral-400: oklch(74% 0 0);
+  --ramp-neutral-500: oklch(62% 0 0);
+  --ramp-neutral-600: oklch(51% 0 0);
+  --ramp-neutral-700: oklch(40% 0 0);
+  --ramp-neutral-800: oklch(28% 0 0);
+  --ramp-neutral-850: oklch(23% 0 0);
+  --ramp-neutral-900: oklch(18% 0 0);
+  --ramp-neutral-950: oklch(13% 0 0);
+  --ramp-neutral-1000: oklch(8% 0 0);
 
-  /* Accent: violet. Chosen because it collides with none of the status colours —
-     green/amber/red/blue all stay unambiguous next to it. */
-  --ramp-accent-50: oklch(96.5% 0.022 292);
-  --ramp-accent-100: oklch(93% 0.045 292);
-  --ramp-accent-200: oklch(87% 0.085 292);
-  --ramp-accent-300: oklch(79% 0.13 292);
-  --ramp-accent-400: oklch(70% 0.17 292);
-  --ramp-accent-500: oklch(62% 0.2 292);
-  --ramp-accent-600: oklch(55% 0.21 292);
-  --ramp-accent-700: oklch(47% 0.19 292);
-  --ramp-accent-800: oklch(38% 0.15 292);
-  --ramp-accent-900: oklch(29% 0.11 292);
+  /*
+   * Blue is the interactive accent — focus rings, selection, links. It is deliberately
+   * *not* the primary button colour: in this design the primary action is near-black,
+   * which is what keeps a screen full of controls from looking like a toy.
+   */
+  --ramp-blue-300: oklch(80% 0.09 250);
+  --ramp-blue-400: oklch(72% 0.13 250);
+  --ramp-blue-500: oklch(63% 0.16 253);
+  --ramp-blue-600: oklch(55% 0.17 255);
+  --ramp-blue-700: oklch(46% 0.15 257);
 
-  /* Status ramps. Each carries a light-surface and dark-surface variant because a
-     status chip has to stay legible on both without per-component overrides. */
-  --ramp-green-400: oklch(78% 0.16 152);
-  --ramp-green-500: oklch(68% 0.17 152);
-  --ramp-green-600: oklch(58% 0.15 152);
-  --ramp-green-700: oklch(47% 0.12 152);
+  /* Status ramps. These are the only saturated colour most screens contain. */
+  --ramp-green-400: oklch(78% 0.15 152);
+  --ramp-green-500: oklch(70% 0.16 152);
+  --ramp-green-600: oklch(60% 0.15 152);
 
-  --ramp-amber-400: oklch(84% 0.15 78);
-  --ramp-amber-500: oklch(77% 0.16 70);
-  --ramp-amber-600: oklch(67% 0.15 63);
-  --ramp-amber-700: oklch(55% 0.13 58);
+  --ramp-amber-400: oklch(84% 0.14 78);
+  --ramp-amber-500: oklch(77% 0.15 70);
+  --ramp-amber-600: oklch(68% 0.14 63);
 
-  --ramp-red-400: oklch(74% 0.17 22);
-  --ramp-red-500: oklch(64% 0.2 22);
-  --ramp-red-600: oklch(56% 0.21 22);
-  --ramp-red-700: oklch(46% 0.18 22);
-
-  --ramp-blue-400: oklch(76% 0.12 240);
-  --ramp-blue-500: oklch(66% 0.15 245);
-  --ramp-blue-600: oklch(56% 0.16 248);
-  --ramp-blue-700: oklch(46% 0.14 250);
+  --ramp-red-400: oklch(72% 0.17 24);
+  --ramp-red-500: oklch(63% 0.2 24);
+  --ramp-red-600: oklch(55% 0.2 25);
 }
 
 /* ==========================================================================
-   Semantic tokens — light
+   Semantic tokens — light (the primary theme)
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
-  /* Backgrounds, in stacking order: the page, cards on it, controls inside those. */
+  /* The page is a hair off-white; cards are pure white on top of it. That one step is
+     what separates surfaces here — not shadow. */
   --pl-bg: var(--ramp-neutral-50);
   --pl-bg-elevated: var(--ramp-neutral-0);
   --pl-bg-sunken: var(--ramp-neutral-100);
   --pl-surface: var(--ramp-neutral-0);
   --pl-surface-hover: var(--ramp-neutral-50);
   --pl-surface-active: var(--ramp-neutral-100);
+  /* Sidebar sits slightly back from the content it navigates. */
+  --pl-surface-sidebar: var(--ramp-neutral-25);
 
-  /* Labels — HIG's four levels of text emphasis. Using these instead of arbitrary greys
-     is what keeps hierarchy consistent across screens nobody reviewed together. */
-  --pl-label: var(--ramp-neutral-900);
-  --pl-label-secondary: var(--ramp-neutral-600);
-  --pl-label-tertiary: var(--ramp-neutral-500);
-  --pl-label-quaternary: var(--ramp-neutral-400);
+  --pl-label: var(--ramp-neutral-950);
+  --pl-label-secondary: var(--ramp-neutral-500);
+  --pl-label-tertiary: var(--ramp-neutral-400);
+  --pl-label-quaternary: var(--ramp-neutral-300);
   --pl-label-inverted: var(--ramp-neutral-0);
 
-  /* Fills — for control backgrounds that sit on a surface (sliders, chips, toggles). */
-  --pl-fill: oklch(58% 0.013 275 / 0.1);
-  --pl-fill-secondary: oklch(58% 0.013 275 / 0.07);
-  --pl-fill-tertiary: oklch(58% 0.013 275 / 0.045);
+  --pl-fill: oklch(50% 0 0 / 0.08);
+  --pl-fill-secondary: oklch(50% 0 0 / 0.055);
+  --pl-fill-tertiary: oklch(50% 0 0 / 0.035);
 
-  --pl-separator: oklch(58% 0.013 275 / 0.16);
+  /* Hairlines do the work shadows would otherwise do. They must be visible but never
+     assertive — this value is the single most load-bearing number in the theme. */
+  --pl-separator: oklch(0% 0 0 / 0.09);
+  --pl-separator-strong: oklch(0% 0 0 / 0.14);
   --pl-separator-opaque: var(--ramp-neutral-200);
   --pl-hairline: oklch(0% 0 0 / 0.08);
 
-  --pl-accent: var(--ramp-accent-600);
-  --pl-accent-hover: var(--ramp-accent-700);
-  --pl-accent-active: var(--ramp-accent-800);
-  --pl-accent-subtle: oklch(62% 0.2 292 / 0.1);
+  /* Primary action: near-black pill. */
+  --pl-primary: var(--ramp-neutral-900);
+  --pl-primary-hover: var(--ramp-neutral-800);
+  --pl-primary-active: var(--ramp-neutral-950);
+  --pl-primary-on: var(--ramp-neutral-0);
+
+  --pl-accent: var(--ramp-blue-600);
+  --pl-accent-hover: var(--ramp-blue-700);
+  --pl-accent-subtle: oklch(63% 0.16 253 / 0.1);
   --pl-accent-on: var(--ramp-neutral-0);
-  --pl-accent-ring: oklch(62% 0.2 292 / 0.45);
+  --pl-accent-ring: oklch(63% 0.16 253 / 0.5);
 
   --pl-success: var(--ramp-green-600);
-  --pl-success-subtle: oklch(68% 0.17 152 / 0.14);
-  --pl-warning: var(--ramp-amber-700);
-  --pl-warning-subtle: oklch(77% 0.16 70 / 0.18);
+  --pl-success-dot: var(--ramp-green-500);
+  --pl-success-subtle: oklch(70% 0.16 152 / 0.13);
+  --pl-warning: var(--ramp-amber-600);
+  --pl-warning-dot: var(--ramp-amber-500);
+  --pl-warning-subtle: oklch(77% 0.15 70 / 0.16);
   --pl-danger: var(--ramp-red-600);
-  --pl-danger-subtle: oklch(64% 0.2 22 / 0.12);
+  --pl-danger-dot: var(--ramp-red-500);
+  --pl-danger-subtle: oklch(63% 0.2 24 / 0.11);
   --pl-info: var(--ramp-blue-600);
-  --pl-info-subtle: oklch(66% 0.15 245 / 0.12);
-  --pl-neutral-status: var(--ramp-neutral-500);
-  --pl-neutral-subtle: oklch(58% 0.013 275 / 0.12);
+  --pl-info-subtle: oklch(63% 0.16 253 / 0.1);
+  --pl-neutral-status: var(--ramp-neutral-400);
+  --pl-neutral-subtle: oklch(50% 0 0 / 0.08);
 
-  /* Frost material — Android-style: tinted, fairly opaque, flat-edged. */
-  --pl-frost-tint: oklch(100% 0 0 / 0.72);
-  --pl-frost-tint-thin: oklch(100% 0 0 / 0.55);
-  --pl-frost-tint-thick: oklch(100% 0 0 / 0.86);
-  --pl-frost-border: oklch(0% 0 0 / 0.07);
-  --pl-frost-scrim: oklch(20% 0.01 275 / 0.32);
+  /* Status pill background — the light grey capsule behind a dot and its label. */
+  --pl-pill-bg: var(--ramp-neutral-100);
+  --pl-pill-border: oklch(0% 0 0 / 0.06);
 
-  /* Console is always dark — a light terminal is a readability tax nobody asked for. */
+  /* Frost, for overlays only. */
+  --pl-frost-tint: oklch(100% 0 0 / 0.8);
+  --pl-frost-tint-thin: oklch(100% 0 0 / 0.66);
+  --pl-frost-tint-thick: oklch(100% 0 0 / 0.9);
+  --pl-frost-border: oklch(0% 0 0 / 0.08);
+  --pl-frost-scrim: oklch(25% 0 0 / 0.28);
+
+  /* The console is always dark. A light terminal is a readability tax nobody asked for. */
   --pl-console-bg: var(--ramp-neutral-950);
-  --pl-console-fg: oklch(90% 0.008 275);
-  --pl-console-dim: oklch(62% 0.01 275);
+  --pl-console-fg: oklch(91% 0 0);
+  --pl-console-dim: oklch(60% 0 0);
   --pl-console-stderr: var(--ramp-red-400);
-  --pl-console-system: var(--ramp-accent-300);
+  --pl-console-system: var(--ramp-blue-300);
+  --pl-console-highlight: oklch(84% 0.14 78 / 0.28);
 
-  /* Shadows: two layers, Material-style — a tight key light plus a wide ambient. */
-  --pl-shadow-1: 0 1px 2px oklch(20% 0.01 275 / 0.06), 0 1px 3px oklch(20% 0.01 275 / 0.04);
-  --pl-shadow-2: 0 2px 4px oklch(20% 0.01 275 / 0.06), 0 4px 12px oklch(20% 0.01 275 / 0.07);
-  --pl-shadow-3: 0 4px 8px oklch(20% 0.01 275 / 0.07), 0 12px 28px oklch(20% 0.01 275 / 0.1);
-  --pl-shadow-4: 0 8px 16px oklch(20% 0.01 275 / 0.08), 0 24px 56px oklch(20% 0.01 275 / 0.14);
+  /*
+   * Shadows are nearly absent by design. Elevation comes from the hairline and the
+   * surface step; shadow is reserved for things that genuinely float above the page.
+   */
+  --pl-shadow-1: 0 1px 2px oklch(0% 0 0 / 0.04);
+  --pl-shadow-2: 0 1px 3px oklch(0% 0 0 / 0.06), 0 1px 2px oklch(0% 0 0 / 0.04);
+  --pl-shadow-3: 0 4px 12px oklch(0% 0 0 / 0.08), 0 1px 3px oklch(0% 0 0 / 0.05);
+  --pl-shadow-4: 0 12px 32px oklch(0% 0 0 / 0.12), 0 2px 8px oklch(0% 0 0 / 0.06);
 }
 
 /* ==========================================================================
-   Semantic tokens — dark. Only the tokens change; no component knows the theme.
+   Semantic tokens — dark
    ========================================================================== */
 
 .dark {
   color-scheme: dark;
 
-  --pl-bg: var(--ramp-neutral-950);
+  --pl-bg: var(--ramp-neutral-1000);
   --pl-bg-elevated: var(--ramp-neutral-900);
-  --pl-bg-sunken: var(--ramp-neutral-1000);
+  --pl-bg-sunken: oklch(5.5% 0 0);
   --pl-surface: var(--ramp-neutral-900);
   --pl-surface-hover: var(--ramp-neutral-850);
   --pl-surface-active: var(--ramp-neutral-800);
+  --pl-surface-sidebar: oklch(11% 0 0);
 
-  --pl-label: oklch(96% 0.004 275);
-  --pl-label-secondary: oklch(76% 0.008 275);
-  --pl-label-tertiary: oklch(62% 0.01 275);
-  --pl-label-quaternary: oklch(50% 0.011 275);
+  --pl-label: oklch(97% 0 0);
+  --pl-label-secondary: oklch(70% 0 0);
+  --pl-label-tertiary: oklch(56% 0 0);
+  --pl-label-quaternary: oklch(44% 0 0);
   --pl-label-inverted: var(--ramp-neutral-950);
 
-  --pl-fill: oklch(80% 0.01 275 / 0.12);
-  --pl-fill-secondary: oklch(80% 0.01 275 / 0.08);
-  --pl-fill-tertiary: oklch(80% 0.01 275 / 0.05);
+  --pl-fill: oklch(100% 0 0 / 0.1);
+  --pl-fill-secondary: oklch(100% 0 0 / 0.06);
+  --pl-fill-tertiary: oklch(100% 0 0 / 0.04);
 
-  --pl-separator: oklch(85% 0.01 275 / 0.14);
+  --pl-separator: oklch(100% 0 0 / 0.1);
+  --pl-separator-strong: oklch(100% 0 0 / 0.16);
   --pl-separator-opaque: var(--ramp-neutral-800);
-  --pl-hairline: oklch(100% 0 0 / 0.08);
+  --pl-hairline: oklch(100% 0 0 / 0.09);
 
-  /* Accent lifts a step in dark mode — the same 600 that reads confident on white
-     reads muddy on near-black. */
-  --pl-accent: var(--ramp-accent-400);
-  --pl-accent-hover: var(--ramp-accent-300);
-  --pl-accent-active: var(--ramp-accent-200);
-  --pl-accent-subtle: oklch(70% 0.17 292 / 0.18);
-  --pl-accent-on: oklch(18% 0.04 292);
-  --pl-accent-ring: oklch(70% 0.17 292 / 0.55);
+  /* Inverted: the primary action becomes a near-white pill on dark. */
+  --pl-primary: oklch(96% 0 0);
+  --pl-primary-hover: oklch(89% 0 0);
+  --pl-primary-active: oklch(100% 0 0);
+  --pl-primary-on: var(--ramp-neutral-950);
+
+  --pl-accent: var(--ramp-blue-400);
+  --pl-accent-hover: var(--ramp-blue-300);
+  --pl-accent-subtle: oklch(72% 0.13 250 / 0.16);
+  --pl-accent-on: var(--ramp-neutral-950);
+  --pl-accent-ring: oklch(72% 0.13 250 / 0.6);
 
   --pl-success: var(--ramp-green-400);
-  --pl-success-subtle: oklch(78% 0.16 152 / 0.18);
+  --pl-success-dot: var(--ramp-green-400);
+  --pl-success-subtle: oklch(78% 0.15 152 / 0.16);
   --pl-warning: var(--ramp-amber-400);
-  --pl-warning-subtle: oklch(84% 0.15 78 / 0.16);
+  --pl-warning-dot: var(--ramp-amber-400);
+  --pl-warning-subtle: oklch(84% 0.14 78 / 0.14);
   --pl-danger: var(--ramp-red-400);
-  --pl-danger-subtle: oklch(74% 0.17 22 / 0.18);
+  --pl-danger-dot: var(--ramp-red-400);
+  --pl-danger-subtle: oklch(72% 0.17 24 / 0.16);
   --pl-info: var(--ramp-blue-400);
-  --pl-info-subtle: oklch(76% 0.12 240 / 0.16);
-  --pl-neutral-status: oklch(66% 0.01 275);
-  --pl-neutral-subtle: oklch(80% 0.01 275 / 0.14);
+  --pl-info-subtle: oklch(72% 0.13 250 / 0.14);
+  --pl-neutral-status: oklch(58% 0 0);
+  --pl-neutral-subtle: oklch(100% 0 0 / 0.1);
 
-  --pl-frost-tint: oklch(21% 0.012 275 / 0.74);
-  --pl-frost-tint-thin: oklch(21% 0.012 275 / 0.55);
-  --pl-frost-tint-thick: oklch(17% 0.012 275 / 0.9);
-  --pl-frost-border: oklch(100% 0 0 / 0.07);
-  --pl-frost-scrim: oklch(5% 0.01 275 / 0.55);
+  --pl-pill-bg: oklch(100% 0 0 / 0.07);
+  --pl-pill-border: oklch(100% 0 0 / 0.08);
 
-  --pl-console-bg: oklch(10.5% 0.01 275);
+  --pl-frost-tint: oklch(18% 0 0 / 0.8);
+  --pl-frost-tint-thin: oklch(18% 0 0 / 0.6);
+  --pl-frost-tint-thick: oklch(14% 0 0 / 0.92);
+  --pl-frost-border: oklch(100% 0 0 / 0.08);
+  --pl-frost-scrim: oklch(0% 0 0 / 0.6);
 
-  /* Dark shadows lean on opacity, not spread — a blurry black halo on a dark surface
-     reads as dirt rather than elevation. */
+  --pl-console-bg: oklch(10% 0 0);
+
   --pl-shadow-1: 0 1px 2px oklch(0% 0 0 / 0.4);
-  --pl-shadow-2: 0 2px 6px oklch(0% 0 0 / 0.45), 0 1px 2px oklch(0% 0 0 / 0.3);
-  --pl-shadow-3: 0 8px 24px oklch(0% 0 0 / 0.5), 0 2px 6px oklch(0% 0 0 / 0.35);
-  --pl-shadow-4: 0 16px 48px oklch(0% 0 0 / 0.6), 0 4px 12px oklch(0% 0 0 / 0.4);
+  --pl-shadow-2: 0 1px 3px oklch(0% 0 0 / 0.5);
+  --pl-shadow-3: 0 6px 20px oklch(0% 0 0 / 0.55);
+  --pl-shadow-4: 0 16px 44px oklch(0% 0 0 / 0.65);
 }
 
 /* ==========================================================================
-   Scales that do not change with theme
+   Scales — theme-independent
    ========================================================================== */
 
 :root {
-  /* Type scale, HIG's semantic roles mapped to a 16px web baseline. Line heights are
-     unitless so they survive a user's browser font-size setting. */
-  --pl-text-display: 2.125rem; /* 34px — one per screen, at most */
-  --pl-text-title-1: 1.75rem; /* 28px */
-  --pl-text-title-2: 1.375rem; /* 22px */
-  --pl-text-title-3: 1.125rem; /* 18px */
-  --pl-text-headline: 1rem; /* 16px, semibold — the emphasised body */
-  --pl-text-body: 1rem; /* 16px */
-  --pl-text-callout: 0.9375rem; /* 15px */
-  --pl-text-subhead: 0.875rem; /* 14px */
-  --pl-text-footnote: 0.8125rem; /* 13px */
-  --pl-text-caption: 0.75rem; /* 12px */
-  --pl-text-caption-2: 0.6875rem; /* 11px — the floor; nothing smaller ships */
+  /* HIG's semantic roles on a 16px web baseline. */
+  --pl-text-display: 2.5rem; /* 40px — the page title, once per screen */
+  --pl-text-title-1: 1.75rem;
+  --pl-text-title-2: 1.375rem;
+  --pl-text-title-3: 1.125rem;
+  --pl-text-headline: 1rem;
+  --pl-text-body: 1rem;
+  --pl-text-callout: 0.9375rem;
+  --pl-text-subhead: 0.875rem;
+  --pl-text-footnote: 0.8125rem;
+  --pl-text-caption: 0.75rem;
+  --pl-text-caption-2: 0.6875rem; /* the floor */
 
-  --pl-leading-tight: 1.15;
+  --pl-leading-tight: 1.1;
   --pl-leading-snug: 1.3;
   --pl-leading-normal: 1.5;
   --pl-leading-relaxed: 1.65;
 
-  /* Optical tightening: large text needs negative tracking to look right, small text
-     needs a touch of positive. */
-  --pl-tracking-display: -0.022em;
-  --pl-tracking-title: -0.014em;
-  --pl-tracking-body: -0.006em;
-  --pl-tracking-caption: 0.006em;
-  --pl-tracking-caps: 0.06em;
+  /* The display size is set genuinely tight — that compression is a large part of what
+     makes this family of interfaces read as considered rather than generic. */
+  --pl-tracking-display: -0.03em;
+  --pl-tracking-title: -0.018em;
+  --pl-tracking-body: -0.008em;
+  --pl-tracking-caption: 0.002em;
+  --pl-tracking-caps: 0.05em;
 
-  --pl-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text',
-    'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+  --pl-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter',
+    'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif,
     'Apple Color Emoji', 'Segoe UI Emoji';
-  --pl-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', 'Cascadia Code',
-    Menlo, Consolas, 'Liberation Mono', monospace;
+  --pl-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', Menlo,
+    Consolas, 'Liberation Mono', monospace;
 
-  /* 4pt grid. Anything not on it is a mistake, not a nuance. */
   --pl-space-0-5: 0.125rem;
   --pl-space-1: 0.25rem;
   --pl-space-2: 0.5rem;
@@ -260,36 +279,31 @@
   --pl-space-12: 3rem;
   --pl-space-16: 4rem;
 
-  /* Radii. Android 17 runs larger and rounder than iOS; these lean that way. */
+  /* Ghost's radii: modest on cards and controls, generous on the app frame. */
   --pl-radius-xs: 6px;
-  --pl-radius-sm: 10px;
-  --pl-radius-md: 14px;
-  --pl-radius-lg: 20px;
-  --pl-radius-xl: 28px;
-  --pl-radius-2xl: 36px;
+  --pl-radius-sm: 8px;
+  --pl-radius-md: 10px;
+  --pl-radius-lg: 12px;
+  --pl-radius-xl: 16px;
+  --pl-radius-2xl: 20px;
   --pl-radius-full: 9999px;
 
-  /* HIG's 44pt minimum, in CSS pixels. Every interactive element meets this — visually
-     smaller controls get an invisible expanded hit area instead of shrinking the target. */
   --pl-hit-target: 44px;
   --pl-control-sm: 32px;
-  --pl-control-md: 40px;
-  --pl-control-lg: 48px;
+  --pl-control-md: 38px;
+  --pl-control-lg: 44px;
 
   --pl-blur-thin: 12px;
   --pl-blur-regular: 24px;
   --pl-blur-thick: 40px;
-  --pl-blur-chrome: 56px;
-  /* Saturation boost under blur keeps colour from washing out behind frost. */
-  --pl-frost-saturate: 1.7;
+  --pl-blur-chrome: 32px;
+  --pl-frost-saturate: 1.6;
 
-  /* Motion. Springs for anything the user directly manipulates, eases for the rest.
-     Durations are short — HIG treats animation as feedback, not decoration. */
   --pl-duration-instant: 80ms;
   --pl-duration-fast: 140ms;
-  --pl-duration-normal: 220ms;
-  --pl-duration-slow: 320ms;
-  --pl-duration-deliberate: 480ms;
+  --pl-duration-normal: 200ms;
+  --pl-duration-slow: 300ms;
+  --pl-duration-deliberate: 450ms;
 
   --pl-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
   --pl-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -306,10 +320,10 @@
   --pl-z-toast: 700;
   --pl-z-tooltip: 800;
 
-  --pl-sidebar-width: 264px;
-  --pl-sidebar-width-collapsed: 72px;
-  --pl-header-height: 60px;
-  --pl-content-max: 1440px;
+  --pl-sidebar-width: 260px;
+  --pl-sidebar-width-collapsed: 68px;
+  --pl-header-height: 64px;
+  --pl-content-max: 1400px;
 }
 
 /* ==========================================================================
@@ -326,10 +340,8 @@
   }
 }
 
-/*
- * Reduced transparency: frost becomes opaque. Some people find blurred backdrops
- * genuinely hard to read against, and the OS-level preference is the right signal.
- */
+/* Some people find blurred backdrops genuinely hard to read against; the OS preference
+   is the right signal, and frost collapsing to a solid surface costs this design nothing. */
 @media (prefers-reduced-transparency: reduce) {
   :root {
     --pl-frost-tint: var(--pl-surface);
@@ -344,16 +356,18 @@
 
 @media (prefers-contrast: more) {
   :root {
-    --pl-separator: oklch(58% 0.013 275 / 0.4);
+    --pl-separator: oklch(0% 0 0 / 0.28);
+    --pl-separator-strong: oklch(0% 0 0 / 0.42);
     --pl-label-secondary: var(--ramp-neutral-700);
     --pl-label-tertiary: var(--ramp-neutral-600);
-    --pl-hairline: oklch(0% 0 0 / 0.24);
+    --pl-hairline: oklch(0% 0 0 / 0.26);
   }
 
   .dark {
-    --pl-separator: oklch(85% 0.01 275 / 0.34);
-    --pl-label-secondary: oklch(86% 0.006 275);
-    --pl-label-tertiary: oklch(74% 0.008 275);
-    --pl-hairline: oklch(100% 0 0 / 0.22);
+    --pl-separator: oklch(100% 0 0 / 0.3);
+    --pl-separator-strong: oklch(100% 0 0 / 0.44);
+    --pl-label-secondary: oklch(84% 0 0);
+    --pl-label-tertiary: oklch(72% 0 0);
+    --pl-hairline: oklch(100% 0 0 / 0.26);
   }
 }
