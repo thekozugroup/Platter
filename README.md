@@ -10,7 +10,7 @@ It also ships an MCP server, so an AI assistant can search and curate mods, chec
 actually work on *your* server, read the logs when something breaks, and propose a fix — while
 every change that matters waits for you to say yes.
 
-<!-- screenshot.png -->
+![The Platter dashboard, showing a running Minecraft server](./screenshot.png)
 
 ---
 
@@ -20,7 +20,7 @@ PufferPanel, Pterodactyl and Crafty are all good. Having used them, four things 
 
 | | Everyone else | Platter |
 | --- | --- | --- |
-| **Java version** | You pick it. Pick wrong and the server dies with `UnsupportedClassVersionError: class file version 65.0`. | Derived from the Minecraft version, including the Forge-below-1.18 exception. You are never asked. |
+| **Java version** | You pick it. Pick wrong and the server dies with `UnsupportedClassVersionError: class file version 65.0`. | Derived from the Minecraft version — including the 1.16.5-needs-Java-16 and Forge-below-1.18-needs-Java-8 exceptions, and Java 25 for the 26.x line. You are never asked. |
 | **Backups** | Stop the server first. Crafty's own docs warn that compressing a live world "can lead to chunk corruption". | Snapshot a **running** world: `save-off`, `save-all flush`, archive, `save-on`. Nobody gets disconnected, no chunk is caught half-written. |
 | **Restore** | PufferPanel's restore "deletes all files", no undo. | Extracts to a staging directory and swaps in, so a failed restore leaves your world untouched. Takes a safety copy first. |
 | **RCON** | An afterthought, or absent. Console is log-scraping. | A first-class second channel. Survives a wedged console, gives structured request/response, and is what makes hot backups possible. |
@@ -170,6 +170,7 @@ Everything has a working default. The ones you might want:
 | `PLATTER_PORT_RANGE_START/END` | `25565`–`25664` | Ports handed out to game servers. |
 | `MODRINTH_TOKEN` | — | Optional. Raises the rate limit. |
 | `CURSEFORGE_API_KEY` | — | Without it, CurseForge is hidden rather than failing. |
+| `PLATTER_ALLOWED_HOSTS` | — | Comma-separated DNS names the UI answers to. IP addresses always work; a name has to be listed. Set this if you reach Platter as `platter.lan` or through a reverse proxy. |
 | `PLATTER_MINECRAFT_IMAGE_REPO` | `itzg/minecraft-server` | Point at a private mirror or air-gapped registry. |
 
 Full list with explanations: [`packages/shared/src/env.ts`](./packages/shared/src/env.ts).
