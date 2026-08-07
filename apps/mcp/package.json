@@ -1,0 +1,34 @@
+{
+  "name": "@platter/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "platter-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/index.js --banner:js=\"import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);\" --external:better-sqlite3 --external:dockerode --external:cpu-features --external:ssh2",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@platter/core": "workspace:*",
+    "@platter/db": "workspace:*",
+    "@platter/diagnostics": "workspace:*",
+    "@platter/mods": "workspace:*",
+    "@platter/shared": "workspace:*",
+    "zod": "^4.4.3",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.23.11",
+    "typescript": "^7.0.2"
+  }
+}
