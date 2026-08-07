@@ -1,0 +1,445 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Theme is class-driven so it can be set from JS before first paint and persisted. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/**
+ * Bridge the semantic tokens into Tailwind's theme so `bg-surface`, `text-label-secondary`
+ * and `rounded-lg` all resolve to the same variables the hand-written CSS uses. Defining
+ * them as `var()` references (rather than literals) is what keeps runtime theme switching
+ * working — Tailwind emits the indirection, the `.dark` class swaps what it points at.
+ */
+@theme inline {
+  --color-bg: var(--pl-bg);
+  --color-bg-elevated: var(--pl-bg-elevated);
+  --color-bg-sunken: var(--pl-bg-sunken);
+  --color-surface: var(--pl-surface);
+  --color-surface-hover: var(--pl-surface-hover);
+  --color-surface-active: var(--pl-surface-active);
+
+  --color-label: var(--pl-label);
+  --color-label-secondary: var(--pl-label-secondary);
+  --color-label-tertiary: var(--pl-label-tertiary);
+  --color-label-quaternary: var(--pl-label-quaternary);
+  --color-label-inverted: var(--pl-label-inverted);
+
+  --color-fill: var(--pl-fill);
+  --color-fill-secondary: var(--pl-fill-secondary);
+  --color-fill-tertiary: var(--pl-fill-tertiary);
+
+  --color-separator: var(--pl-separator);
+  --color-separator-opaque: var(--pl-separator-opaque);
+  --color-hairline: var(--pl-hairline);
+
+  --color-accent: var(--pl-accent);
+  --color-accent-hover: var(--pl-accent-hover);
+  --color-accent-active: var(--pl-accent-active);
+  --color-accent-subtle: var(--pl-accent-subtle);
+  --color-accent-on: var(--pl-accent-on);
+
+  --color-success: var(--pl-success);
+  --color-success-subtle: var(--pl-success-subtle);
+  --color-warning: var(--pl-warning);
+  --color-warning-subtle: var(--pl-warning-subtle);
+  --color-danger: var(--pl-danger);
+  --color-danger-subtle: var(--pl-danger-subtle);
+  --color-info: var(--pl-info);
+  --color-info-subtle: var(--pl-info-subtle);
+  --color-neutral-status: var(--pl-neutral-status);
+  --color-neutral-subtle: var(--pl-neutral-subtle);
+
+  --color-console-bg: var(--pl-console-bg);
+  --color-console-fg: var(--pl-console-fg);
+  --color-console-dim: var(--pl-console-dim);
+  --color-console-stderr: var(--pl-console-stderr);
+  --color-console-system: var(--pl-console-system);
+
+  --font-sans: var(--pl-font-sans);
+  --font-mono: var(--pl-font-mono);
+
+  --text-display: var(--pl-text-display);
+  --text-title-1: var(--pl-text-title-1);
+  --text-title-2: var(--pl-text-title-2);
+  --text-title-3: var(--pl-text-title-3);
+  --text-headline: var(--pl-text-headline);
+  --text-body: var(--pl-text-body);
+  --text-callout: var(--pl-text-callout);
+  --text-subhead: var(--pl-text-subhead);
+  --text-footnote: var(--pl-text-footnote);
+  --text-caption: var(--pl-text-caption);
+  --text-caption-2: var(--pl-text-caption-2);
+
+  --radius-xs: var(--pl-radius-xs);
+  --radius-sm: var(--pl-radius-sm);
+  --radius-md: var(--pl-radius-md);
+  --radius-lg: var(--pl-radius-lg);
+  --radius-xl: var(--pl-radius-xl);
+  --radius-2xl: var(--pl-radius-2xl);
+
+  --shadow-1: var(--pl-shadow-1);
+  --shadow-2: var(--pl-shadow-2);
+  --shadow-3: var(--pl-shadow-3);
+  --shadow-4: var(--pl-shadow-4);
+
+  --ease-standard: var(--pl-ease-standard);
+  --ease-out-expo: var(--pl-ease-out);
+  --ease-spring: var(--pl-ease-spring);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: var(--pl-separator);
+  }
+
+  html {
+    /* Never suppress the user's font-size preference with a px root size. */
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--pl-bg);
+    color: var(--pl-label);
+    font-family: var(--pl-font-sans);
+    font-size: var(--pl-text-body);
+    line-height: var(--pl-leading-normal);
+    letter-spacing: var(--pl-tracking-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* The app owns its scroll regions; a bouncing document behind fixed chrome
+       looks broken on trackpads and iOS alike. */
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0;
+    font-weight: 600;
+    line-height: var(--pl-leading-snug);
+    letter-spacing: var(--pl-tracking-title);
+    text-wrap: balance;
+  }
+
+  p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  /*
+   * One focus treatment for the whole app. `:focus-visible` rather than `:focus` so a
+   * mouse click does not leave a ring behind, while keyboard navigation always shows one.
+   */
+  :focus-visible {
+    outline: 2px solid var(--pl-accent-ring);
+    outline-offset: 2px;
+    border-radius: var(--pl-radius-xs);
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  ::selection {
+    background-color: var(--pl-accent-subtle);
+    color: var(--pl-label);
+  }
+
+  /* Scrollbars: present, quiet, and never a layout shift. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--pl-fill) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--pl-fill);
+    border: 3px solid transparent;
+    border-radius: var(--pl-radius-full);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--pl-fill-secondary);
+  }
+}
+
+/* ==========================================================================
+   Frost materials
+   --------------------------------------------------------------------------
+   Android 17 treatment: blur + saturation, a fairly opaque tint on top, and a
+   flat hairline. No specular edge gradient, no inner rim light, no refraction —
+   those are the liquid-glass signatures this design deliberately avoids.
+
+   Cost note: each of these creates a compositing layer and repaints as content
+   scrolls behind it. Use on chrome and overlays, never on repeated list items.
+   ========================================================================== */
+
+@layer components {
+  .frost,
+  .frost-thin,
+  .frost-thick,
+  .frost-chrome {
+    position: relative;
+    border: 1px solid var(--pl-frost-border);
+    background-color: var(--pl-frost-tint);
+  }
+
+  .frost {
+    backdrop-filter: blur(var(--pl-blur-regular)) saturate(var(--pl-frost-saturate));
+    -webkit-backdrop-filter: blur(var(--pl-blur-regular)) saturate(var(--pl-frost-saturate));
+  }
+
+  .frost-thin {
+    background-color: var(--pl-frost-tint-thin);
+    backdrop-filter: blur(var(--pl-blur-thin)) saturate(var(--pl-frost-saturate));
+    -webkit-backdrop-filter: blur(var(--pl-blur-thin)) saturate(var(--pl-frost-saturate));
+  }
+
+  .frost-thick {
+    background-color: var(--pl-frost-tint-thick);
+    backdrop-filter: blur(var(--pl-blur-thick)) saturate(var(--pl-frost-saturate));
+    -webkit-backdrop-filter: blur(var(--pl-blur-thick)) saturate(var(--pl-frost-saturate));
+  }
+
+  .frost-chrome {
+    background-color: var(--pl-frost-tint);
+    backdrop-filter: blur(var(--pl-blur-chrome)) saturate(var(--pl-frost-saturate));
+    -webkit-backdrop-filter: blur(var(--pl-blur-chrome)) saturate(var(--pl-frost-saturate));
+  }
+
+  /*
+   * Where backdrop-filter is unsupported, a translucent tint over arbitrary content is
+   * unreadable — so fall back to the solid surface rather than shipping grey mud.
+   */
+  @supports not (backdrop-filter: blur(1px)) {
+    .frost,
+    .frost-thin,
+    .frost-thick,
+    .frost-chrome {
+      background-color: var(--pl-surface);
+    }
+  }
+
+  .scrim {
+    background-color: var(--pl-frost-scrim);
+    backdrop-filter: blur(var(--pl-blur-thin));
+    -webkit-backdrop-filter: blur(var(--pl-blur-thin));
+  }
+
+  /*
+   * Continuous corners. `corner-shape` is the CSS answer to the squircle; where it is
+   * supported the radii read noticeably softer, and where it is not the plain radius is
+   * a perfectly good result. Progressive enhancement, no polyfill.
+   */
+  @supports (corner-shape: superellipse(4)) {
+    .squircle {
+      corner-shape: superellipse(4);
+    }
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+@layer utilities {
+  /* Numbers that tick in place must not reflow their neighbours. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tracking-display {
+    letter-spacing: var(--pl-tracking-display);
+  }
+
+  .tracking-title {
+    letter-spacing: var(--pl-tracking-title);
+  }
+
+  .tracking-caps {
+    letter-spacing: var(--pl-tracking-caps);
+    text-transform: uppercase;
+  }
+
+  /*
+   * Expand a visually small control to the 44px HIG minimum without changing its box.
+   * Applied to icon buttons, which are otherwise the most common hit-target violation.
+   */
+  .hit-target {
+    position: relative;
+  }
+
+  .hit-target::after {
+    content: '';
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: max(100%, var(--pl-hit-target));
+    height: max(100%, var(--pl-hit-target));
+    transform: translate(-50%, -50%);
+  }
+
+  /* Hover styles that never stick on touch devices. */
+  @media (hover: hover) and (pointer: fine) {
+    .hoverable:hover {
+      background-color: var(--pl-surface-hover);
+    }
+  }
+
+  .pressable {
+    transition:
+      transform var(--pl-duration-fast) var(--pl-ease-standard),
+      background-color var(--pl-duration-fast) var(--pl-ease-standard);
+  }
+
+  .pressable:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pressable:active:not(:disabled) {
+      transform: none;
+    }
+  }
+
+  /* Fade a scroll region's edges instead of drawing a hard line at the overflow. */
+  .fade-edges-y {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--pl-space-4),
+      black calc(100% - var(--pl-space-4)),
+      transparent 100%
+    );
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Skip link: visually hidden until focused, then a real, visible control. */
+  .skip-link:focus-visible {
+    position: fixed;
+    top: var(--pl-space-4);
+    left: var(--pl-space-4);
+    z-index: var(--pl-z-tooltip);
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: var(--pl-space-3) var(--pl-space-4);
+    clip-path: none;
+    background-color: var(--pl-surface);
+    border-radius: var(--pl-radius-sm);
+    box-shadow: var(--pl-shadow-3);
+  }
+}
+
+/* ==========================================================================
+   Keyframes — transform/opacity only, so nothing here triggers layout
+   ========================================================================== */
+
+@keyframes pl-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.88);
+  }
+}
+
+@keyframes pl-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The running indicator: a slow breath, not a blink. Paused entirely under
+   reduced-motion, where a persistently animating dot is exactly the problem. */
+.status-pulse {
+  animation: pl-pulse 2.4s var(--pl-ease-standard) infinite;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--pl-fill-tertiary);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--pl-fill-secondary), transparent);
+  animation: pl-shimmer 1.6s var(--pl-ease-standard) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-pulse,
+  .skeleton::after {
+    animation: none;
+  }
+}
