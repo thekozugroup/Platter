@@ -1,5 +1,5 @@
+import { fail, logger, ok, type Result, TIMEOUTS } from '@platter/shared';
 import { Rcon } from 'rcon-client';
-import { TIMEOUTS, type Result, fail, logger, ok } from '@platter/shared';
 
 const log = logger.child('rcon');
 
@@ -211,7 +211,9 @@ export async function closeAllRcon(): Promise<void> {
  */
 export async function reapIdleRcon(now = Date.now()): Promise<void> {
   const stale = [...pool.entries()]
-    .filter(([, connection]) => connection.inFlight === 0 && now - connection.lastUsed > IDLE_TIMEOUT_MS)
+    .filter(
+      ([, connection]) => connection.inFlight === 0 && now - connection.lastUsed > IDLE_TIMEOUT_MS
+    )
     .map(([serverId]) => serverId);
   await Promise.all(stale.map(closeRcon));
 }
@@ -226,7 +228,8 @@ export interface OnlinePlayers {
   names: string[];
 }
 
-const LIST_RE = /There are (?<online>\d+)(?: of a max(?: of)?| \/ )\s*(?<max>\d+)[^:]*:?\s*(?<names>.*)/s;
+const LIST_RE =
+  /There are (?<online>\d+)(?: of a max(?: of)?| \/ )\s*(?<max>\d+)[^:]*:?\s*(?<names>.*)/s;
 
 /**
  * Parse `/list`.

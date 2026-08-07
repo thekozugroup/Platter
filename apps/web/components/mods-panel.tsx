@@ -10,15 +10,15 @@ import { List, ListItem } from '@astryxdesign/core/List';
 import { Spinner } from '@astryxdesign/core/Spinner';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
+import { useToast } from '@astryxdesign/core/Toast';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
-import { useToast } from '@astryxdesign/core/Toast';
 import type { ServerStatus } from '@platter/shared';
 import { useState, useTransition } from 'react';
 import {
+  installModAction,
   type ModPreview,
   type ModSearchHit,
-  installModAction,
   previewModAction,
   removeModAction,
   searchModsAction,
@@ -186,9 +186,7 @@ export function ModsPanel({
                 description={`${mod.provider}${mod.slug ? ` · ${mod.slug}` : ''}`}
                 endContent={
                   <HStack gap={2} align="center">
-                    {mod.isDependency ? (
-                      <Badge label="Dependency" variant="neutral" />
-                    ) : null}
+                    {mod.isDependency ? <Badge label="Dependency" variant="neutral" /> : null}
                     {mod.installedBy === 'ai' ? (
                       <Token label="AI" size="sm" color="purple" />
                     ) : null}
@@ -233,7 +231,11 @@ export function ModsPanel({
               <Text type="supporting">Resolving a version and checking compatibility…</Text>
             </HStack>
           ) : preview?.data.ok === false ? (
-            <Banner status="error" title="Could not check this" description={preview.data.message ?? ''} />
+            <Banner
+              status="error"
+              title="Could not check this"
+              description={preview.data.message ?? ''}
+            />
           ) : report ? (
             <VStack gap={4}>
               <HStack gap={2} align="center">

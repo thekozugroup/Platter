@@ -1,5 +1,5 @@
+import { attempt, BACKUP_IMAGE, fail, MINECRAFT_IMAGE, ok, type Result } from '@platter/shared';
 import type Docker from 'dockerode';
-import { MINECRAFT_IMAGE, BACKUP_IMAGE, type Result, attempt, fail, ok } from '@platter/shared';
 
 /**
  * Image pulling.
@@ -38,6 +38,24 @@ interface PullEvent {
  */
 const DEFAULT_ALLOWED_REPOS: readonly string[] = [MINECRAFT_IMAGE, BACKUP_IMAGE];
 
+/**
+ * Strip the tag and digest from an image reference, leaving the repository.
+ *
+ * Splitting on the first `:` is wrong, because a registry host may carry a port:
+ * `registry.internal:5000/itzg/minecraft-server:java21` would yield `registry.internal`, which
+ * matches no allowlist entry. That is the documented air-gapped-mirror configuration, so the
+ * operator's only way forward was `PLATTER_ALLOW_CUSTOM_IMAGES=1` — turning the guard off
+ * entirely because of a parsing bug.
+ *
+ * A `:` is a tag separator only if it comes after the last `/`; anywhere earlier it is a port.
+ */
+export function imageRepository(image: string): string {
+  const withoutDigest = image.split('@')[0] ?? '';
+  const lastSlash = withoutDigest.lastIndexOf('/');
+  const tagColon = withoutDigest.indexOf(':', lastSlash + 1);
+  return tagColon === -1 ? withoutDigest : withoutDigest.slice(0, tagColon);
+}
+
 export function isAllowedImage(
   image: string,
   allowCustom: boolean,
@@ -46,7 +64,7 @@ export function isAllowedImage(
   if (allowCustom) {
     return true;
   }
-  const repo = image.split('@')[0]?.split(':')[0] ?? '';
+  const repo = imageRepository(image);
   return DEFAULT_ALLOWED_REPOS.includes(repo) || extraRepos.includes(repo);
 }
 

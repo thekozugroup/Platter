@@ -1,22 +1,17 @@
 import { Banner } from '@astryxdesign/core/Banner';
 import { Card } from '@astryxdesign/core/Card';
 import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
 import { LayoutContent } from '@astryxdesign/core/Layout';
 import { MetadataList, MetadataListItem } from '@astryxdesign/core/MetadataList';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
-import {
-  describeServer,
-  listEvents,
-  readStats,
-  selectImage,
-} from '@platter/core';
-import { LOADER_LABELS, heapForContainer } from '@platter/shared';
+import { describeServer, listEvents, readStats, selectImage } from '@platter/core';
+import { heapForContainer, LOADER_LABELS } from '@platter/shared';
 import { notFound } from 'next/navigation';
-import { CopyableValue } from '@/components/copyable-value';
 import { ActivityList } from '@/components/activity-list';
+import { CopyableValue } from '@/components/copyable-value';
 import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -28,11 +23,7 @@ export const dynamic = 'force-dynamic';
  * The address comes first because it is the single most-used thing on the page — people open
  * Platter to copy an address far more often than to change a setting.
  */
-export default async function ServerOverviewPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ServerOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
@@ -45,12 +36,17 @@ export default async function ServerOverviewPage({
   }
 
   const { server, health, exitCode } = described.value;
-  const image = selectImage(server.loader, server.gameVersion, result.context.env.PLATTER_MINECRAFT_IMAGE_REPO);
+  const image = selectImage(
+    server.loader,
+    server.gameVersion,
+    result.context.env.PLATTER_MINECRAFT_IMAGE_REPO
+  );
   const heapMiB = heapForContainer(server.memoryMiB);
 
-  const stats = server.containerId && server.status === 'running'
-    ? await readStats(result.context.docker, server.containerId)
-    : undefined;
+  const stats =
+    server.containerId && server.status === 'running'
+      ? await readStats(result.context.docker, server.containerId)
+      : undefined;
 
   const events = listEvents(result.context.db, { serverId: id, limit: 8 });
 
@@ -84,9 +80,7 @@ export default async function ServerOverviewPage({
         <Card padding={4}>
           <VStack gap={3}>
             <Heading level={2}>Connect</Heading>
-            <Text type="supporting">
-              Give this address to anyone on your network.
-            </Text>
+            <Text type="supporting">Give this address to anyone on your network.</Text>
             <Grid columns={{ minWidth: 260, max: 2 }} gap={3}>
               <CopyableValue label="Server address" value={`localhost:${server.port}`} />
               <CopyableValue label="Port" value={String(server.port)} />
@@ -102,9 +96,7 @@ export default async function ServerOverviewPage({
                 <MetadataListItem label="Edition">
                   {LOADER_LABELS[server.loader]} {server.gameVersion}
                 </MetadataListItem>
-                <MetadataListItem label="Java">
-                  Java {image.javaVersion}
-                </MetadataListItem>
+                <MetadataListItem label="Java">Java {image.javaVersion}</MetadataListItem>
                 <MetadataListItem label="Image">
                   <Text type="code">{server.image}</Text>
                 </MetadataListItem>
@@ -118,9 +110,7 @@ export default async function ServerOverviewPage({
                 {/* Only worth showing when it explains something — a clean 0 is noise. */}
                 {exitCode !== undefined && exitCode !== 0 && server.status !== 'running' ? (
                   <MetadataListItem label="Last exit code">
-                    {exitCode === 137
-                      ? '137 — killed, usually out of memory'
-                      : String(exitCode)}
+                    {exitCode === 137 ? '137 — killed, usually out of memory' : String(exitCode)}
                   </MetadataListItem>
                 ) : null}
               </MetadataList>

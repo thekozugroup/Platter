@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
+import { attempt, fail, ok, type PlatterError, type Result } from '@platter/shared';
 import Docker from 'dockerode';
-import { type Result, attempt, fail, ok, PlatterError } from '@platter/shared';
 
 export interface DockerClientOptions {
   /** Unix socket path or a tcp:// URL. */
@@ -150,5 +150,5 @@ export async function ensureNetwork(docker: Docker, name: string): Promise<Resul
   return created as Result<never>;
 }
 
-export { Docker };
 export type { PlatterError };
+export { Docker };

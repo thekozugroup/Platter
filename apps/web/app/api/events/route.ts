@@ -35,8 +35,7 @@ export function GET(request: NextRequest) {
 
       const send = (event: string, data: unknown, id?: string): void => {
         try {
-          const payload =
-            (id ? `id: ${id}\n` : '') + `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
+          const payload = `${id ? `id: ${id}\n` : ''}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
           controller.enqueue(encoder.encode(payload));
         } catch {
           // The client went away mid-write. `cancel` handles cleanup.

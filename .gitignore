@@ -22,7 +22,11 @@ data/
 !.env.example
 
 # Logs
-*.log
+#
+# Anchored to the repository root rather than matching at any depth: an unanchored `*.log`
+# silently swallowed every log fixture in packages/diagnostics, and a test corpus that vanishes
+# on clone is the kind of thing nobody notices until the rules stop being tested.
+/*.log
 npm-debug.log*
 pnpm-debug.log*
 

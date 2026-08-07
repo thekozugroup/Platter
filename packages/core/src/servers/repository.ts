@@ -1,13 +1,13 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { PlatterDatabase, ServerRow } from '@platter/db';
 import { parseJson, servers } from '@platter/db';
 import {
+  logger,
   type MinecraftLoader,
   type ServerSettings,
   type ServerStatus,
-  logger,
   serverSettingsSchema,
 } from '@platter/shared';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 
 const log = logger.child('servers');
 
@@ -28,11 +28,15 @@ export interface Server extends Omit<ServerRow, 'settings' | 'loader' | 'status'
 }
 
 export function hydrate(row: ServerRow): Server {
-  const settings = parseJson(serverSettingsSchema, row.settings, serverSettingsSchema.parse({}), (issues) =>
-    log.warn('server settings did not match the schema; using defaults', {
-      serverId: row.id,
-      issues,
-    })
+  const settings = parseJson(
+    serverSettingsSchema,
+    row.settings,
+    serverSettingsSchema.parse({}),
+    (issues) =>
+      log.warn('server settings did not match the schema; using defaults', {
+        serverId: row.id,
+        issues,
+      })
   );
 
   return {
@@ -44,7 +48,10 @@ export function hydrate(row: ServerRow): Server {
   };
 }
 
-export function listServers(db: PlatterDatabase, options: { includeDeleted?: boolean } = {}): Server[] {
+export function listServers(
+  db: PlatterDatabase,
+  options: { includeDeleted?: boolean } = {}
+): Server[] {
   const rows = db
     .select()
     .from(servers)
@@ -123,7 +130,11 @@ export function setStatus(
   status: ServerStatus,
   message?: string | null
 ): void {
-  const patch: Partial<ServerRow> = { status, statusMessage: message ?? null, updatedAt: Date.now() };
+  const patch: Partial<ServerRow> = {
+    status,
+    statusMessage: message ?? null,
+    updatedAt: Date.now(),
+  };
   if (status === 'running') {
     patch.startedAt = Date.now();
   }
@@ -134,15 +145,13 @@ export function setStatus(
 }
 
 export function setSettings(db: PlatterDatabase, id: string, settings: ServerSettings): void {
-  db.update(servers)
-    .set({ settings, updatedAt: Date.now() })
-    .where(eq(servers.id, id))
-    .run();
+  db.update(servers).set({ settings, updatedAt: Date.now() }).where(eq(servers.id, id)).run();
 }
 
 /** Servers Platter expects to be running. Used by the reconciler at startup. */
 export function listExpectedRunning(db: PlatterDatabase): Server[] {
   return listServers(db).filter(
-    (server) => server.status === 'running' || server.status === 'starting' || server.status === 'unhealthy'
+    (server) =>
+      server.status === 'running' || server.status === 'starting' || server.status === 'unhealthy'
   );
 }

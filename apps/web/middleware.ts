@@ -1,3 +1,4 @@
+import { hostPolicy, isHostAllowed, isOriginAllowed, isStateChanging } from '@platter/shared/hosts';
 import { type NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -14,11 +15,19 @@ import { type NextRequest, NextResponse } from 'next/server';
  *   - `?token=<token>` once in a browser, which exchanges it for an httpOnly cookie and
  *     redirects, so the secret does not stay in the address bar, the history, or a screenshot.
  *
+ * Ahead of the token, and applied whether or not one is configured, sits the `Host`/`Origin`
+ * check. Loopback binding is not a boundary against a browser: a page the user visits can point
+ * its own domain at 127.0.0.1 and talk to Platter as same-origin, reading responses and carrying
+ * the session cookie with it. See `@platter/shared/hosts` for the full shape of that attack.
+ *
  * Middleware runs on the Edge runtime, so this deliberately reads `process.env` directly rather
  * than importing Platter's config — the schema pulls in Node built-ins that are unavailable here.
+ * `@platter/shared/hosts` is a pure module for the same reason.
  */
 
 const COOKIE = 'platter_session';
+
+const policy = hostPolicy(process.env.PLATTER_ALLOWED_HOSTS);
 
 /**
  * Constant-time comparison.
@@ -40,15 +49,36 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+function refuse(message: string, status: number): NextResponse {
+  return new NextResponse(`${message}\n`, {
+    status,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  }) as NextResponse;
+}
+
 export function middleware(request: NextRequest): NextResponse {
+  const url = request.nextUrl;
+  const host = request.headers.get('host');
+
+  if (!isHostAllowed(policy, host)) {
+    return refuse(
+      `Platter does not answer to the host "${host ?? ''}". ` +
+        'If you reach Platter by a DNS name, add it to PLATTER_ALLOWED_HOSTS.',
+      421
+    );
+  }
+
+  if (isStateChanging(request.method) && !isOriginAllowed(request.headers.get('origin'), host)) {
+    return refuse('Cross-site request rejected.', 403);
+  }
+
   const expected = process.env.PLATTER_AUTH_TOKEN;
 
-  // No token configured means loopback-only operation, which the env schema enforces at startup.
+  // No token configured means loopback-only operation, which the env schema enforces at startup
+  // and `scripts/serve.mjs` makes true at the socket.
   if (!expected) {
     return NextResponse.next();
   }
-
-  const url = request.nextUrl;
 
   // Health is deliberately open: it carries no server data, and a monitor that needs a secret to
   // ask "are you alive" is a monitor nobody configures.
@@ -90,8 +120,8 @@ export function middleware(request: NextRequest): NextResponse {
   return new NextResponse(
     wantsHtml
       ? 'Platter is running with an access token set.\n\n' +
-        'Open this page with ?token=YOUR_TOKEN once, and Platter will remember you.\n' +
-        'The token is the value of PLATTER_AUTH_TOKEN.\n'
+          'Open this page with ?token=YOUR_TOKEN once, and Platter will remember you.\n' +
+          'The token is the value of PLATTER_AUTH_TOKEN.\n'
       : JSON.stringify({ error: 'unauthorized' }),
     {
       status: 401,

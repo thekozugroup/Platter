@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  type GameVersionEntry,
-  VersionIndex,
   compareVersionsFallback,
+  type GameVersionEntry,
   isPrerelease,
   parseVersion,
   requiredJavaVersion,
+  VersionIndex,
 } from './versions';
 
 /**
@@ -100,11 +100,20 @@ describe('VersionIndex', () => {
 
 describe('requiredJavaVersion', () => {
   it('maps the classic line to its documented floors', () => {
-    expect(requiredJavaVersion('1.12.2')).toBe(8);
-    expect(requiredJavaVersion('1.16.5')).toBe(8);
+    expect(requiredJavaVersion('1.8.8')).toBe(8);
+    expect(requiredJavaVersion('1.12.2')).toBe(11);
+    expect(requiredJavaVersion('1.16.4')).toBe(11);
     expect(requiredJavaVersion('1.17')).toBe(17);
     expect(requiredJavaVersion('1.18.2')).toBe(17);
     expect(requiredJavaVersion('1.20.4')).toBe(17);
+  });
+
+  it('gives 1.16.5 its own floor', () => {
+    // The one release compiled against a JDK its neighbours are not. itzg publishes a java16 tag
+    // whose only documented purpose is this version.
+    expect(requiredJavaVersion('1.16.4')).toBe(11);
+    expect(requiredJavaVersion('1.16.5')).toBe(16);
+    expect(requiredJavaVersion('1.17')).toBe(17);
   });
 
   it('moves to Java 21 at the 1.20.5 cutover', () => {
@@ -116,16 +125,20 @@ describe('requiredJavaVersion', () => {
     expect(requiredJavaVersion('1.21.11')).toBe(21);
   });
 
-  it('treats calendar versions as modern', () => {
-    expect(requiredJavaVersion('26.1')).toBe(21);
-    expect(requiredJavaVersion('26.2')).toBe(21);
+  it('gives calendar versions Java 25', () => {
+    // 26.x jars are class-file version 69, which a Java 21 runtime refuses outright. The newest
+    // release is what the new-server picker defaults to, so this row decides whether a server
+    // created with the defaults starts at all.
+    expect(requiredJavaVersion('26.1')).toBe(25);
+    expect(requiredJavaVersion('26.1.2')).toBe(25);
+    expect(requiredJavaVersion('26.2')).toBe(25);
   });
 
   it('fails safe on anything it cannot parse', () => {
     // Running a new server on an old JDK throws UnsupportedClassVersionError; the reverse mostly
     // works. Assuming "modern" is the safe direction.
-    expect(requiredJavaVersion('22w13a')).toBe(21);
-    expect(requiredJavaVersion('nonsense')).toBe(21);
+    expect(requiredJavaVersion('22w13a')).toBe(25);
+    expect(requiredJavaVersion('nonsense')).toBe(25);
   });
 });
 

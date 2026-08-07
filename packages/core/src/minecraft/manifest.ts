@@ -38,15 +38,15 @@ function javaForLoader(
   gameVersion: string,
   baseline: number
 ): { java: number; reason: string } {
-  if (loader === 'forge' && baseline > 8) {
-    const [major = 0, minor = 0] = gameVersion.split('.').map((n) => Number.parseInt(n, 10));
-    if (major === 1 && minor < 18) {
-      return {
-        java: 8,
-        reason: `Forge on Minecraft ${gameVersion} requires Java 8 — its launcher does not run on newer JVMs.`,
-      };
-    }
+  const [major = 0, minor = 0] = gameVersion.split('.').map((n) => Number.parseInt(n, 10));
+
+  if (loader === 'forge' && baseline > 8 && major === 1 && minor < 18) {
+    return {
+      java: 8,
+      reason: `Forge on Minecraft ${gameVersion} requires Java 8 — its launcher does not run on newer JVMs.`,
+    };
   }
+
   return {
     java: baseline,
     reason: `Minecraft ${gameVersion} requires Java ${baseline}.`,
@@ -86,7 +86,16 @@ export const LOADER_TYPE: Readonly<Record<MinecraftLoader, string>> = {
   quilt: 'QUILT',
 };
 
-/** Env var used to pin the loader's own build, per type. */
+/**
+ * Env var used to pin the loader's own build, per type.
+ *
+ * Every name here has to match the image's scripts exactly, and they are not consistent with each
+ * other: `PAPER_BUILD` and `PURPUR_BUILD` carry underscores, `FOLIABUILD` does not. A wrong name
+ * is not an error — the image simply ignores an unknown variable and installs the newest build,
+ * so the pin silently does nothing while Platter's database and UI show a version that was never
+ * applied. The server then moves to a different build on some later restart for no visible
+ * reason. Checked against `start-deployPaper`, `start-deployPurpur` and `start-deployFolia`.
+ */
 export const LOADER_VERSION_ENV: Readonly<Partial<Record<MinecraftLoader, string>>> = {
   fabric: 'FABRIC_LOADER_VERSION',
   forge: 'FORGE_VERSION',
@@ -94,7 +103,7 @@ export const LOADER_VERSION_ENV: Readonly<Partial<Record<MinecraftLoader, string
   quilt: 'QUILT_LOADER_VERSION',
   paper: 'PAPER_BUILD',
   purpur: 'PURPUR_BUILD',
-  folia: 'FOLIA_BUILD',
+  folia: 'FOLIABUILD',
 };
 
 /** Directory inside /data that this loader's add-ons belong in. */

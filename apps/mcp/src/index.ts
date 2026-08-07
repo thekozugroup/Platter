@@ -1,6 +1,10 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
-import { type IncomingMessage, type ServerResponse, createServer as createHttpServer } from 'node:http';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -82,8 +86,44 @@ async function startStdio(): Promise<void> {
  * this always runs stateful.
  */
 async function startHttp(): Promise<void> {
-  const bearer = resolveHttpToken();
-  const transports = new Map<string, StreamableHTTPServerTransport>();
+  const credential = resolveHttpToken();
+  const bearer = credential.token;
+
+  /**
+   * Live sessions.
+   *
+   * Bounded, and evicted on idle. A client that sends `initialize` and then drops the TCP
+   * connection without a `DELETE` leaves both the transport and a full `McpServer` — every tool
+   * registered — resident forever. That does not need an attacker; one buggy reconnect loop is
+   * enough to walk the process into an OOM, which takes the supervisor's scheduled backups down
+   * with it.
+   */
+  const transports = new Map<
+    string,
+    { transport: StreamableHTTPServerTransport; lastSeen: number }
+  >();
+  const MAX_SESSIONS = 64;
+  const SESSION_IDLE_MS = 30 * 60_000;
+
+  const closeSession = (id: string): void => {
+    const entry = transports.get(id);
+    if (!entry) {
+      return;
+    }
+    transports.delete(id);
+    void entry.transport.close().catch(() => undefined);
+  };
+
+  const reapSessions = (now = Date.now()): void => {
+    for (const [id, entry] of transports) {
+      if (now - entry.lastSeen > SESSION_IDLE_MS) {
+        log.info('session idle, closing', { sessionId: id });
+        closeSession(id);
+      }
+    }
+  };
+  // `unref` so an idle reaper never keeps the process alive on its own.
+  setInterval(() => reapSessions(), 60_000).unref();
 
   const http = createHttpServer((req, res) => {
     void handle(req, res).catch((error) => {
@@ -114,7 +154,8 @@ async function startHttp(): Promise<void> {
     const existing = typeof sessionId === 'string' ? transports.get(sessionId) : undefined;
 
     if (existing) {
-      await existing.handleRequest(req, res);
+      existing.lastSeen = Date.now();
+      await existing.transport.handleRequest(req, res);
       return;
     }
 
@@ -135,10 +176,29 @@ async function startHttp(): Promise<void> {
       return;
     }
 
+    reapSessions();
+    if (transports.size >= MAX_SESSIONS) {
+      res
+        .writeHead(503, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'too many open MCP sessions' }));
+      log.warn('refused a session: cap reached', { open: transports.size });
+      return;
+    }
+
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
+      // Belt and braces behind the bearer token: a page the user visits cannot read a
+      // cross-origin response, but it can re-point its own short-TTL domain at this address and
+      // become same-origin. The token already stops that here; there is no reason to rely on it
+      // being the only thing that does.
+      enableDnsRebindingProtection: true,
+      allowedHosts: [
+        `${ctx.env.PLATTER_MCP_HOST}:${ctx.env.PLATTER_MCP_PORT}`,
+        `127.0.0.1:${ctx.env.PLATTER_MCP_PORT}`,
+        `localhost:${ctx.env.PLATTER_MCP_PORT}`,
+      ],
       onsessioninitialized: (id: string) => {
-        transports.set(id, transport);
+        transports.set(id, { transport, lastSeen: Date.now() });
         log.info('session opened', { sessionId: id });
       },
       onsessionclosed: (id: string) => {
@@ -165,29 +225,47 @@ async function startHttp(): Promise<void> {
 
   await new Promise<void>((resolvePromise) => http.listen(port, host, resolvePromise));
   log.info('MCP server ready over HTTP', { url: `http://${host}:${port}/mcp` });
-  process.stderr.write(
-    `\nPlatter MCP server listening on http://${host}:${port}/mcp\n` +
-      `Bearer token: ${bearer}\n\n` +
-      'Add to your client config:\n' +
-      JSON.stringify(
-        {
-          mcpServers: {
-            platter: {
-              type: 'http',
-              url: `http://${host}:${port}/mcp`,
-              headers: { Authorization: `Bearer ${bearer}` },
-            },
+  /*
+   * Print the token exactly once — on the run that generated it — and print the *path* on every
+   * run after that.
+   *
+   * A control-plane credential written to stderr on every restart ends up in the systemd journal
+   * and in `docker logs`, where every log-shipping agent and everyone in the `docker` group can
+   * read it, and in any support bundle or terminal screenshot the user later shares. The token
+   * file is mode 0600 for exactly that reason; printing the value would undo it.
+   */
+  const configExample = (token: string): string =>
+    JSON.stringify(
+      {
+        mcpServers: {
+          platter: {
+            type: 'http',
+            url: `http://${host}:${port}/mcp`,
+            headers: { Authorization: `Bearer ${token}` },
           },
         },
-        null,
-        2
-      ) +
-      '\n'
+      },
+      null,
+      2
+    );
+
+  process.stderr.write(
+    `\nPlatter MCP server listening on http://${host}:${port}/mcp\n` +
+      (credential.source === 'generated'
+        ? `\nGenerated a bearer token and saved it to ${credential.file}\n` +
+          'This is the only time it will be printed:\n\n' +
+          `${bearer}\n\n` +
+          `Add to your client config:\n${configExample(bearer)}\n`
+        : credential.source === 'file'
+          ? `\nBearer token: read it from ${credential.file}\n\n` +
+            `Add to your client config:\n${configExample('<the token from that file>')}\n`
+          : "\nBearer token: the value of PLATTER_MCP_TOKEN in this process's environment.\n\n" +
+            `Add to your client config:\n${configExample('<PLATTER_MCP_TOKEN>')}\n`)
   );
 
   const shutdown = async () => {
-    for (const transport of transports.values()) {
-      await transport.close().catch(() => undefined);
+    for (const entry of transports.values()) {
+      await entry.transport.close().catch(() => undefined);
     }
     http.close();
     await closeAllRcon();
@@ -205,16 +283,17 @@ async function startHttp(): Promise<void> {
  * refuses to start until you invent a secret is a local tool people give up on. The file is the
  * source of truth across restarts so a client config does not break every time Platter starts.
  */
-function resolveHttpToken(): string {
+function resolveHttpToken(): { token: string; source: 'env' | 'file' | 'generated'; file: string } {
+  const file = paths.mcpToken(ctx.env.PLATTER_DATA_DIR);
+
   if (ctx.env.PLATTER_MCP_TOKEN) {
-    return ctx.env.PLATTER_MCP_TOKEN;
+    return { token: ctx.env.PLATTER_MCP_TOKEN, source: 'env', file };
   }
 
-  const file = paths.mcpToken(ctx.env.PLATTER_DATA_DIR);
   try {
     const existing = readFileSync(file, 'utf8').trim();
     if (existing.length >= 16) {
-      return existing;
+      return { token: existing, source: 'file', file };
     }
   } catch {
     // No token yet.
@@ -225,7 +304,7 @@ function resolveHttpToken(): string {
   // 0600: the token grants full control of every server on this machine.
   writeFileSync(file, `${generated}\n`, { mode: 0o600 });
   log.info('generated an MCP bearer token', { file });
-  return generated;
+  return { token: generated, source: 'generated', file };
 }
 
 /** Constant-time comparison, so the token cannot be recovered by timing the 401. */

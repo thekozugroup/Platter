@@ -1,19 +1,18 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { and, eq } from 'drizzle-orm';
 import {
   type Context,
   contentDirectory,
-  getVersionIndex,
   installMods,
   removeMods,
   resolveServer,
 } from '@platter/core';
 import { modInstalls } from '@platter/db';
-import { LOADER_FAMILY, LOADER_LABELS, isErr } from '@platter/shared';
+import { acceptedLoaders, resolveDependencyGraph } from '@platter/mods';
+import { isErr, LOADER_FAMILY, LOADER_LABELS } from '@platter/shared';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { proposeAndConfirm, recordOutcome } from '../confirm';
 import { formatBytes, result, toolError } from '../format';
-import { acceptedLoaders, resolveDependencyGraph } from '@platter/mods';
 import { getRegistry } from '../registry';
 
 /**
@@ -53,7 +52,32 @@ export function registerModTools(server: McpServer, ctx: Context): void {
           .describe('Narrow by content type'),
         limit: z.number().int().min(1).max(50).default(10),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      outputSchema: {
+        query: z.string(),
+        providers: z.array(z.string()),
+        degraded: z.array(z.object({ provider: z.string(), reason: z.string() })),
+        results: z.array(
+          z.object({
+            provider: z.string(),
+            projectId: z.string(),
+            slug: z.string().nullable(),
+            title: z.string(),
+            summary: z.string().nullable(),
+            downloads: z.number(),
+            clientSide: z.string(),
+            serverSide: z.string(),
+            categories: z.array(z.string()),
+            loaders: z.array(z.string()),
+            projectUrl: z.string().nullable(),
+          })
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ query, server: reference, kind, limit }) => {
       const target = reference ? resolveServer(ctx.db, reference) : undefined;
@@ -86,7 +110,9 @@ export function registerModTools(server: McpServer, ctx: Context): void {
       const text =
         hits.length === 0
           ? `Nothing found for "${query}".` +
-            (target ? ` Try dropping the server filter — ${LOADER_LABELS[target.loader]} ${target.gameVersion} may be narrow.` : '')
+            (target
+              ? ` Try dropping the server filter — ${LOADER_LABELS[target.loader]} ${target.gameVersion} may be narrow.`
+              : '')
           : hits
               .map(
                 (hit) =>
@@ -101,23 +127,23 @@ export function registerModTools(server: McpServer, ctx: Context): void {
           ? `${text}\n\n(Could not reach: ${degraded.map((d) => `${d.provider} — ${d.reason}`).join('; ')})`
           : text,
         {
-        query,
-        providers: found.value.providers,
-        degraded,
-        results: hits.map((hit) => ({
-          provider: hit.provider,
-          projectId: hit.projectId,
-          slug: hit.slug,
-          title: hit.title,
-          summary: hit.summary,
-          downloads: hit.downloads,
-          clientSide: hit.clientSide,
-          serverSide: hit.serverSide,
-          categories: hit.categories,
-          loaders: hit.loaders,
-          projectUrl: hit.projectUrl,
-        })),
-      }
+          query,
+          providers: found.value.providers,
+          degraded,
+          results: hits.map((hit) => ({
+            provider: hit.provider,
+            projectId: hit.projectId,
+            slug: hit.slug,
+            title: hit.title,
+            summary: hit.summary,
+            downloads: hit.downloads,
+            clientSide: hit.clientSide,
+            serverSide: hit.serverSide,
+            categories: hit.categories,
+            loaders: hit.loaders,
+            projectUrl: hit.projectUrl,
+          })),
+        }
       );
     }
   );
@@ -135,7 +161,37 @@ export function registerModTools(server: McpServer, ctx: Context): void {
         server: z.string().describe('Server id, slug or name'),
         mod: z.string().describe('Mod slug or id, e.g. "lithium" or "modrinth:lithium"'),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      outputSchema: {
+        project: z.object({
+          provider: z.string(),
+          projectId: z.string(),
+          slug: z.string().nullable(),
+          title: z.string(),
+          serverSide: z.string(),
+          clientSide: z.string(),
+        }),
+        version: z
+          .object({
+            versionId: z.string(),
+            versionNumber: z.string().nullable(),
+            channel: z.string(),
+            gameVersions: z.array(z.string()),
+            loaders: z.array(z.string()),
+            downloadable: z.boolean(),
+            fileName: z.string().nullable(),
+            fileSize: z.number().nullable(),
+          })
+          .nullable(),
+        report: z
+          .record(z.string(), z.unknown())
+          .describe('Compatibility verdict — see check_mod output text for a readable form'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ server: reference, mod }) => {
       const target = resolveServer(ctx.db, reference);
@@ -150,7 +206,6 @@ export function registerModTools(server: McpServer, ctx: Context): void {
       }
 
       const registry = await getRegistry(ctx);
-      const index = await getVersionIndex(ctx.db);
       const resolved = await registry.resolveForServer(
         mod,
         { loader: target.loader, gameVersion: target.gameVersion },
@@ -218,7 +273,28 @@ export function registerModTools(server: McpServer, ctx: Context): void {
         'What is installed on a server, including which entries Platter added automatically to ' +
         'satisfy a dependency.',
       inputSchema: { server: z.string().describe('Server id, slug or name') },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        server: z.string(),
+        directory: z.enum(['mods', 'plugins']).nullable(),
+        mods: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            provider: z.string(),
+            slug: z.string().nullable(),
+            version: z.string().nullable(),
+            filePath: z.string().nullable(),
+            isDependency: z.boolean(),
+            installedBy: z.string(),
+          })
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     ({ server: reference }) => {
       const target = resolveServer(ctx.db, reference);
@@ -279,7 +355,23 @@ export function registerModTools(server: McpServer, ctx: Context): void {
           .default(false)
           .describe('Proceed when the check returns warnings (never blockers)'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+      outputSchema: {
+        // `installed` is `false` when a confirmation was declined, or the list of files placed
+        // when the install went ahead — the two paths through this tool return different shapes.
+        installed: z.union([
+          z.literal(false),
+          z.array(z.object({ name: z.string(), file: z.string(), sizeBytes: z.number() })),
+        ]),
+        reason: z.enum(['declined', 'cancelled', 'unsupported']).optional(),
+        skipped: z.array(z.object({ name: z.string(), reason: z.string() })).optional(),
+        requiresRestart: z.boolean().optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     async ({ server: reference, mods, reason, allowWarnings }) => {
       const target = resolveServer(ctx.db, reference);
@@ -291,7 +383,6 @@ export function registerModTools(server: McpServer, ctx: Context): void {
       }
 
       const registry = await getRegistry(ctx);
-      const index = await getVersionIndex(ctx.db);
       const installed = installedFor(ctx, target.id);
 
       const plan: {
@@ -360,7 +451,10 @@ export function registerModTools(server: McpServer, ctx: Context): void {
       const seen = new Set(
         resolvedEntries.map((entry) => `${entry.project.provider}:${entry.project.projectId}`)
       );
-      const dependencies: { project: (typeof resolvedEntries)[number]['project']; version: (typeof resolvedEntries)[number]['version'] }[] = [];
+      const dependencies: {
+        project: (typeof resolvedEntries)[number]['project'];
+        version: (typeof resolvedEntries)[number]['version'];
+      }[] = [];
       const unresolved: { name: string; reason: string }[] = [];
 
       for (const entry of resolvedEntries) {
@@ -478,7 +572,19 @@ export function registerModTools(server: McpServer, ctx: Context): void {
         mods: z.array(z.string()).min(1).max(50).describe('Mod slugs, ids or install ids'),
         reason: z.string().optional(),
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+      outputSchema: {
+        // `removed` is `false` when a confirmation was declined, or the list of removed file
+        // names when it went ahead — the two paths through this tool return different shapes.
+        removed: z.union([z.literal(false), z.array(z.string())]),
+        reason: z.enum(['declined', 'cancelled', 'unsupported']).optional(),
+        requiresRestart: z.boolean().optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, mods, reason }) => {
       const target = resolveServer(ctx.db, reference);
@@ -509,7 +615,8 @@ export function registerModTools(server: McpServer, ctx: Context): void {
 
       const matchedIds = new Set(matched.map((row) => row.id));
       const orphaned = rows.filter(
-        (row) => !matchedIds.has(row.id) && row.requiredBy !== null && matchedIds.has(row.requiredBy)
+        (row) =>
+          !matchedIds.has(row.id) && row.requiredBy !== null && matchedIds.has(row.requiredBy)
       );
       const breaks = rows.filter(
         (row) => !matchedIds.has(row.id) && matched.some((m) => row.requiredBy === m.id)
@@ -528,7 +635,11 @@ export function registerModTools(server: McpServer, ctx: Context): void {
         details: [
           ...matched.map((row) => `• ${row.displayName} ${row.versionLabel ?? ''}`),
           ...(breaks.length > 0
-            ? ['', 'These depend on what you are removing and may stop working:', ...breaks.map((row) => `• ${row.displayName}`)]
+            ? [
+                '',
+                'These depend on what you are removing and may stop working:',
+                ...breaks.map((row) => `• ${row.displayName}`),
+              ]
             : []),
           '',
           'Platter backs the server up first. A restart is needed for the change to take effect.',

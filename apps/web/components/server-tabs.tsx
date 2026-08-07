@@ -33,10 +33,7 @@ export function ServerTabs({ serverId }: { serverId: string }) {
   const hrefFor = (value: string) => (value === '' ? base : `${base}/${value}`);
 
   return (
-    <TabList
-      value={active}
-      onChange={(value: string) => router.push(hrefFor(value))}
-    >
+    <TabList value={active} onChange={(value: string) => router.push(hrefFor(value))}>
       {TABS.map((tab) => (
         <Tab
           key={tab.value || 'overview'}

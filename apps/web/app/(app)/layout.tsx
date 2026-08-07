@@ -1,9 +1,9 @@
 import { AppShell } from '@astryxdesign/core/AppShell';
-import type { ReactNode } from 'react';
-import { LiveRefresh } from '@/components/live-refresh';
-import { AppSideNav } from '@/components/app-side-nav';
-import { tryGetContext } from '@/lib/server';
 import { listServers } from '@platter/core';
+import type { ReactNode } from 'react';
+import { AppSideNav } from '@/components/app-side-nav';
+import { LiveRefresh } from '@/components/live-refresh';
+import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
 

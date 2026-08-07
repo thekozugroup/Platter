@@ -1,7 +1,7 @@
+import { Readable } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
-import type { Readable } from 'node:stream';
+import { attempt, fail, ok, type Result } from '@platter/shared';
 import type Docker from 'dockerode';
-import { type Result, attempt, fail, ok } from '@platter/shared';
 
 /**
  * Container log streaming.
@@ -115,6 +115,28 @@ function toLogLine(
   };
 }
 
+/** Duck-typed rather than `instanceof`: the stream may come from another realm. */
+function isReadable(value: unknown): value is Readable {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { pipe?: unknown }).pipe === 'function' &&
+    typeof (value as { on?: unknown }).on === 'function'
+  );
+}
+
+function toBuffer(value: unknown): Buffer {
+  if (Buffer.isBuffer(value)) {
+    return value;
+  }
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value);
+  }
+  // docker-modem hands back a string when the response decodes as text, and `null` for an empty
+  // log. Neither is an error — a container that has printed nothing has no lines.
+  return Buffer.from(typeof value === 'string' ? value : '', 'utf8');
+}
+
 export interface LogStreamOptions {
   /** Keep the connection open and yield new lines as they arrive. */
   follow?: boolean;
@@ -140,16 +162,34 @@ export async function streamLogs(
   containerId: string,
   options: LogStreamOptions = {}
 ): Promise<Result<AsyncGenerator<LogLine>>> {
+  const follow = options.follow ?? false;
+
   const opened = await attempt(async () => {
-    const stream = (await docker.getContainer(containerId).logs({
-      follow: options.follow ?? false,
+    const raw = await docker.getContainer(containerId).logs({
+      follow,
       stdout: true,
       stderr: true,
       tail: options.tail ?? 500,
       timestamps: options.withTimestamps ?? true,
       ...(options.since === undefined ? {} : { since: options.since }),
       // dockerode's types model `follow` as a literal, so the union has to be widened here.
-    } as never)) as unknown as Readable;
+    } as never);
+
+    /*
+     * dockerode returns two different things from the same call.
+     *
+     * `Container.logs` passes `isStream: opts.follow || false` to docker-modem, so `follow: true`
+     * resolves with a `Readable` and `follow: false` resolves with the *whole response buffered*
+     * — a Buffer, not a stream. Casting both to `Readable` type-checks and then fails at runtime
+     * in a way that reads like a Docker problem: `for await` over a Buffer iterates it byte by
+     * byte as numbers, and the first `Buffer.concat` throws `The "list[1]" argument must be an
+     * instance of Buffer … Received type number`.
+     *
+     * That took out every non-follow reader: the MCP `get_logs` tool, `diagnose_server`, and the
+     * supervisor's ready-line check — which rejected inside a `Promise.all`, aborting each
+     * reconcile tick before orphan adoption and RCON reaping ran.
+     */
+    const stream = isReadable(raw) ? raw : Readable.from([toBuffer(raw)]);
 
     if (options.signal) {
       const onAbort = () => stream.destroy();

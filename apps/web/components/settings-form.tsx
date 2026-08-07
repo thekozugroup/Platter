@@ -4,17 +4,17 @@ import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { FormLayout } from '@astryxdesign/core/FormLayout';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
 import { NumberInput } from '@astryxdesign/core/NumberInput';
 import { Section } from '@astryxdesign/core/Section';
 import { Selector } from '@astryxdesign/core/Selector';
 import { Switch } from '@astryxdesign/core/Switch';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useToast } from '@astryxdesign/core/Toast';
-import { type ServerSettings, type ServerStatus, heapForContainer } from '@platter/shared';
+import { VStack } from '@astryxdesign/core/VStack';
+import { heapForContainer, type ServerSettings, type ServerStatus } from '@platter/shared';
 import { useState, useTransition } from 'react';
 import { CopyableValue } from '@/components/copyable-value';
 import { applySettingsAction, updateSettingsAction } from '@/lib/actions';
@@ -239,8 +239,8 @@ export function SettingsForm({
                 </>
               ) : null}
               <Text type="supporting">
-                RCON is bound to loopback only. It grants full control of the server, so treat
-                the password like a root password and never forward the port.
+                RCON is bound to loopback only. It grants full control of the server, so treat the
+                password like a root password and never forward the port.
               </Text>
             </VStack>
           </Card>

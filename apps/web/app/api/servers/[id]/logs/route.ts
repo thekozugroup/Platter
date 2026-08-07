@@ -13,10 +13,7 @@ export const runtime = 'nodejs';
  * through servers for an afternoon and the daemon is holding hundreds of them. `request.signal`
  * fires when the client disconnects, which tears down both the Docker request and this stream.
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const tail = Number(request.nextUrl.searchParams.get('tail') ?? '400');
   /*
@@ -68,9 +65,7 @@ export async function GET(
           if (controllerAbort.signal.aborted) {
             break;
           }
-          controller.enqueue(
-            encoder.encode(`event: line\ndata: ${JSON.stringify(line)}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`event: line\ndata: ${JSON.stringify(line)}\n\n`));
         }
       } catch {
         // The container stopped or the client vanished. Either way the stream is over.

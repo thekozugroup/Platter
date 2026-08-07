@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream';
+import type Docker from 'dockerode';
 import { describe, expect, it } from 'vitest';
-import { demuxLines } from './logs';
+import { demuxLines, readLogTail, streamLogs } from './logs';
 
 /**
  * Docker multiplexes stdout and stderr over one connection with an 8-byte header per frame, and
@@ -137,5 +138,74 @@ describe('demuxLines', () => {
       Buffer.concat([Buffer.from([1, 0, 0, 0, 0, 0, 0, encoded.length]), encoded]),
     ]);
     expect(lines[0]?.text).toBe('MOTD: héllo wörld ✦');
+  });
+});
+
+/**
+ * The tests above feed `demuxLines` a stream directly, which is exactly how this bug survived:
+ * `streamLogs` is where the shape of dockerode's return value is decided, and it returns two
+ * different shapes from the same call. `follow: true` resolves with a `Readable`; `follow: false`
+ * resolves with the whole response *buffered*. Reading a Buffer with `for await` iterates it as
+ * numbers, so every non-follow reader — `get_logs`, `diagnose_server`, the supervisor's
+ * ready-line check — died on `Buffer.concat`.
+ */
+function fakeDocker(logs: (opts: { follow?: boolean }) => Promise<unknown>): Docker {
+  return {
+    getContainer: () => ({ logs }),
+  } as unknown as Docker;
+}
+
+describe('streamLogs', () => {
+  it('reads a buffered response, which is what follow: false actually returns', async () => {
+    const buffered = Buffer.concat([frame(1, 'first\n'), frame(2, 'second\n')]);
+    const docker = fakeDocker(async () => buffered);
+
+    const opened = await streamLogs(docker, 'abc', { follow: false, withTimestamps: false });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+
+    const lines = [];
+    for await (const line of opened.value) {
+      lines.push(line);
+    }
+    expect(lines.map((l) => [l.stream, l.text])).toEqual([
+      ['stdout', 'first'],
+      ['stderr', 'second'],
+    ]);
+  });
+
+  it('still reads a streamed response when following', async () => {
+    const docker = fakeDocker(async () => Readable.from([frame(1, 'live\n')]));
+    const opened = await streamLogs(docker, 'abc', { follow: true, withTimestamps: false });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+
+    const lines = [];
+    for await (const line of opened.value) {
+      lines.push(line);
+    }
+    expect(lines.map((l) => l.text)).toEqual(['live']);
+  });
+
+  it('treats an empty log as no lines rather than an error', async () => {
+    const tail = await readLogTail(
+      fakeDocker(async () => null),
+      'abc'
+    );
+    expect(tail.ok).toBe(true);
+    if (tail.ok) {
+      expect(tail.value).toEqual([]);
+    }
+  });
+
+  it('maps a 404 from the daemon onto container_not_found', async () => {
+    const docker = fakeDocker(async () => {
+      throw Object.assign(new Error('no such container'), { statusCode: 404 });
+    });
+    const tail = await readLogTail(docker, 'gone');
+    expect(tail.ok).toBe(false);
+    if (!tail.ok) {
+      expect(tail.error.code).toBe('container_not_found');
+    }
   });
 });

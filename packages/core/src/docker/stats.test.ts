@@ -85,14 +85,20 @@ describe('computeStats', () => {
     expect(
       computeStats(
         raw({
-          memory_stats: { usage: 2 * 1024 ** 3, limit: 4 * 1024 ** 3, stats: { total_inactive_file: 1024 ** 3 } },
+          memory_stats: {
+            usage: 2 * 1024 ** 3,
+            limit: 4 * 1024 ** 3,
+            stats: { total_inactive_file: 1024 ** 3 },
+          },
         })
       ).memoryUsedBytes
     ).toBe(1024 ** 3);
 
     expect(
       computeStats(
-        raw({ memory_stats: { usage: 2 * 1024 ** 3, limit: 4 * 1024 ** 3, stats: { cache: 1024 ** 3 } } })
+        raw({
+          memory_stats: { usage: 2 * 1024 ** 3, limit: 4 * 1024 ** 3, stats: { cache: 1024 ** 3 } },
+        })
       ).memoryUsedBytes
     ).toBe(1024 ** 3);
   });
@@ -111,7 +117,9 @@ describe('computeStats', () => {
 
   it('sums network counters across interfaces', () => {
     const stats = computeStats(
-      raw({ networks: { eth0: { rx_bytes: 10, tx_bytes: 20 }, eth1: { rx_bytes: 5, tx_bytes: 7 } } })
+      raw({
+        networks: { eth0: { rx_bytes: 10, tx_bytes: 20 }, eth1: { rx_bytes: 5, tx_bytes: 7 } },
+      })
     );
     expect(stats.networkRxBytes).toBe(15);
     expect(stats.networkTxBytes).toBe(27);

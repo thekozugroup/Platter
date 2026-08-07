@@ -93,7 +93,9 @@ describe('buildContainerEnv', () => {
   it('lets extraEnv override Platter’s own opinions', () => {
     const env = buildContainerEnv({
       ...base,
-      settings: serverSettingsSchema.parse({ extraEnv: { USE_AIKAR_FLAGS: 'FALSE', TZ: 'Europe/London' } }),
+      settings: serverSettingsSchema.parse({
+        extraEnv: { USE_AIKAR_FLAGS: 'FALSE', TZ: 'Europe/London' },
+      }),
     });
     expect(env.USE_AIKAR_FLAGS).toBe('FALSE');
     expect(env.TZ).toBe('Europe/London');
@@ -153,9 +155,38 @@ describe('buildContainerEnv', () => {
   });
 
   it('ignores a CurseForge modpack without an API key', () => {
-    const env = buildContainerEnv({ ...base, curseforgeModpack: { fileId: '123' } });
+    const env = buildContainerEnv({ ...base, curseforgeModpack: { slug: 'all-the-mods-9' } });
     expect(env.MODPACK_PLATFORM).toBeUndefined();
     expect(env.TYPE).toBe('PAPER');
+  });
+
+  it('identifies a CurseForge modpack by slug, not by file id alone', () => {
+    // The image treats CF_FILE_ID as a pin on top of CF_SLUG or CF_PAGE_URL. Sending only the
+    // file id runs `install-curseforge --file-id=…` with no project to install it from.
+    const env = buildContainerEnv({
+      ...base,
+      curseforgeModpack: { slug: 'all-the-mods-9', fileId: '4248390' },
+      curseforgeApiKey: 'key',
+    });
+    expect(env.MODPACK_PLATFORM).toBe('AUTO_CURSEFORGE');
+    expect(env.CF_SLUG).toBe('all-the-mods-9');
+    expect(env.CF_FILE_ID).toBe('4248390');
+    // The pack decides the loader and version.
+    expect(env.TYPE).toBeUndefined();
+    expect(env.VERSION).toBeUndefined();
+  });
+
+  it('accepts a page URL instead of a slug, and leaves the build unpinned', () => {
+    const env = buildContainerEnv({
+      ...base,
+      curseforgeModpack: {
+        pageUrl: 'https://www.curseforge.com/minecraft/modpacks/all-the-mods-9',
+      },
+      curseforgeApiKey: 'key',
+    });
+    expect(env.CF_PAGE_URL).toContain('all-the-mods-9');
+    expect(env.CF_SLUG).toBeUndefined();
+    expect(env.CF_FILE_ID).toBeUndefined();
   });
 });
 
@@ -163,7 +194,23 @@ describe('selectImage', () => {
   it('derives the Java tag from the Minecraft version', () => {
     expect(selectImage('paper', '1.21.4').image).toBe('itzg/minecraft-server:java21');
     expect(selectImage('paper', '1.18.2').image).toBe('itzg/minecraft-server:java17');
-    expect(selectImage('paper', '1.16.5').image).toBe('itzg/minecraft-server:java8');
+    expect(selectImage('paper', '1.12.2').image).toBe('itzg/minecraft-server:java11');
+    expect(selectImage('paper', '1.8.8').image).toBe('itzg/minecraft-server:java8');
+  });
+
+  it('gives the calendar line Java 25, which is what its jars are compiled for', () => {
+    // 26.x jars are class-file version 69. A Java 21 runtime refuses them outright, and since
+    // the newest release is what the new-server picker defaults to, getting this wrong means
+    // every server created with the defaults is dead on arrival.
+    expect(selectImage('paper', '26.2').image).toBe('itzg/minecraft-server:java25');
+    expect(selectImage('vanilla', '26.1.1').javaVersion).toBe(25);
+  });
+
+  it('gives 1.16.5 its own Java 16 image', () => {
+    // 1.16.5 alone is compiled against a JDK its neighbours are not, and itzg publishes a java16
+    // tag whose only documented purpose is that release.
+    expect(selectImage('paper', '1.16.5').image).toBe('itzg/minecraft-server:java16');
+    expect(selectImage('paper', '1.16.4').image).toBe('itzg/minecraft-server:java11');
   });
 
   it('drops Forge below 1.18 to Java 8 despite the version floor', () => {
@@ -174,9 +221,10 @@ describe('selectImage', () => {
     expect(forge.reason).toContain('Java 8');
 
     // Fabric on the same version has no such constraint.
-    expect(selectImage('fabric', '1.16.5').javaVersion).toBe(8);
+    expect(selectImage('fabric', '1.16.5').javaVersion).toBe(16);
     // …and above 1.18 Forge follows the normal floor again.
     expect(selectImage('forge', '1.20.1').javaVersion).toBe(17);
+    expect(selectImage('forge', '1.21.4').javaVersion).toBe(21);
   });
 
   it('honours a configured mirror repository', () => {

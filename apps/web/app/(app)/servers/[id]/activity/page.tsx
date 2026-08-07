@@ -9,11 +9,7 @@ import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ServerActivityPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ServerActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
@@ -28,8 +24,8 @@ export default async function ServerActivityPage({
         <VStack gap={1}>
           <Heading level={2}>Activity</Heading>
           <Text type="supporting">
-            Everything Platter did to this server and why. Anything an AI agent initiated is
-            tagged, along with the proposal a human approved.
+            Everything Platter did to this server and why. Anything an AI agent initiated is tagged,
+            along with the proposal a human approved.
           </Text>
         </VStack>
         <ActivityList events={events} emptyMessage="Nothing has happened yet." />

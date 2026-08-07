@@ -1,9 +1,9 @@
 import { mkdirSync } from 'node:fs';
-import type Docker from 'dockerode';
 import type { PlatterDatabase } from '@platter/db';
 import { applyMigrations, getDatabase } from '@platter/db';
+import { ok, paths, type Result } from '@platter/shared';
 import { type Env, loadEnv } from '@platter/shared/env';
-import { type Result, ok, paths } from '@platter/shared';
+import type Docker from 'dockerode';
 import { checkDocker, createDockerClient, ensureNetwork } from './docker/client';
 
 /**

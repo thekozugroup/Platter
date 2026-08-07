@@ -1,9 +1,8 @@
-import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout';
 import { Heading } from '@astryxdesign/core/Heading';
+import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
-import { availableLoaders, getVersionIndex } from '@platter/core';
-import { LOADER_BLURB } from '@platter/core';
+import { availableLoaders, getVersionIndex, LOADER_BLURB } from '@platter/core';
 import type { Metadata } from 'next';
 import { NewServerForm } from '@/components/new-server-form';
 import { tryGetContext } from '@/lib/server';

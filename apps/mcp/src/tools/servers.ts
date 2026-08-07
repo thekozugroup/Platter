@@ -5,6 +5,7 @@ import {
   listEvents,
   listPlayers,
   listServers,
+  normaliseCommand,
   readLogTail,
   readStats,
   resolveServer,
@@ -13,10 +14,19 @@ import {
   startServer,
   stopServer,
 } from '@platter/core';
-import { LOADER_LABELS, isErr } from '@platter/shared';
+import { isErr, LOADER_LABELS } from '@platter/shared';
 import { z } from 'zod';
 import { proposeAndConfirm, recordOutcome } from '../confirm';
-import { describeServerLine, formatAgo, formatBytes, formatMiB, result, tailText, toolError } from '../format';
+import {
+  describeServerLine,
+  formatAgo,
+  formatBytes,
+  formatMiB,
+  result,
+  tailText,
+  toolError,
+} from '../format';
+import { isReadOnlyCommand } from '../read-only';
 
 /**
  * Server tools.
@@ -51,7 +61,12 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
           })
         ),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     () => {
       const servers = listServers(ctx.db);
@@ -85,12 +100,53 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
       inputSchema: {
         server: z.string().describe('Server id, slug or name'),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        id: z.string(),
+        name: z.string(),
+        slug: z.string(),
+        status: z.string(),
+        statusMessage: z.string().nullable(),
+        loader: z.string(),
+        gameVersion: z.string(),
+        image: z.string(),
+        port: z.number(),
+        memoryMiB: z.number(),
+        cpus: z.number(),
+        containerState: z.string().nullable(),
+        health: z.enum(['starting', 'healthy', 'unhealthy', 'none']).nullable(),
+        exitCode: z.number().nullable(),
+        contentDirectory: z.enum(['mods', 'plugins']).nullable(),
+        dataDir: z.string(),
+        settings: z.record(z.string(), z.unknown()),
+        stats: z
+          .object({
+            cpuPercent: z.number(),
+            memoryUsedBytes: z.number(),
+            memoryLimitBytes: z.number(),
+            memoryPercent: z.number(),
+            networkRxBytes: z.number(),
+            networkTxBytes: z.number(),
+            blockReadBytes: z.number(),
+            blockWriteBytes: z.number(),
+            pids: z.number(),
+            at: z.number(),
+          })
+          .nullable(),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference }) => {
       const found = resolveServer(ctx.db, reference);
       if (!found) {
-        return toolError(`No server matching "${reference}".`, 'Call list_servers to see what exists.');
+        return toolError(
+          `No server matching "${reference}".`,
+          'Call list_servers to see what exists.'
+        );
       }
 
       const described = await describeServer(ctx, found.id);
@@ -100,7 +156,9 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
       const { server: s, containerState, health, exitCode, contentDirectory } = described.value;
 
       const stats =
-        s.containerId && s.status === 'running' ? await readStats(ctx.docker, s.containerId) : undefined;
+        s.containerId && s.status === 'running'
+          ? await readStats(ctx.docker, s.containerId)
+          : undefined;
 
       const lines = [
         `${s.name} — ${s.status}`,
@@ -113,7 +171,9 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         lines.push(`Note: ${s.statusMessage}`);
       }
       if (exitCode !== undefined && s.status !== 'running') {
-        lines.push(`Last exit code: ${exitCode}${exitCode === 137 ? ' (killed — usually out of memory)' : ''}`);
+        lines.push(
+          `Last exit code: ${exitCode}${exitCode === 137 ? ' (killed — usually out of memory)' : ''}`
+        );
       }
       if (stats?.ok) {
         lines.push(
@@ -155,10 +215,36 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         'answer about why something is broken, use diagnose_server instead.',
       inputSchema: {
         server: z.string().describe('Server id, slug or name'),
-        lines: z.number().int().min(1).max(5000).default(300).describe('How many lines from the end'),
-        grep: z.string().optional().describe('Only return lines matching this (case-insensitive substring)'),
+        lines: z
+          .number()
+          .int()
+          .min(1)
+          .max(5000)
+          .default(300)
+          .describe('How many lines from the end'),
+        grep: z
+          .string()
+          .optional()
+          .describe('Only return lines matching this (case-insensitive substring)'),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        server: z.string(),
+        lineCount: z.number(),
+        truncated: z.boolean(),
+        lines: z.array(
+          z.object({
+            text: z.string(),
+            stream: z.enum(['stdout', 'stderr']),
+            timestamp: z.number().nullable(),
+          })
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, lines, grep }) => {
       const found = resolveServer(ctx.db, reference);
@@ -205,9 +291,20 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
     'get_players',
     {
       title: 'List online players',
-      description: 'Who is currently connected. Requires the server to be running and answering RCON.',
+      description:
+        'Who is currently connected. Requires the server to be running and answering RCON.',
       inputSchema: { server: z.string().describe('Server id, slug or name') },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        online: z.number(),
+        max: z.number(),
+        names: z.array(z.string()),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference }) => {
       const found = resolveServer(ctx.db, reference);
@@ -248,7 +345,25 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         server: z.string().optional().describe('Server id, slug or name. Omit for all servers.'),
         limit: z.number().int().min(1).max(200).default(40),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        events: z.array(
+          z.object({
+            id: z.string(),
+            serverId: z.string().nullable(),
+            type: z.string(),
+            level: z.string(),
+            actor: z.string(),
+            message: z.string(),
+            createdAt: z.number(),
+          })
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     ({ server: reference, limit }) => {
       const found = reference ? resolveServer(ctx.db, reference) : undefined;
@@ -294,7 +409,21 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         server: z.string().describe('Server id, slug or name'),
         command: z.string().describe('The command, with or without a leading slash'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+      outputSchema: {
+        ran: z.boolean(),
+        reason: z
+          .enum(['declined', 'cancelled', 'unsupported'])
+          .optional()
+          .describe('Present when a confirmation was declined instead of run'),
+        channel: z.enum(['rcon', 'stdin']).optional(),
+        response: z.string().optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, command }) => {
       const found = resolveServer(ctx.db, reference);
@@ -302,41 +431,33 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         return toolError(`No server matching "${reference}".`);
       }
 
-      const verb = command.trim().replace(/^\//, '').split(/\s+/)[0]?.toLowerCase() ?? '';
+      // Reject multi-line input here as well as in core, so the confirmation decision below is
+      // made about the same single command that will actually run.
+      const normalised = normaliseCommand(command);
+      if (isErr(normalised)) {
+        return toolError(normalised.error.message);
+      }
+      const single = normalised.value;
 
-      // Inspection commands are safe and asking about them would make the tool tedious to use.
-      // Anything not on this list is treated as state-changing.
-      const READ_ONLY = new Set([
-        'list',
-        'seed',
-        'help',
-        'version',
-        'datapack',
-        'debug',
-        'perf',
-        'tps',
-        'mspt',
-        'plugins',
-        'pl',
-        'mods',
-      ]);
-
-      if (!READ_ONLY.has(verb)) {
+      // Inspection commands are safe, and asking about them would make the tool tedious enough
+      // that a host would be tempted to auto-approve everything. See `read-only.ts` for why the
+      // exemption is keyed on the whole command rather than its first word.
+      if (!isReadOnlyCommand(single)) {
         const decision = await proposeAndConfirm({
           ctx,
           server,
           serverId: found.id,
           kind: 'run_command',
-          title: `Run /${command.trim().replace(/^\//, '')} on ${found.name}`,
-          payload: { command },
-          question: `Run "/${command.trim().replace(/^\//, '')}" on ${found.name}?`,
+          title: `Run /${single} on ${found.name}`,
+          payload: { command: single },
+          question: `Run "/${single}" on ${found.name}?`,
           details: ['This runs on the live server and takes effect immediately.'],
         });
         if (!decision.approved) {
           return result(decision.message, { ran: false, reason: decision.reason });
         }
 
-        const response = await sendCommand(ctx, found.id, command, { actor: 'ai' });
+        const response = await sendCommand(ctx, found.id, single, { actor: 'ai' });
         recordOutcome(ctx, decision.proposalId, {
           ok: !isErr(response),
           serverId: found.id,
@@ -352,7 +473,7 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         });
       }
 
-      const response = await sendCommand(ctx, found.id, command, { actor: 'ai' });
+      const response = await sendCommand(ctx, found.id, single, { actor: 'ai' });
       if (isErr(response)) {
         return toolError(response.error.message);
       }
@@ -369,7 +490,7 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
     {
       title: 'Start, stop or restart a server',
       description:
-        'Change a server\'s running state. Stopping or restarting disconnects players, so both ' +
+        "Change a server's running state. Stopping or restarting disconnects players, so both " +
         'ask for confirmation. Starting an already-stopped server also confirms, because it ' +
         'begins consuming resources.',
       inputSchema: {
@@ -377,7 +498,20 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         action: z.enum(['start', 'stop', 'restart']),
         reason: z.string().optional().describe('Why — shown to the human deciding'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+      outputSchema: {
+        done: z.boolean(),
+        reason: z
+          .enum(['declined', 'cancelled', 'unsupported'])
+          .optional()
+          .describe('Present when a confirmation was declined instead of applied'),
+        action: z.enum(['start', 'stop', 'restart']).optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, action, reason }) => {
       const found = resolveServer(ctx.db, reference);
@@ -414,7 +548,10 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         title: `${action} ${found.name}`,
         rationale: reason,
         payload: { action },
-        impact: { disconnectsPlayers: action !== 'start', playersOnline: online?.ok ? online.value.online : null },
+        impact: {
+          disconnectsPlayers: action !== 'start',
+          playersOnline: online?.ok ? online.value.online : null,
+        },
         question: `${action === 'start' ? 'Start' : action === 'stop' ? 'Stop' : 'Restart'} ${found.name}?`,
         details,
       });
@@ -444,7 +581,7 @@ export function registerServerTools(server: McpServer, ctx: Context): void {
         action === 'stop'
           ? `${found.name} is stopping.`
           : `${found.name} is starting. It takes a minute or two before players can join; poll ` +
-            'get_server until the status is "running".',
+              'get_server until the status is "running".',
         { done: true, action }
       );
     }

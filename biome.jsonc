@@ -8,13 +8,13 @@
   "files": {
     "includes": [
       "**",
-      "!**/node_modules/**",
-      "!**/.next/**",
-      "!**/dist/**",
-      "!**/coverage/**",
-      "!**/data/**",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/dist",
+      "!**/coverage",
+      "!**/data",
       "!**/*.gen.ts",
-      "!packages/db/drizzle/**"
+      "!packages/db/drizzle"
     ]
   },
   "formatter": {
@@ -40,7 +40,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "complexity": {
         "noExcessiveCognitiveComplexity": "off"
       },
@@ -63,7 +63,7 @@
         }
       },
       "nursery": {
-        "recommended": false
+        "preset": "none"
       }
     }
   },

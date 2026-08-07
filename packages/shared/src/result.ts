@@ -90,7 +90,12 @@ export class PlatterError extends Error {
   }
 
   /** Shape sent over HTTP and returned to MCP clients. */
-  toJSON(): { code: ErrorCode; message: string; retryable: boolean; details?: Record<string, unknown> } {
+  toJSON(): {
+    code: ErrorCode;
+    message: string;
+    retryable: boolean;
+    details?: Record<string, unknown>;
+  } {
     const base = { code: this.code, message: this.message, retryable: this.retryable };
     return Object.keys(this.details).length > 0 ? { ...base, details: { ...this.details } } : base;
   }

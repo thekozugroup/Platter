@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { isAbsolute, normalize, relative, resolve, sep } from 'node:path';
-import { type Result, fail, ok } from '@platter/shared';
+import { fail, ok, type Result } from '@platter/shared';
 
 /**
  * Path containment.
@@ -94,11 +94,30 @@ export async function resolveWithin(
   });
 }
 
-function isContained(root: string, candidate: string): boolean {
-  if (candidate === root) {
+/**
+ * Containment for a path that is already absolute and means it.
+ *
+ * The distinction from `isWithin` is the leading slash. `isWithin` strips it, because in the file
+ * manager `/world/level.dat` means "level.dat under *this server's* data root" — a UI convention,
+ * and the right one there. Applied to a symlink target read out of an archive, that convention is
+ * a hole you can drive through: `isWithin(dest, '/etc/passwd')` re-roots the path to
+ * `<dest>/etc/passwd`, decides it is contained, and returns true for the one input the check
+ * exists to catch. An archive whose first entry symlinks `cfg` → `~/.ssh` and whose second writes
+ * `cfg/authorized_keys` then extracts straight through the guard.
+ *
+ * So: no re-rooting, no stripping. The path is taken literally and asked whether it is at or
+ * below the root. Syntactic only — the symlink-resolved check is `resolveWithin`'s job.
+ */
+export function isContained(root: string, candidate: string): boolean {
+  if (candidate.includes('\0') || !isAbsolute(candidate)) {
+    return false;
+  }
+  const rootAbs = resolve(root);
+  const absolute = resolve(candidate);
+  if (absolute === rootAbs) {
     return true;
   }
-  const rel = relative(root, candidate);
+  const rel = relative(rootAbs, absolute);
   return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
 }
 

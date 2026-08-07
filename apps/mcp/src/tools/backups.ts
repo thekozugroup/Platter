@@ -21,7 +21,25 @@ export function registerBackupTools(server: McpServer, ctx: Context): void {
         'stopped. Use this before proposing anything risky — knowing a recent backup exists is ' +
         'what makes a change safe to suggest.',
       inputSchema: { server: z.string().describe('Server id, slug or name') },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        backups: z.array(
+          z.object({
+            id: z.string(),
+            label: z.string().nullable(),
+            status: z.string(),
+            sizeBytes: z.number().nullable(),
+            hot: z.boolean(),
+            trigger: z.string(),
+            createdAt: z.number(),
+          })
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     ({ server: reference }) => {
       const found = resolveServer(ctx.db, reference);
@@ -67,12 +85,26 @@ export function registerBackupTools(server: McpServer, ctx: Context): void {
         'disconnected and no chunk is caught half-written. Safe to call before any risky change.',
       inputSchema: {
         server: z.string().describe('Server id, slug or name'),
-        label: z.string().max(120).optional().describe('A note about why, e.g. "before adding Create"'),
+        label: z
+          .string()
+          .max(120)
+          .optional()
+          .describe('A note about why, e.g. "before adding Create"'),
+      },
+      outputSchema: {
+        backupId: z.string(),
+        sizeBytes: z.number(),
+        hot: z.boolean(),
       },
       // Creating a backup only writes a new archive; it never modifies the world. Marking it
       // non-destructive lets hosts run it without a prompt, which is what you want when an
       // agent is about to do something risky and wants a safety net first.
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, label }) => {
       const found = resolveServer(ctx.db, reference);
@@ -94,7 +126,11 @@ export function registerBackupTools(server: McpServer, ctx: Context): void {
       return result(
         `Backed up ${found.name} (${formatBytes(created.value.sizeBytes)})` +
           `${found.status === 'running' ? ' while it was running — nobody was disconnected' : ''}.`,
-        { backupId: created.value.id, sizeBytes: created.value.sizeBytes, hot: found.status === 'running' }
+        {
+          backupId: created.value.id,
+          sizeBytes: created.value.sizeBytes,
+          hot: found.status === 'running',
+        }
       );
     }
   );
@@ -112,7 +148,20 @@ export function registerBackupTools(server: McpServer, ctx: Context): void {
         backupId: z.string().describe('Backup id from list_backups'),
         reason: z.string().optional().describe('Why — shown to the human deciding'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+      outputSchema: {
+        restored: z.boolean(),
+        reason: z
+          .enum(['declined', 'cancelled', 'unsupported'])
+          .optional()
+          .describe('Present when a confirmation was declined instead of restored'),
+        backupId: z.string().optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, backupId, reason }) => {
       const found = resolveServer(ctx.db, reference);
@@ -163,10 +212,10 @@ export function registerBackupTools(server: McpServer, ctx: Context): void {
       if (isErr(restored)) {
         return toolError(restored.error.message);
       }
-      return result(
-        `Restored ${found.name} to the backup from ${age}. It is starting again.`,
-        { restored: true, backupId }
-      );
+      return result(`Restored ${found.name} to the backup from ${age}. It is starting again.`, {
+        restored: true,
+        backupId,
+      });
     }
   );
 }

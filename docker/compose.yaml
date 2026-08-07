@@ -33,6 +33,11 @@ services:
       CURSEFORGE_API_KEY: ${CURSEFORGE_API_KEY:-}
       # Set this to expose the UI beyond loopback.
       PLATTER_AUTH_TOKEN: ${PLATTER_AUTH_TOKEN:-}
+      # Comma-separated DNS names Platter will answer to. IP addresses always work; a name has
+      # to be listed, because otherwise any page you visit can point its own domain at Platter
+      # and talk to it as same-origin. Set this if you reach Platter as `platter.lan` or through
+      # a reverse proxy.
+      PLATTER_ALLOWED_HOSTS: ${PLATTER_ALLOWED_HOSTS:-}
 
     volumes:
       # Everything Platter owns: the database, every world, every backup. Back this up.

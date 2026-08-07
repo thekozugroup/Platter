@@ -106,7 +106,8 @@ export function createLogger(options: LoggerOptions = {}): Logger {
     const time = new Date().toISOString().slice(11, 23);
     const tag = `${LEVEL_COLOR[entry]}${entry.toUpperCase().padEnd(5)}${RESET}`;
     const where = scope ? `${DIM}[${scope}]${RESET} ` : '';
-    const extra = safe && Object.keys(safe).length > 0 ? ` ${DIM}${JSON.stringify(safe)}${RESET}` : '';
+    const extra =
+      safe && Object.keys(safe).length > 0 ? ` ${DIM}${JSON.stringify(safe)}${RESET}` : '';
     write(`${DIM}${time}${RESET} ${tag} ${where}${message}${extra}`);
   };
 

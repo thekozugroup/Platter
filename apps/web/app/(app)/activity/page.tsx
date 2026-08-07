@@ -24,7 +24,9 @@ export default async function ActivityPage() {
   }
 
   const events = listEvents(result.context.db, { limit: 300 });
-  const names = new Map(listServers(result.context.db, { includeDeleted: true }).map((s) => [s.id, s.name]));
+  const names = new Map(
+    listServers(result.context.db, { includeDeleted: true }).map((s) => [s.id, s.name])
+  );
 
   return (
     <Layout height="fill">

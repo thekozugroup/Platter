@@ -4,7 +4,7 @@ import { Theme } from '@astryxdesign/core';
 import { LinkProvider } from '@astryxdesign/core/Link';
 import { neutralTheme } from '@astryxdesign/theme-neutral/built';
 import NextLink from 'next/link';
-import { type ReactNode, createContext, use, useCallback, useEffect, useState } from 'react';
+import { createContext, type ReactNode, use, useCallback, useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'platter.theme-mode';
 

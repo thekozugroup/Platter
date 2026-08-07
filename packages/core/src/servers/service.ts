@@ -1,27 +1,28 @@
 import { mkdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { eq } from 'drizzle-orm';
 import { schedules, servers } from '@platter/db';
 import {
-  LABELS,
-  LOADER_FAMILY,
-  type MinecraftLoader,
-  type ResourceLimits,
-  type RestartPolicy,
-  type ServerSettings,
-  TIMEOUTS,
-  TRANSITIONAL_STATUSES,
-  type Result,
   containerName,
   fail,
+  rconPassword as generateRconPassword,
+  LABELS,
+  LOADER_FAMILY,
+  LOADER_LABELS,
   logger,
+  type MinecraftLoader,
   ok,
   paths,
-  rconPassword as generateRconPassword,
+  type ResourceLimits,
+  type RestartPolicy,
+  type Result,
+  type ServerSettings,
   serverSettingsSchema,
   slugify,
+  TIMEOUTS,
+  TRANSITIONAL_STATUSES,
   ulid,
 } from '@platter/shared';
+import { eq } from 'drizzle-orm';
 import type { Context } from '../context';
 import {
   createContainer,
@@ -34,11 +35,12 @@ import {
 import { findByServerId, inspectContainer } from '../docker/guard';
 import { ensureImage, type PullProgress } from '../docker/images';
 import { EVENT, emitEvent } from '../events';
+import { availableLoaders, getVersionIndex } from '../minecraft/catalog';
 import { buildContainerEnv } from '../minecraft/env';
 import { selectImage } from '../minecraft/manifest';
 import { findFreePorts, isPortConflict, releaseServerPorts, reservePorts } from '../ports';
 import { closeRcon, rconCommand } from '../rcon';
-import { getServer, hydrate, setStatus, type Server, updateServer } from './repository';
+import { getServer, hydrate, type Server, setStatus, updateServer } from './repository';
 
 const log = logger.child('servers');
 
@@ -73,6 +75,25 @@ export async function createServer(
       'invalid_input',
       'Minecraft servers require accepting the Mojang EULA ' +
         '(https://aka.ms/MinecraftEULA). Pass acceptEula: true to confirm.'
+    );
+  }
+
+  /*
+   * Reject a loader/version pair that has no builds, here rather than only in the picker.
+   *
+   * `availableLoaders` was previously consulted by the new-server page alone, so every other
+   * entry point — the MCP `create_server` flow, a direct API call, a restored config — could ask
+   * for Folia on 1.12.2 and get a container that fails minutes in on a download 404. A rule that
+   * one caller enforces is a rule the other callers do not have.
+   */
+  const index = await getVersionIndex(ctx.db);
+  const loaders = availableLoaders(input.gameVersion, index);
+  if (!loaders.includes(input.loader)) {
+    return fail(
+      'invalid_input',
+      `${LOADER_LABELS[input.loader]} has no builds for Minecraft ${input.gameVersion}. ` +
+        `Available for that version: ${loaders.map((l) => LOADER_LABELS[l]).join(', ')}.`,
+      { details: { loader: input.loader, gameVersion: input.gameVersion, available: loaders } }
     );
   }
 
@@ -196,7 +217,9 @@ export async function createServer(
   /* --- Filesystem -------------------------------------------------------- */
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(paths.serverBackups(ctx.env.PLATTER_DATA_DIR, id), { recursive: true });
-  rollback.push(() => rm(paths.serverRoot(ctx.env.PLATTER_DATA_DIR, id), { recursive: true, force: true }));
+  rollback.push(() =>
+    rm(paths.serverRoot(ctx.env.PLATTER_DATA_DIR, id), { recursive: true, force: true })
+  );
 
   /* --- Image ------------------------------------------------------------- */
   input.onProgress?.({ phase: 'pulling', detail: image.image });
@@ -268,7 +291,11 @@ export async function createServer(
 function uniqueSlug(ctx: Context, name: string): string {
   const base = slugify(name);
   const taken = new Set(
-    ctx.db.select({ slug: servers.slug }).from(servers).all().map((row) => row.slug)
+    ctx.db
+      .select({ slug: servers.slug })
+      .from(servers)
+      .all()
+      .map((row) => row.slug)
   );
   if (!taken.has(base)) {
     return base;
@@ -504,6 +531,39 @@ export async function deleteServer(
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Reduce a user- or AI-supplied command to exactly one console command, or refuse.
+ *
+ * A newline is a command separator: the stdin fallback writes the string followed by `\n`, and
+ * Minecraft's console reads one command per line. So `"list\nop mallory\nstop"` is three
+ * commands wearing one command's clothes — and every gate upstream inspects only the first
+ * token. The MCP layer's confirmation prompt sees `list`, decides it is read-only, and never
+ * asks the human; the activity feed records one entry; three commands run.
+ *
+ * Rejecting rather than truncating, because a caller that sent a newline either meant something
+ * Platter is not going to do or has a bug, and silently running the first third of their input
+ * is not a kindness. The check lives in core rather than in the MCP tool because the web action
+ * shares this path — a validation that only one caller performs is a validation.
+ *
+ * Other control characters go too: `\r` is a line terminator to some consoles, and NUL and the
+ * escape byte are how you forge convincing lines in a log the operator later reads for evidence.
+ */
+export function normaliseCommand(command: string): Result<string> {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters is the point.
+  if (/[\u0000-\u001f\u007f]/.test(command.replace(/^\s+|\s+$/g, ''))) {
+    return fail(
+      'invalid_input',
+      'A console command must be a single line. Send one command per call — Minecraft reads ' +
+        'each line as its own command, so a newline here would run commands nobody approved.'
+    );
+  }
+  const trimmed = command.trim().replace(/^\//, '').trim();
+  if (trimmed.length === 0) {
+    return fail('invalid_input', 'Command is empty.');
+  }
+  return ok(trimmed);
+}
+
+/**
  * Run a console command.
  *
  * RCON first, because it gives structured request/response. Falling back to stdin covers the
@@ -525,10 +585,11 @@ export async function sendCommand(
     return fail('invalid_state', `${server.name} has no container.`);
   }
 
-  const trimmed = command.trim().replace(/^\//, '');
-  if (trimmed.length === 0) {
-    return fail('invalid_input', 'Command is empty.');
+  const normalised = normaliseCommand(command);
+  if (!normalised.ok) {
+    return normalised;
   }
+  const trimmed = normalised.value;
 
   emitEvent(ctx.db, {
     serverId,
@@ -611,7 +672,7 @@ export async function updateSettings(
   });
 
   // Applied live where the game supports it, so common tweaks do not require a restart.
-  const live = await applyLiveSettings(ctx, server, patch);
+  const live = await applyLiveSettings(server, patch);
 
   return ok({
     settings: parsed.data,
@@ -621,7 +682,6 @@ export async function updateSettings(
 
 /** Settings that can be changed on a running server over RCON. */
 async function applyLiveSettings(
-  ctx: Context,
   server: Server,
   patch: Partial<ServerSettings>
 ): Promise<Set<string>> {
@@ -691,7 +751,11 @@ export async function recreateContainer(
     }
   }
 
-  const image = selectImage(server.loader, server.gameVersion, ctx.env.PLATTER_MINECRAFT_IMAGE_REPO);
+  const image = selectImage(
+    server.loader,
+    server.gameVersion,
+    ctx.env.PLATTER_MINECRAFT_IMAGE_REPO
+  );
   const pulled = await ensureImage(ctx.docker, image.image, {
     allowCustom: ctx.env.PLATTER_ALLOW_CUSTOM_IMAGES,
     allowedRepos: [ctx.env.PLATTER_MINECRAFT_IMAGE_REPO, ctx.env.PLATTER_BACKUP_IMAGE_REPO],

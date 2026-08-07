@@ -1,22 +1,22 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { and, eq } from 'drizzle-orm';
 import {
   type Context,
+  describeServer,
   EVENT,
   emitEvent,
-  describeServer,
   readLogTail,
   recreateContainer,
+  removeMods,
   resolveServer,
   restartServer,
-  removeMods,
   restoreBackup,
   updateServer,
   updateSettings,
 } from '@platter/core';
 import { diagnoses, modInstalls } from '@platter/db';
-import { type FixAction, diagnose, explainPlan, planFixes } from '@platter/diagnostics';
+import { diagnose, explainPlan, type FixAction, planFixes } from '@platter/diagnostics';
 import { isErr, ulid } from '@platter/shared';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { proposeAndConfirm, recordOutcome } from '../confirm';
 import { result, toolError } from '../format';
@@ -49,7 +49,26 @@ export function registerDiagnosticTools(server: McpServer, ctx: Context): void {
         server: z.string().describe('Server id, slug or name'),
         lines: z.number().int().min(50).max(5000).default(600).describe('How much log to analyse'),
       },
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      outputSchema: {
+        diagnosisId: z.string(),
+        summary: z.string(),
+        healthy: z.boolean(),
+        analysedLines: z.number(),
+        findings: z
+          .array(z.record(z.string(), z.unknown()))
+          .describe(
+            'Rule matches with evidence and possible fixes — see the output text for a readable form'
+          ),
+        plan: z
+          .record(z.string(), z.unknown())
+          .describe('Ordered fix plan for apply_fix — see the output text for a readable form'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, lines }) => {
       const target = resolveServer(ctx.db, reference);
@@ -165,7 +184,21 @@ export function registerDiagnosticTools(server: McpServer, ctx: Context): void {
         fixId: z.string().describe('Fix id from the diagnosis'),
         reason: z.string().optional().describe('Why — shown to the human deciding'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+      outputSchema: {
+        applied: z.boolean(),
+        reason: z
+          .enum(['declined', 'cancelled', 'unsupported'])
+          .optional()
+          .describe('Present when a confirmation was declined instead of applied'),
+        fixId: z.string().optional(),
+        restarted: z.boolean().optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ server: reference, diagnosisId, fixId, reason }) => {
       const target = resolveServer(ctx.db, reference);
@@ -192,10 +225,7 @@ export function registerDiagnosticTools(server: McpServer, ctx: Context): void {
         return toolError(`No fix "${fixId}" in diagnosis ${diagnosisId}.`);
       }
       if (fix.kind !== 'automatic' || !fix.action) {
-        return toolError(
-          `"${fix.title}" has to be done by hand.`,
-          fix.detail
-        );
+        return toolError(`"${fix.title}" has to be done by hand.`, fix.detail);
       }
 
       const decision = await proposeAndConfirm({
@@ -297,7 +327,11 @@ async function applyAction(
       const rebuilt = await recreateContainer(ctx, serverId, { start: true });
       return isErr(rebuilt)
         ? { ok: false, message: rebuilt.error.message, restarted: false }
-        : { ok: true, message: `Memory limit is now ${action.memoryMiB} MB and the server is restarting.`, restarted: true };
+        : {
+            ok: true,
+            message: `Memory limit is now ${action.memoryMiB} MB and the server is restarting.`,
+            restarted: true,
+          };
     }
 
     case 'change_java_version': {
@@ -307,7 +341,11 @@ async function applyAction(
       const rebuilt = await recreateContainer(ctx, serverId, { start: true });
       return isErr(rebuilt)
         ? { ok: false, message: rebuilt.error.message, restarted: false }
-        : { ok: true, message: 'The container was rebuilt on the correct Java image.', restarted: true };
+        : {
+            ok: true,
+            message: 'The container was rebuilt on the correct Java image.',
+            restarted: true,
+          };
     }
 
     case 'remove_mod': {
@@ -329,7 +367,11 @@ async function applyAction(
         );
 
       if (rows.length === 0) {
-        return { ok: false, message: `Nothing installed matches "${action.match}".`, restarted: false };
+        return {
+          ok: false,
+          message: `Nothing installed matches "${action.match}".`,
+          restarted: false,
+        };
       }
 
       const removed = await removeMods(ctx, server, rows);
@@ -366,9 +408,7 @@ async function applyAction(
     case 'restore_backup': {
       const { listBackups } = await import('@platter/core');
       const backups = listBackups(ctx, serverId).filter((b) => b.status === 'complete');
-      const target = action.backupId
-        ? backups.find((b) => b.id === action.backupId)
-        : backups[0];
+      const target = action.backupId ? backups.find((b) => b.id === action.backupId) : backups[0];
       if (!target) {
         return {
           ok: false,

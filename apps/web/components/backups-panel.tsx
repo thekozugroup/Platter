@@ -6,18 +6,14 @@ import { Card } from '@astryxdesign/core/Card';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { HStack } from '@astryxdesign/core/HStack';
-import { Table, pixel, proportional } from '@astryxdesign/core/Table';
+import { pixel, proportional, Table } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
 import { Timestamp } from '@astryxdesign/core/Timestamp';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useToast } from '@astryxdesign/core/Toast';
+import { VStack } from '@astryxdesign/core/VStack';
 import type { ServerStatus } from '@platter/shared';
 import { useState, useTransition } from 'react';
-import {
-  createBackupAction,
-  deleteBackupAction,
-  restoreBackupAction,
-} from '@/lib/actions';
+import { createBackupAction, deleteBackupAction, restoreBackupAction } from '@/lib/actions';
 
 export interface BackupRow extends Record<string, unknown> {
   id: string;
@@ -61,9 +57,7 @@ export function BackupsPanel({
       <Card padding={4}>
         <HStack justify="between" align="center" gap={3} wrap="wrap">
           <VStack gap={0.5}>
-            <Text weight="medium">
-              {schedule ? 'Backing up nightly' : 'No schedule'}
-            </Text>
+            <Text weight="medium">{schedule ? 'Backing up nightly' : 'No schedule'}</Text>
             <Text type="supporting">
               Keeping the most recent {retention}.{' '}
               {isLive

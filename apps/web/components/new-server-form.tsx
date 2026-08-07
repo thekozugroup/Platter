@@ -5,8 +5,8 @@ import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList';
 import { FormLayout } from '@astryxdesign/core/FormLayout';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
 import { NumberInput } from '@astryxdesign/core/NumberInput';
 import { Section } from '@astryxdesign/core/Section';
 import { Selector } from '@astryxdesign/core/Selector';
@@ -15,9 +15,9 @@ import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import {
+  heapForContainer,
   LOADER_LABELS,
   type MinecraftLoader,
-  heapForContainer,
   requiredJavaVersion,
 } from '@platter/shared';
 import { useActionState, useMemo, useState } from 'react';
@@ -168,9 +168,7 @@ export function NewServerForm({
             </FormLayout>
 
             <Card variant="muted" padding={3}>
-              <Text type="supporting">
-                {sizingAdvice(memoryMiB, effectiveLoader)}
-              </Text>
+              <Text type="supporting">{sizingAdvice(memoryMiB, effectiveLoader)}</Text>
             </Card>
           </VStack>
         </Section>
@@ -280,7 +278,8 @@ export function NewServerForm({
  */
 function sizingAdvice(memoryMiB: number, loader: MinecraftLoader): string {
   const gb = memoryMiB / 1024;
-  const modded = loader === 'forge' || loader === 'neoforge' || loader === 'fabric' || loader === 'quilt';
+  const modded =
+    loader === 'forge' || loader === 'neoforge' || loader === 'fabric' || loader === 'quilt';
 
   if (gb < 2) {
     return 'Under 2 GB is tight even for vanilla. Expect stutter once a few players spread out.';

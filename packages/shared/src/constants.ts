@@ -129,15 +129,22 @@ export const TIMEOUTS = {
  * See `requiredJavaVersion()` in `./versions.ts` for the per-version rules — the mapping lives
  * there because calendar versioning makes it a function, not a table.
  */
-export const DEFAULT_JAVA_VERSION = 21;
+export const DEFAULT_JAVA_VERSION = 25;
 
-/** Image tag per Java major version. */
+/**
+ * Image tag per Java major version.
+ *
+ * Every entry is a tag itzg actually publishes — including `java16`, which the image's own docs
+ * describe as being there for Paper 1.16.5 specifically, and `java25`, which is what `latest`
+ * points at because it tracks whatever the newest Minecraft requires.
+ */
 export const JAVA_IMAGE_TAGS: Readonly<Record<number, string>> = {
   8: 'java8',
   11: 'java11',
-  16: 'java17', // itzg publishes no java16 tag; 17 runs 1.17 correctly.
+  16: 'java16',
   17: 'java17',
   21: 'java21',
+  25: 'java25',
 };
 
 export const MINECRAFT_IMAGE = 'itzg/minecraft-server';

@@ -5,8 +5,5 @@
     "outDir": "./dist",
     "noEmit": true
   },
-  "include": [
-    "src/**/*.ts",
-    "../../packages/core/types/**/*.d.ts"
-  ]
+  "include": ["src/**/*.ts", "../../packages/core/types/**/*.d.ts"]
 }

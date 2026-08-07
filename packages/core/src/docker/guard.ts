@@ -1,5 +1,5 @@
+import { fail, LABELS, MANAGED_LABEL_VALUE, ok, type Result } from '@platter/shared';
 import type Docker from 'dockerode';
-import { LABELS, MANAGED_LABEL_VALUE, type Result, fail, ok } from '@platter/shared';
 
 /**
  * The blast-radius limiter.
@@ -158,9 +158,7 @@ export async function listManaged(docker: Docker): Promise<Result<ManagedContain
     });
     const detailed = await Promise.all(
       summaries.map(async (summary) => {
-        const info = (await docker
-          .getContainer(summary.Id)
-          .inspect()) as unknown as InspectResult;
+        const info = (await docker.getContainer(summary.Id).inspect()) as unknown as InspectResult;
         return toManaged(info);
       })
     );

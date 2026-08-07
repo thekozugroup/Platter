@@ -41,16 +41,29 @@ all share it). Platter reduces the blast radius rather than pretending it isn't 
 
 - The UI is unauthenticated when bound to loopback, matching how local dev tools behave.
 - Setting `PLATTER_HOST` to anything other than a loopback address **requires**
-  `PLATTER_AUTH_TOKEN` to be set. Platter refuses to start otherwise.
+  `PLATTER_AUTH_TOKEN` to be set. Platter refuses to start otherwise. `PLATTER_HOST` is the
+  address the socket is bound to, not a label — `apps/web/scripts/serve.mjs` passes it to Next
+  as `-H`, and the container entrypoint maps it onto Next's own `HOSTNAME`.
 - The MCP HTTP transport always requires a bearer token (`PLATTER_MCP_TOKEN`). The stdio
   transport inherits the trust of the process that spawned it.
-- Tokens are compared with `crypto.timingSafeEqual`.
+- Tokens are compared with a constant-time equality check.
+- Requests are rejected unless their `Host` header is an IP literal, a loopback name, or listed
+  in `PLATTER_ALLOWED_HOSTS`, and state-changing requests are rejected if `Origin` names a
+  different host. Loopback binding is not a boundary against a browser: a page you visit can
+  point its own short-TTL domain at `127.0.0.1` and talk to Platter as same-origin, reading
+  responses and carrying the session cookie with it. Set `PLATTER_ALLOWED_HOSTS` if you reach
+  Platter by a DNS name or through a reverse proxy.
 
 ## Secrets
 
 - RCON passwords are generated per server with `crypto.randomBytes(24)` and stored in the local
-  SQLite database. They are never rendered in the UI or included in logs, exports, or diagnostic
-  bundles.
+  SQLite database. They are redacted from logs, exports and diagnostic bundles.
+- A server's RCON password **is** shown on its settings page, behind a reveal control. That mask
+  is a screen-sharing courtesy, not a boundary: the value is in the page payload. Anyone who can
+  reach the UI can read it, which is the same trust level as being able to drive the UI at all.
+- The MCP bearer token is written to `$PLATTER_DATA_DIR/mcp-token` with mode `0600` and printed
+  to the terminal only on the run that generates it. Later runs print the path instead, so the
+  credential does not accumulate in `journalctl` or `docker logs`.
 - Modrinth and CurseForge API keys live in the environment, are never persisted to the database,
   and are redacted from any bundle Platter generates.
 - The diagnostic bundle generator runs every artefact through a redaction pass before writing.

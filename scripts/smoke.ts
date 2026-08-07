@@ -16,6 +16,7 @@ import {
   createContext,
   createServer,
   deleteServer,
+  getServer,
   listPlayers,
   rconCommand,
   reconcileServer,
@@ -23,7 +24,6 @@ import {
   startServer,
   stopServer,
 } from '@platter/core';
-import { getServer } from '@platter/core';
 import { isErr } from '@platter/shared';
 
 const KEEP = process.argv.includes('--keep');

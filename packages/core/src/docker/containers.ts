@@ -1,16 +1,16 @@
-import type Docker from 'dockerode';
-import type { ContainerCreateOptions } from 'dockerode';
 import {
+  attempt,
   CONTAINER_DATA_DIR,
   CONTAINER_PORTS,
+  fail,
   LABELS,
   MANAGED_LABEL_VALUE,
+  ok,
   type Result,
   TIMEOUTS,
-  attempt,
-  fail,
-  ok,
 } from '@platter/shared';
+import type Docker from 'dockerode';
+import type { ContainerCreateOptions } from 'dockerode';
 import { requireManaged } from './guard';
 
 export interface CreateContainerInput {

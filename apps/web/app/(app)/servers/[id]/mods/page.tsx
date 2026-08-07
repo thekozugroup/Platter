@@ -3,10 +3,10 @@ import { Heading } from '@astryxdesign/core/Heading';
 import { LayoutContent } from '@astryxdesign/core/Layout';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
-import { and, eq } from 'drizzle-orm';
 import { contentDirectory, getServer } from '@platter/core';
 import { modInstalls } from '@platter/db';
 import { LOADER_FAMILY, LOADER_LABELS } from '@platter/shared';
+import { and, eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { ModsPanel } from '@/components/mods-panel';
 import { tryGetContext } from '@/lib/server';
@@ -60,9 +60,9 @@ export default async function ModsPage({ params }: { params: Promise<{ id: strin
           <Heading level={2}>{family === 'plugin' ? 'Plugins' : 'Mods'}</Heading>
           <Text type="supporting">
             {LOADER_LABELS[server.loader]} {server.gameVersion}. Platter checks every candidate
-            against this server before offering it, resolves an actual downloadable file rather
-            than trusting a project's advertised support, and pulls in required dependencies.
-            Files land in <Text type="code">/data/{contentDirectory(server.loader)}</Text>.
+            against this server before offering it, resolves an actual downloadable file rather than
+            trusting a project's advertised support, and pulls in required dependencies. Files land
+            in <Text type="code">/data/{contentDirectory(server.loader)}</Text>.
           </Text>
         </VStack>
 

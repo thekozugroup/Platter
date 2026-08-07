@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { fakeFetch, fixture, headersOf, silentLogger } from './__fixtures__/helpers';
+import {
+  type FakeFetch,
+  fakeFetch,
+  fixture,
+  headersOf,
+  silentLogger,
+} from './__fixtures__/helpers';
 import {
   CLASS_ID,
+  CURSEFORGE_MAX_PAGE_SIZE,
   CURSEFORGE_MAX_RESULT_WINDOW,
   CurseForgeClient,
   type CurseForgeFileWire,
   type CurseForgeModWire,
   checkPageBounds,
+  chooseSlugMatch,
   downloadState,
   environmentTagsOf,
   gameVersionsOf,
@@ -32,22 +40,93 @@ const firstJeiFile = jeiFiles.data[0];
 const firstModMenuFile = modMenuFiles.data[0];
 
 /** `null` means "no key configured" — not `undefined`, which would trip the default parameter. */
+function clientWith(fake: FakeFetch, apiKey: string | null = 'test-key'): CurseForgeClient {
+  return new CurseForgeClient({
+    apiKey: apiKey ?? undefined,
+    fetchImpl: fake.fetch,
+    sleep: async () => {},
+    logger: silentLogger(),
+    rateLimit: { capacity: 1000, refillPerSecond: 1000 },
+  });
+}
+
 function routedClient(routes: Record<string, unknown>, apiKey: string | null = 'test-key') {
   const fake = fakeFetch((url) => {
     const body = routes[new URL(url).pathname];
     return body === undefined ? { status: 404, text: '' } : { body };
   });
-  return {
-    fake,
-    client: new CurseForgeClient({
-      apiKey: apiKey ?? undefined,
-      fetchImpl: fake.fetch,
-      sleep: async () => {},
-      logger: silentLogger(),
-      rateLimit: { capacity: 1000, refillPerSecond: 1000 },
-    }),
-  };
+  return { fake, client: clientWith(fake, apiKey) };
 }
+
+/**
+ * A catalogue that answers `/v1/mods/search` and `/v1/mods/{id}` the way the real one does.
+ *
+ * The load-bearing detail is that `classId` *scopes* the result set rather than merely ranking
+ * it: ask for the wrong class and you get an empty page, not a wrong answer. That is what makes a
+ * hardcoded class a `not_found` on a project that plainly exists.
+ */
+function catalogueClient(projects: readonly CurseForgeModWire[]) {
+  const fake = fakeFetch((url) => {
+    const parsed = new URL(url);
+    const byId = /^\/v1\/mods\/(\d+)$/.exec(parsed.pathname);
+    if (byId) {
+      const found = projects.find((project) => String(project.id) === byId[1]);
+      return found ? { body: { data: found } } : { status: 404, text: '' };
+    }
+    if (parsed.pathname !== '/v1/mods/search') {
+      return { status: 404, text: '' };
+    }
+    const slug = parsed.searchParams.get('slug');
+    const classId = parsed.searchParams.get('classId');
+    const data = projects.filter(
+      (project) =>
+        (slug === null || project.slug === slug) &&
+        (classId === null || String(project.classId) === classId)
+    );
+    return {
+      body: {
+        data,
+        pagination: {
+          index: 0,
+          pageSize: data.length,
+          resultCount: data.length,
+          totalCount: data.length,
+        },
+      },
+    };
+  });
+  return { fake, client: clientWith(fake) };
+}
+
+/** `count` files cloned off a real one, ids ascending so a page boundary is visible. */
+function filesLike(base: CurseForgeFileWire, firstId: number, count: number): CurseForgeFileWire[] {
+  return Array.from({ length: count }, (_, offset) => ({ ...base, id: firstId + offset }));
+}
+
+/**
+ * `/v1/mods/{id}/files` that pages the way CurseForge does — honouring `index`/`pageSize` and
+ * reporting `resultCount` for the page rather than the collection.
+ */
+function pagingClient(files: readonly CurseForgeFileWire[]) {
+  const fake = fakeFetch((url) => {
+    const parsed = new URL(url);
+    const index = Number(parsed.searchParams.get('index') ?? '0');
+    const pageSize = Number(
+      parsed.searchParams.get('pageSize') ?? String(CURSEFORGE_MAX_PAGE_SIZE)
+    );
+    const page = files.slice(index, index + pageSize);
+    return {
+      body: {
+        data: page,
+        pagination: { index, pageSize, resultCount: page.length, totalCount: files.length },
+      },
+    };
+  });
+  return { fake, client: clientWith(fake) };
+}
+
+const indicesRequested = (fake: FakeFetch): (string | null)[] =>
+  fake.calls.map((call) => new URL(call.url).searchParams.get('index'));
 
 describe('availability', () => {
   it('reports itself unavailable without a key instead of throwing', () => {
@@ -402,5 +481,224 @@ describe('file listing', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('not_found');
     }
+  });
+});
+
+describe('slug resolution is not scoped to Mods', () => {
+  const worldEditPlugin: CurseForgeModWire = {
+    ...jeiMod.data,
+    id: 30_030,
+    slug: 'worldedit',
+    name: 'WorldEdit',
+    classId: CLASS_ID.bukkitPlugins,
+  };
+  const worldEditMod: CurseForgeModWire = {
+    ...jeiMod.data,
+    id: 225_608,
+    slug: 'worldedit',
+    name: 'WorldEdit',
+    classId: CLASS_ID.mods,
+  };
+  const chestShop: CurseForgeModWire = {
+    ...jeiMod.data,
+    id: 31_245,
+    slug: 'chestshop',
+    name: 'ChestShop',
+    classId: CLASS_ID.bukkitPlugins,
+  };
+
+  it('resolves a slug that exists in no class but Bukkit Plugins', async () => {
+    // Pinning classId=6 made every plugin, shader, data pack and modpack slug 404 — the search
+    // comes back `data: []` because slugs are unique *within* a class, so only numeric ids worked.
+    const { fake, client } = catalogueClient([chestShop]);
+    const result = await client.getProject('chestshop');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.projectId).toBe('31245');
+    expect(result.value.kind).toBe('plugin');
+    expect(new URL(fake.calls[0]?.url ?? '').searchParams.has('classId')).toBe(false);
+  });
+
+  it('scopes the search when the caller states the kind', async () => {
+    const { fake, client } = catalogueClient([worldEditPlugin, worldEditMod]);
+    const result = await client.getProject('worldedit', 'plugin');
+
+    expect(result.ok && result.value.projectId).toBe('30030');
+    const url = new URL(fake.calls[0]?.url ?? '');
+    expect(url.searchParams.get('classId')).toBe(String(CLASS_ID.bukkitPlugins));
+    // A pinned class is unique, so there is no reason to pull a page of candidates.
+    expect(url.searchParams.get('pageSize')).toBe('1');
+  });
+
+  it('resolves a two-class slug the same way whichever order the API answers in', async () => {
+    for (const projects of [
+      [worldEditPlugin, worldEditMod],
+      [worldEditMod, worldEditPlugin],
+    ]) {
+      const { client } = catalogueClient(projects);
+      const result = await client.getProject('worldedit');
+      expect(result.ok && result.value.projectId).toBe('225608');
+    }
+  });
+
+  it('fetches a full page unscoped, so the cross-class duplicates are there to choose between', async () => {
+    const { fake, client } = catalogueClient([worldEditPlugin, worldEditMod]);
+    await client.getProject('worldedit');
+    expect(new URL(fake.calls[0]?.url ?? '').searchParams.get('pageSize')).toBe(
+      String(CURSEFORGE_MAX_PAGE_SIZE)
+    );
+  });
+
+  it('threads the kind through getVersions as well', async () => {
+    const { fake, client } = routedClient({
+      '/v1/mods/search': { ...searchPayload, data: [chestShop] },
+      '/v1/mods/31245/files': jeiFiles,
+    });
+    const result = await client.getVersions('chestshop', {}, 'plugin');
+
+    expect(result.ok).toBe(true);
+    expect(new URL(fake.calls[0]?.url ?? '').searchParams.get('classId')).toBe(
+      String(CLASS_ID.bukkitPlugins)
+    );
+    expect(fake.calls[1]?.url).toContain('/v1/mods/31245/files');
+  });
+});
+
+describe('chooseSlugMatch', () => {
+  const plugin = { id: 30_030, slug: 'worldedit', classId: CLASS_ID.bukkitPlugins };
+  const mod = { id: 225_608, slug: 'worldedit', classId: CLASS_ID.mods };
+  const modpack = { id: 999_999, slug: 'worldedit', classId: CLASS_ID.modpacks };
+
+  it('does not depend on the order the API answered in', () => {
+    expect(chooseSlugMatch([plugin, mod, modpack], 'worldedit')).toBe(mod);
+    expect(chooseSlugMatch([modpack, plugin, mod], 'worldedit')).toBe(mod);
+    expect(chooseSlugMatch([mod, modpack, plugin], 'worldedit')).toBe(mod);
+  });
+
+  it('ranks a plugin above a modpack when there is no mod', () => {
+    expect(chooseSlugMatch([modpack, plugin], 'worldedit')).toBe(plugin);
+  });
+
+  it('prefers an exact slug over class precedence', () => {
+    const nearMiss = { id: 1, slug: 'worldedit-cui', classId: CLASS_ID.mods };
+    expect(chooseSlugMatch([nearMiss, plugin], 'worldedit')).toBe(plugin);
+  });
+
+  it('breaks a same-class tie on the older project id', () => {
+    const older = { id: 100, slug: 'worldedit', classId: CLASS_ID.mods };
+    const newer = { id: 200, slug: 'worldedit', classId: CLASS_ID.mods };
+    expect(chooseSlugMatch([newer, older], 'worldedit')).toBe(older);
+  });
+
+  it('keeps an unranked class and a null slug rather than resolving to nothing', () => {
+    const world = { id: 7, slug: 'worldedit', classId: CLASS_ID.worlds };
+    expect(chooseSlugMatch([world], 'worldedit')).toBe(world);
+    const nameless = { id: 8, slug: null, classId: null };
+    expect(chooseSlugMatch([nameless], 'worldedit')).toBe(nameless);
+  });
+
+  it('is empty only when there is genuinely nothing', () => {
+    expect(chooseSlugMatch([], 'worldedit')).toBeUndefined();
+  });
+});
+
+describe('file paging', () => {
+  it('walks every page instead of returning the 50 newest files', async () => {
+    if (!firstJeiFile) {
+      return;
+    }
+    // JEI really does have 166 files for Forge 1.20.1. One page of them is not an answer to
+    // "which builds of this work on my server", and it is the page `alternatives` is drawn from.
+    const { fake, client } = pagingClient(filesLike(firstJeiFile, 9_000_000, 166));
+    const result = await client.getModFiles(238222, {
+      gameVersions: ['1.20.1'],
+      loaders: ['forge'],
+    });
+
+    expect(result.ok && result.value).toHaveLength(166);
+    expect(indicesRequested(fake)).toEqual(['0', '50', '100', '150']);
+  });
+
+  it('stops as soon as the requested limit is satisfied', async () => {
+    if (!firstJeiFile) {
+      return;
+    }
+    const { fake, client } = pagingClient(filesLike(firstJeiFile, 9_000_000, 166));
+    const result = await client.getModFiles(238222, { limit: 60 });
+
+    expect(result.ok && result.value).toHaveLength(60);
+    expect(indicesRequested(fake)).toEqual(['0', '50']);
+  });
+
+  it('asks for one short page when the limit is under the page cap', async () => {
+    if (!firstJeiFile) {
+      return;
+    }
+    const { fake, client } = pagingClient(filesLike(firstJeiFile, 9_000_000, 166));
+    const result = await client.getModFiles(238222, { limit: 10 });
+
+    expect(result.ok && result.value).toHaveLength(10);
+    expect(fake.calls).toHaveLength(1);
+    expect(new URL(fake.calls[0]?.url ?? '').searchParams.get('pageSize')).toBe('10');
+  });
+
+  it('counts the limit after the loader filter, not before', async () => {
+    if (!firstJeiFile || !firstModMenuFile) {
+      return;
+    }
+    // `/files` takes one loader at most and applies it upstream only when it feels like it, so
+    // pages arrive with other loaders' builds mixed in. Counting raw rows towards the limit would
+    // end the walk with a fraction of what was asked for.
+    const mixed = filesLike(firstJeiFile, 9_000_000, 100).flatMap((forgeFile, offset) => [
+      forgeFile,
+      { ...firstModMenuFile, id: 8_000_000 + offset },
+    ]);
+    const { fake, client } = pagingClient(mixed);
+    const result = await client.getModFiles(238222, { loaders: ['forge'], limit: 60 });
+
+    expect(result.ok && result.value).toHaveLength(60);
+    expect(result.ok && result.value.every((version) => version.loaders.includes('forge'))).toBe(
+      true
+    );
+    // Half of every page is Fabric, so 60 Forge builds take three pages, not two.
+    expect(indicesRequested(fake)).toEqual(['0', '50', '100']);
+  });
+
+  it('stops at the API result window rather than paging forever', async () => {
+    if (!firstJeiFile) {
+      return;
+    }
+    // A collection deep enough that `index + pageSize <= 10000` is what ends the walk. Nothing on
+    // CurseForge is this large, but a page that always comes back full is how a paging loop hangs.
+    const { fake, client } = pagingClient(filesLike(firstJeiFile, 1, 12_000));
+    const result = await client.getModFiles(238222);
+
+    expect(result.ok && result.value).toHaveLength(CURSEFORGE_MAX_RESULT_WINDOW);
+    expect(fake.calls).toHaveLength(CURSEFORGE_MAX_RESULT_WINDOW / CURSEFORGE_MAX_PAGE_SIZE);
+  });
+
+  it('surfaces a mid-walk failure instead of returning a partial list as if it were complete', async () => {
+    if (!firstJeiFile) {
+      return;
+    }
+    const files = filesLike(firstJeiFile, 9_000_000, 166);
+    const fake = fakeFetch((url) => {
+      const index = Number(new URL(url).searchParams.get('index') ?? '0');
+      if (index > 0) {
+        return { status: 500, text: '' };
+      }
+      const page = files.slice(0, 50);
+      return {
+        body: {
+          data: page,
+          pagination: { index: 0, pageSize: 50, resultCount: page.length, totalCount: 166 },
+        },
+      };
+    });
+    const result = await clientWith(fake).getModFiles(238222);
+    expect(result.ok).toBe(false);
   });
 });

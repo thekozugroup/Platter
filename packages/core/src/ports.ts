@@ -1,8 +1,8 @@
 import { createServer } from 'node:net';
-import { eq, isNull } from 'drizzle-orm';
 import type { PlatterDatabase } from '@platter/db';
 import { portAllocations } from '@platter/db';
-import { type Result, fail, ok } from '@platter/shared';
+import { fail, ok, type Result } from '@platter/shared';
+import { eq, isNull } from 'drizzle-orm';
 
 /**
  * Port allocation.

@@ -4,22 +4,14 @@ import { mkdir, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createGzip } from 'node:zlib';
+import { backups, modInstalls } from '@platter/db';
+import { type BackupTrigger, fail, logger, ok, paths, type Result, ulid } from '@platter/shared';
 import { and, desc, eq, lt, or } from 'drizzle-orm';
 import * as tar from 'tar-fs';
-import { backups, modInstalls } from '@platter/db';
-import {
-  type BackupTrigger,
-  type Result,
-  fail,
-  logger,
-  ok,
-  paths,
-  ulid,
-} from '@platter/shared';
 import type { Context } from '../context';
 import { EVENT, emitEvent } from '../events';
-import { resumeSaves, suspendSaves } from '../rcon';
 import { lockKey, withLock } from '../locks';
+import { resumeSaves, suspendSaves } from '../rcon';
 import { getServer } from '../servers/repository';
 
 const log = logger.child('backups');
@@ -299,7 +291,10 @@ export async function runBackup(
     await rm(archivePath, { force: true });
     const message = cause instanceof Error ? cause.message : String(cause);
     await failBackup(ctx, id, server.id, message, input.actor);
-    return fail('internal', `Backup failed: ${message}`, { details: { serverId: server.id }, cause });
+    return fail('internal', `Backup failed: ${message}`, {
+      details: { serverId: server.id },
+      cause,
+    });
   }
 }
 

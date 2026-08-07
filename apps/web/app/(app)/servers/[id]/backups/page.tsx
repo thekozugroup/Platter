@@ -29,9 +29,9 @@ export default async function BackupsPage({ params }: { params: Promise<{ id: st
         <VStack gap={1}>
           <Heading level={2}>Backups</Heading>
           <Text type="supporting">
-            Platter can back up a running server without kicking anyone off: it pauses
-            auto-save, flushes every loaded chunk to disk, archives, then resumes. Restoring
-            always takes a safety copy first.
+            Platter can back up a running server without kicking anyone off: it pauses auto-save,
+            flushes every loaded chunk to disk, archives, then resumes. Restoring always takes a
+            safety copy first.
           </Text>
         </VStack>
 

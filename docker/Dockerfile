@@ -85,12 +85,14 @@ ENV PLATTER_IN_CONTAINER=1
 
 # Next's standalone server reads PORT and HOSTNAME — its own names, not Platter's. Setting only
 # the PLATTER_* pair leaves it listening on the default 3000, which looks like the app failed to
-# start when the published port simply has nothing behind it.
+# start when the published port simply has nothing behind it. `serve.mjs` keeps the two pairs in
+# step when an operator overrides only the Platter-named half in compose.
 ENV PORT=4880
 ENV HOSTNAME=0.0.0.0
+COPY docker/serve.mjs ./docker/serve.mjs
 EXPOSE 4880
 
 # tini reaps zombies and forwards signals, so SIGTERM reaches Next and the supervisor gets its
 # chance to check-point the database and close RCON connections cleanly.
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "apps/web/server.js"]
+CMD ["node", "docker/serve.mjs"]

@@ -56,10 +56,7 @@ export function isLocked(key: string): boolean {
  * instead of silently waiting several minutes behind a large backup. Used where queuing would be
  * indistinguishable from the app having hung.
  */
-export async function withLockOrSkip<T>(
-  key: string,
-  fn: () => Promise<T>
-): Promise<T | undefined> {
+export async function withLockOrSkip<T>(key: string, fn: () => Promise<T>): Promise<T | undefined> {
   if (held.has(key)) {
     return undefined;
   }

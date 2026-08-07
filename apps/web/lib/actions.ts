@@ -16,10 +16,10 @@ import {
   updateSettings,
 } from '@platter/core';
 import {
-  MINECRAFT_LOADERS,
-  type Result,
   isErr,
+  MINECRAFT_LOADERS,
   minecraftLoaderSchema,
+  type Result,
   serverSettingsSchema,
 } from '@platter/shared';
 import { revalidatePath } from 'next/cache';
@@ -251,9 +251,7 @@ export async function updateSettingsAction(
   revalidatePath('/', 'layout');
   return {
     ok: true,
-    message: restartRequired
-      ? 'Saved. Restart the server to apply the changes.'
-      : 'Saved.',
+    message: restartRequired ? 'Saved. Restart the server to apply the changes.' : 'Saved.',
   };
 }
 
@@ -269,10 +267,7 @@ export async function applySettingsAction(serverId: string): Promise<ActionState
 /* Backups                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export async function createBackupAction(
-  serverId: string,
-  label?: string
-): Promise<ActionState> {
+export async function createBackupAction(serverId: string, label?: string): Promise<ActionState> {
   const ctx = await getContext();
   const result = await createBackup(ctx, {
     serverId,
@@ -285,7 +280,9 @@ export async function createBackupAction(
 }
 
 export async function restoreBackupAction(
-  serverId: string,
+  // Part of the signature so callers pass the pair they have; the restore is keyed on the
+  // backup, which already knows its server.
+  _serverId: string,
   backupId: string
 ): Promise<ActionState> {
   const ctx = await getContext();
@@ -294,10 +291,7 @@ export async function restoreBackupAction(
   return toState(result);
 }
 
-export async function deleteBackupAction(
-  serverId: string,
-  backupId: string
-): Promise<ActionState> {
+export async function deleteBackupAction(serverId: string, backupId: string): Promise<ActionState> {
   const ctx = await getContext();
   const result = await deleteBackup(ctx, backupId);
   revalidatePath(`/servers/${serverId}/backups`);

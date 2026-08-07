@@ -183,10 +183,45 @@ export const serverSettingsSchema = z.object({
   whitelist: z.array(z.string().min(1).max(32)).default([]),
   ops: z.array(z.string().min(1).max(32)).default([]),
   enforceSecureProfile: z.boolean().default(true),
-  /** Passed straight into the container. Escape hatch for anything Platter does not model. */
-  extraEnv: z.record(z.string(), z.string()).default({}),
-  /** Merged into server.properties after Platter's own mapping. Wins on conflict. */
-  extraProperties: z.record(z.string(), z.string()).default({}),
+  /**
+   * Passed straight into the container. Escape hatch for anything Platter does not model.
+   *
+   * Keys are constrained to the conventional shape because the container API is `KEY=VALUE`
+   * strings split on the *first* `=`. An unconstrained key of `LOAD_ENV_FROM_FILE=/data/x.env`
+   * is not on the denylist as written, but Docker parses it as exactly the variable the denylist
+   * exists to block — with the trailing `=` swallowed into the value. Constraining the key makes
+   * the denylist check the same string Docker will.
+   */
+  extraEnv: z
+    .record(
+      z
+        .string()
+        .regex(
+          /^[A-Za-z_][A-Za-z0-9_]*$/,
+          'Environment variable names may contain only letters, digits and underscores.'
+        ),
+      z.string().refine((value) => !value.includes('\u0000'), 'Value contains a NUL byte.')
+    )
+    .default({}),
+  /**
+   * Merged into server.properties after Platter's own mapping. Wins on conflict.
+   *
+   * Newlines are rejected in both key and value: the whole map is joined with `\n` into one
+   * environment variable, so a value containing a newline injects arbitrary further properties.
+   * `motd=hi\nrcon.password=hunter2` is the one that matters — it desynchronises the game's RCON
+   * password from the one in Platter's database, which breaks Platter's own control channel and
+   * leaves the RCON port answering to a password somebody else chose.
+   */
+  extraProperties: z
+    .record(
+      z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'Invalid server.properties key.'),
+      z.string().refine(
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point.
+        (value) => !/[\r\n\u0000]/.test(value),
+        'server.properties values must be a single line.'
+      )
+    )
+    .default({}),
 });
 
 export type ServerSettings = z.infer<typeof serverSettingsSchema>;
@@ -217,7 +252,14 @@ export const modProviderSchema = z.enum(['modrinth', 'curseforge', 'manual']);
 export type ModProvider = z.infer<typeof modProviderSchema>;
 
 /** Where a file ends up inside /data. Plugins and mods are not interchangeable. */
-export const modKindSchema = z.enum(['mod', 'plugin', 'datapack', 'resourcepack', 'shader', 'modpack']);
+export const modKindSchema = z.enum([
+  'mod',
+  'plugin',
+  'datapack',
+  'resourcepack',
+  'shader',
+  'modpack',
+]);
 export type ModKind = z.infer<typeof modKindSchema>;
 
 export const modSideSchema = z.enum(['required', 'optional', 'unsupported', 'unknown']);

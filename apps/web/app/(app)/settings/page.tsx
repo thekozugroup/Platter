@@ -50,8 +50,8 @@ export default async function SettingsPage() {
         <VStack padding={5} gap={0.5}>
           <Heading level={1}>Settings</Heading>
           <Text type="supporting">
-            Platter is configured through environment variables. These are the values it is
-            running with.
+            Platter is configured through environment variables. These are the values it is running
+            with.
           </Text>
         </VStack>
       </LayoutHeader>
@@ -90,8 +90,8 @@ export default async function SettingsPage() {
               <Heading level={2}>Storage</Heading>
               <CopyableValue label="Data directory" value={env.PLATTER_DATA_DIR} />
               <Text type="supporting">
-                The database, every world, every backup and the mod cache all live here. This is
-                the one directory to back up, and the one to delete to start over.
+                The database, every world, every backup and the mod cache all live here. This is the
+                one directory to back up, and the one to delete to start over.
               </Text>
             </VStack>
           </Card>
@@ -118,7 +118,9 @@ export default async function SettingsPage() {
               {env.PLATTER_HOST === '127.0.0.1' ? (
                 <Text type="supporting">
                   Platter is only reachable from this machine. Game servers are published on{' '}
-                  {env.PLATTER_BIND_ADDRESS === '0.0.0.0' ? 'every interface' : env.PLATTER_BIND_ADDRESS}
+                  {env.PLATTER_BIND_ADDRESS === '0.0.0.0'
+                    ? 'every interface'
+                    : env.PLATTER_BIND_ADDRESS}
                   , so other people can still join them.
                 </Text>
               ) : (

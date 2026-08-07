@@ -1,16 +1,17 @@
-import { eq } from 'drizzle-orm';
 import type { PlatterDatabase } from '@platter/db';
 import { settings as settingsTable } from '@platter/db';
 import {
-  type GameVersionEntry,
-  type MinecraftLoader,
-  type Result,
-  VersionIndex,
+  atLeastClassicFloor,
   attempt,
   fail,
+  type GameVersionEntry,
   logger,
+  type MinecraftLoader,
   ok,
+  type Result,
+  VersionIndex,
 } from '@platter/shared';
+import { eq } from 'drizzle-orm';
 
 const log = logger.child('catalog');
 
@@ -98,7 +99,10 @@ async function fetchVersions(): Promise<Result<GameVersionEntry[]>> {
     return response;
   }
   if (!response.value.ok) {
-    return fail('upstream_error', `Modrinth returned ${response.value.status} for the version list.`);
+    return fail(
+      'upstream_error',
+      `Modrinth returned ${response.value.status} for the version list.`
+    );
   }
 
   const parsed = await attempt(() => response.value.json() as Promise<RawTag[]>, 'upstream_error');
@@ -179,8 +183,21 @@ export async function getVersionIndex(
  *   - **Purpur** starts at 1.14.4.
  */
 export function availableLoaders(gameVersion: string, index: VersionIndex): MinecraftLoader[] {
+  /*
+   * The catalogue is authoritative when it knows both versions, because it also orders snapshots
+   * and pre-releases, which no amount of string parsing can.
+   *
+   * When it does not, fall back to a structural comparison rather than to `true`. Failing open
+   * looks harmless and is not: the built-in offline catalogue contains nine versions and only two
+   * of the five floors, so on a first run with no network `availableLoaders('1.12.2')` offered
+   * Folia, Purpur, Quilt and Fabric — none of which have builds for 1.12.2. The user picks one,
+   * and the failure arrives minutes later as a download 404 inside the container, which is
+   * precisely the outcome this function exists to prevent.
+   */
   const atLeast = (floor: string): boolean =>
-    index.has(gameVersion) && index.has(floor) ? index.compare(gameVersion, floor) >= 0 : true;
+    index.has(gameVersion) && index.has(floor)
+      ? index.compare(gameVersion, floor) >= 0
+      : atLeastClassicFloor(gameVersion, floor);
 
   const loaders: MinecraftLoader[] = ['vanilla'];
 

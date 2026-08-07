@@ -1,5 +1,5 @@
+import { attempt, ok, type Result } from '@platter/shared';
 import type Docker from 'dockerode';
-import { type Result, attempt, ok } from '@platter/shared';
 
 /**
  * Container resource statistics.

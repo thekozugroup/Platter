@@ -22,7 +22,22 @@ const booleanish = z
 
 const port = z.coerce.number().int().min(1).max(65_535);
 
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+/**
+ * An optional value that treats the empty string as absent.
+ *
+ * Compose writes `FOO: ${FOO:-}` for every optional secret, which sets the variable to an empty
+ * string rather than leaving it unset. Plain `.optional()` only skips `undefined`, so an empty
+ * interpolation reaches `.min(16)` and the container refuses to boot with a validation error
+ * about a variable the operator deliberately left blank.
+ */
+function optional<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    schema.optional()
+  );
+}
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]', '0:0:0:0:0:0:0:1']);
 
 /**
  * Are we inside a container?
@@ -55,14 +70,32 @@ export const envSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
     /* --- Web server -------------------------------------------------------- */
-    /** Bind address for the UI. Loopback by default; see SECURITY.md before changing. */
+    /**
+     * Bind address for the UI. Loopback by default; see SECURITY.md before changing.
+     *
+     * This is the address the socket is actually bound to — `scripts/serve.mjs` passes it to
+     * Next as `-H`, and the container entrypoint maps it onto Next's own `HOSTNAME`. It has to
+     * stay that way: the token requirement below is stated in terms of this value, so the moment
+     * it stops binding anything the requirement becomes decoration and Platter ships an
+     * unauthenticated control plane on every interface while telling the user it is on loopback.
+     */
     PLATTER_HOST: z.string().default('127.0.0.1'),
     PLATTER_PORT: port.default(4880),
     /**
      * Shared secret for the UI and HTTP API. Optional on loopback, mandatory otherwise.
      * Compared with a timing-safe equality check.
      */
-    PLATTER_AUTH_TOKEN: z.string().min(16).optional(),
+    PLATTER_AUTH_TOKEN: optional(z.string().min(16)),
+    /**
+     * Extra `Host` header values the UI will answer to, comma-separated.
+     *
+     * Requests arriving with any other DNS name are rejected. This is DNS-rebinding protection:
+     * an attacker's page cannot read a cross-origin response, but it can re-point its own
+     * short-TTL domain at Platter's address, at which point the browser considers the request
+     * same-origin and hands over both the response body and the session cookie. IP literals do
+     * not need listing — rebinding requires a name.
+     */
+    PLATTER_ALLOWED_HOSTS: optional(z.string()),
 
     /* --- Storage ----------------------------------------------------------- */
     /**
@@ -74,7 +107,7 @@ export const envSchema = z
     /* --- Docker ------------------------------------------------------------ */
     /** Unix socket or tcp:// URL. Overridden by DOCKER_HOST if that is set. */
     PLATTER_DOCKER_SOCKET: z.string().default('/var/run/docker.sock'),
-    DOCKER_HOST: z.string().optional(),
+    DOCKER_HOST: optional(z.string()),
     /**
      * Docker network game containers join. Platter creates it if missing. A dedicated bridge
      * keeps game servers off the default bridge, where they can see every other container.
@@ -100,9 +133,9 @@ export const envSchema = z
 
     /* --- Mod providers ----------------------------------------------------- */
     /** Optional. Modrinth is usable anonymously; a token raises the rate limit. */
-    MODRINTH_TOKEN: z.string().optional(),
+    MODRINTH_TOKEN: optional(z.string()),
     /** Required for any CurseForge feature. Without it Platter hides CurseForge entirely. */
-    CURSEFORGE_API_KEY: z.string().optional(),
+    CURSEFORGE_API_KEY: optional(z.string()),
 
     /* --- MCP --------------------------------------------------------------- */
     PLATTER_MCP_PORT: port.default(4881),
@@ -110,7 +143,7 @@ export const envSchema = z
      * Bearer token for the MCP HTTP transport. Generated on first run and written to
      * `$PLATTER_DATA_DIR/mcp-token` if unset. The stdio transport does not use it.
      */
-    PLATTER_MCP_TOKEN: z.string().min(16).optional(),
+    PLATTER_MCP_TOKEN: optional(z.string().min(16)),
     PLATTER_MCP_HOST: z.string().default('127.0.0.1'),
 
     /* --- Behaviour --------------------------------------------------------- */
@@ -127,7 +160,7 @@ export const envSchema = z
      * Force the containerised interpretation of PLATTER_HOST. Auto-detected from /.dockerenv;
      * set explicitly for Podman, nerdctl, or to opt back into the strict host behaviour.
      */
-    PLATTER_IN_CONTAINER: z.string().optional(),
+    PLATTER_IN_CONTAINER: optional(z.string()),
   })
   .transform((env) => ({
     ...env,

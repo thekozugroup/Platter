@@ -1,18 +1,18 @@
 import { createReadStream } from 'node:fs';
 import { mkdir, rename, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
+import { backups } from '@platter/db';
+import { fail, LIVE_STATUSES, logger, ok, paths, type Result, ulid } from '@platter/shared';
 import { eq } from 'drizzle-orm';
 import * as tar from 'tar-fs';
-import { backups } from '@platter/db';
-import { LIVE_STATUSES, type Result, fail, logger, ok, paths, ulid } from '@platter/shared';
 import type { Context } from '../context';
 import { EVENT, emitEvent } from '../events';
-import { isWithin } from '../paths';
+import { lockKey, withLock } from '../locks';
+import { isContained, isWithin } from '../paths';
 import { getServer } from '../servers/repository';
 import { startServer, stopServer } from '../servers/service';
-import { lockKey, withLock } from '../locks';
 import { runBackup } from './create';
 
 const log = logger.child('backups');
@@ -171,33 +171,65 @@ async function runRestore(
 }
 
 /**
+ * Where a link entry in an archive would actually point once extracted.
+ *
+ * `linkname` is interpreted by the kernel relative to the *directory holding the link*, not
+ * relative to the extraction root — so a link at `mods/cfg` with target `../../etc` lands two
+ * levels above `mods/`, not two above the destination. Resolving it against the wrong base makes
+ * the guard both too strict on innocent archives and too loose on hostile ones.
+ *
+ * An absolute target is refused outright rather than resolved: nothing Platter produces contains
+ * one, and there is no absolute target that is meaningful after the tree has been moved to a
+ * different machine and a different data directory.
+ */
+export function resolveLinkTarget(
+  destination: string,
+  entryName: string,
+  linkname: string
+): string | null {
+  if (linkname.includes('\0') || isAbsolute(linkname)) {
+    return null;
+  }
+  return resolve(destination, dirname(entryName), linkname);
+}
+
+/**
  * Extract the archive, refusing any entry that would write outside the destination.
  *
  * A tar archive can contain `../../etc/cron.d/x`, an absolute path, or a symlink whose target
  * escapes — this is the classic "Zip Slip" family and it applies equally to tar. Platter's own
- * archives are safe, but a user can upload one, and treating a file on disk as trusted because
- * we usually wrote it is exactly the assumption these bugs live in.
+ * archives are safe, but a user can upload one ("here's my world download", "here's my export
+ * from the other panel"), and treating a file on disk as trusted because we usually wrote it is
+ * exactly the assumption these bugs live in.
+ *
+ * The two checks use two different containment functions on purpose. Entry *names* are relative
+ * to the destination and tar-fs strips their leading slashes, so `isWithin`'s re-rooting matches
+ * what lands on disk. Link *targets* are literal paths, so they need `isContained`, which does
+ * not re-root — `isWithin('/data', '/etc/passwd')` is true, and a symlink guard that returns true
+ * for `/etc/passwd` is not a guard.
  */
 async function extract(archivePath: string, destination: string): Promise<void> {
   await pipeline(
     createReadStream(archivePath),
     createGunzip(),
     tar.extract(destination, {
-      // tar-fs strips leading slashes itself, but `..` segments and symlink targets still need
-      // checking, and a hard link's target is a path too.
-      ignore: (name) => !isWithin(destination, name),
+      // tar-fs hands `ignore` the already-joined absolute path, so this is the literal
+      // destination-relative check, not the entry-name one below.
+      ignore: (name) => !isContained(destination, name),
       map: (header) => {
         if (!isWithin(destination, header.name)) {
           throw new Error(`Archive entry "${header.name}" escapes the destination directory.`);
         }
         if (
           (header.type === 'symlink' || header.type === 'link') &&
-          header.linkname !== undefined &&
-          !isWithin(destination, header.linkname)
+          header.linkname !== undefined
         ) {
-          throw new Error(
-            `Archive entry "${header.name}" links to "${header.linkname}", outside the destination.`
-          );
+          const target = resolveLinkTarget(destination, header.name, header.linkname);
+          if (target === null || !isContained(destination, target)) {
+            throw new Error(
+              `Archive entry "${header.name}" links to "${header.linkname}", outside the destination.`
+            );
+          }
         }
         return header;
       },

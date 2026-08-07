@@ -5,8 +5,8 @@ import { HStack } from '@astryxdesign/core/HStack';
 import { Switch } from '@astryxdesign/core/Switch';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useToast } from '@astryxdesign/core/Toast';
+import { VStack } from '@astryxdesign/core/VStack';
 import type { ServerStatus } from '@platter/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sendCommandAction } from '@/lib/actions';
@@ -60,13 +60,7 @@ const MAX_LINES = 2000;
  * breaks the moment a mod reconfigures logging and cannot tell you *which* output belonged to
  * *your* command. A request/response channel just answers the question.
  */
-export function Console({
-  serverId,
-  status,
-}: {
-  serverId: string;
-  status: ServerStatus;
-}) {
+export function Console({ serverId, status }: { serverId: string; status: ServerStatus }) {
   const [lines, setLines] = useState<ConsoleLine[]>([]);
   const [connected, setConnected] = useState(false);
   const [follow, setFollow] = useState(true);
@@ -180,6 +174,9 @@ export function Console({
 
   // Stick to the bottom only while the user is already there. Yanking them back down mid-read
   // makes the console unusable exactly when they are trying to read an error.
+  // `lines` is the trigger, not an input: the effect reads the DOM rather than the array, and
+  // has to re-run on every append.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above.
   useEffect(() => {
     if (!follow || !scroller.current) {
       return;
@@ -244,12 +241,7 @@ export function Console({
               : 'Not running. Showing the last output before it stopped.'}
         </Text>
         <HStack gap={3} align="center">
-          <Switch
-            label="Follow output"
-            value={follow}
-            onChange={setFollow}
-            size="sm"
-          />
+          <Switch label="Follow output" value={follow} onChange={setFollow} size="sm" />
           <Button label="Clear" variant="ghost" size="sm" onClick={() => setLines([])} />
         </HStack>
       </HStack>
@@ -281,7 +273,9 @@ export function Console({
           isLabelHidden
           value={command}
           onChange={setCommand}
-          placeholder={running ? 'say hello, whitelist add name, op name…' : 'Server is not running'}
+          placeholder={
+            running ? 'say hello, whitelist add name, op name…' : 'Server is not running'
+          }
           isDisabled={!running || sending}
           width="100%"
           onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {

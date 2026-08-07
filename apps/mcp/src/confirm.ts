@@ -1,9 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { eq } from 'drizzle-orm';
 import type { Context } from '@platter/core';
 import { EVENT, emitEvent } from '@platter/core';
 import { proposals } from '@platter/db';
 import { ulid } from '@platter/shared';
+import { eq } from 'drizzle-orm';
 
 /**
  * Human confirmation for anything destructive.
@@ -30,7 +30,12 @@ import { ulid } from '@platter/shared';
 
 export type Decision =
   | { approved: true; proposalId: string; note?: string | undefined }
-  | { approved: false; proposalId: string; reason: 'declined' | 'cancelled' | 'unsupported'; message: string };
+  | {
+      approved: false;
+      proposalId: string;
+      reason: 'declined' | 'cancelled' | 'unsupported';
+      message: string;
+    };
 
 export interface ProposeOptions {
   ctx: Context;

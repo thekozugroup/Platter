@@ -1,6 +1,6 @@
-import { Layout, LayoutHeader } from '@astryxdesign/core/Layout';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Layout, LayoutHeader } from '@astryxdesign/core/Layout';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
@@ -10,8 +10,8 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ServerControls } from '@/components/server-controls';
 import { ServerTabs } from '@/components/server-tabs';
-import { presentStatus } from '@/lib/status';
 import { tryGetContext } from '@/lib/server';
+import { presentStatus } from '@/lib/status';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,32 +55,32 @@ export default async function ServerLayout({
 
   return (
     <Layout height="fill">
-        <LayoutHeader hasDivider>
-          <VStack paddingInline={5} paddingBlock={4} gap={4}>
-            <HStack justify="between" align="center" wrap="wrap" gap={3}>
-              <VStack gap={1}>
-                <HStack gap={2} align="center">
-                  <Heading level={1}>{server.name}</Heading>
-                  <StatusDot
-                    variant={presentation.variant}
-                    label={presentation.label}
-                    tooltip={presentation.tooltip}
-                    isPulsing={presentation.pulsing}
-                  />
-                  <Text type="supporting">{presentation.label}</Text>
-                </HStack>
-                <Text type="supporting">
-                  {LOADER_LABELS[server.loader]} {server.gameVersion} ·{' '}
-                  <span className="platter-mono">localhost:{server.port}</span>
-                </Text>
-              </VStack>
+      <LayoutHeader hasDivider>
+        <VStack paddingInline={5} paddingBlock={4} gap={4}>
+          <HStack justify="between" align="center" wrap="wrap" gap={3}>
+            <VStack gap={1}>
+              <HStack gap={2} align="center">
+                <Heading level={1}>{server.name}</Heading>
+                <StatusDot
+                  variant={presentation.variant}
+                  label={presentation.label}
+                  tooltip={presentation.tooltip}
+                  isPulsing={presentation.pulsing}
+                />
+                <Text type="supporting">{presentation.label}</Text>
+              </HStack>
+              <Text type="supporting">
+                {LOADER_LABELS[server.loader]} {server.gameVersion} ·{' '}
+                <span className="platter-mono">localhost:{server.port}</span>
+              </Text>
+            </VStack>
 
-              <ServerControls serverId={server.id} status={server.status} name={server.name} />
-            </HStack>
+            <ServerControls serverId={server.id} status={server.status} name={server.name} />
+          </HStack>
 
-            <ServerTabs serverId={server.id} />
-          </VStack>
-        </LayoutHeader>
+          <ServerTabs serverId={server.id} />
+        </VStack>
+      </LayoutHeader>
 
       {children}
     </Layout>

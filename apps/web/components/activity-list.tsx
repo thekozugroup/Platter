@@ -47,9 +47,7 @@ export function ActivityList({
         <ListItem
           key={event.id}
           label={event.message}
-          startContent={
-            <StatusDot variant={LEVEL_VARIANT[event.level]} label={event.level} />
-          }
+          startContent={<StatusDot variant={LEVEL_VARIANT[event.level]} label={event.level} />}
           endContent={
             <HStack gap={2} align="center">
               {event.actor === 'ai' ? <Token label="AI" size="sm" color="purple" /> : null}

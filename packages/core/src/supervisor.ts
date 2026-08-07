@@ -1,7 +1,8 @@
+import { schedules } from '@platter/db';
+import { logger, type ServerStatus } from '@platter/shared';
 import { Cron } from 'croner';
 import { and, eq } from 'drizzle-orm';
-import { schedules } from '@platter/db';
-import { type ServerStatus, logger } from '@platter/shared';
+import { createBackup, pruneBackups, sweepInterruptedBackups } from './backups/create';
 import type { Context } from './context';
 import { inspectContainer, listManaged } from './docker/guard';
 import { readLogTail } from './docker/logs';
@@ -10,7 +11,6 @@ import { READY_PATTERN } from './minecraft/manifest';
 import { reapIdleRcon } from './rcon';
 import { getServer, listServers, setStatus, updateServer } from './servers/repository';
 import { restartServer, startServer, stopServer } from './servers/service';
-import { createBackup, pruneBackups, sweepInterruptedBackups } from './backups/create';
 
 const log = logger.child('supervisor');
 
@@ -75,7 +75,9 @@ export function startSupervisor(ctx: Context): void {
 
   // One immediate pass so a restarted Platter shows accurate state straight away rather than
   // after the first interval.
-  void reconcileAll(ctx).catch((error) => log.error('initial reconcile failed', { error: String(error) }));
+  void reconcileAll(ctx).catch((error) =>
+    log.error('initial reconcile failed', { error: String(error) })
+  );
   syncSchedules(ctx);
 
   supervisor.timer = setInterval(() => {
@@ -262,7 +264,12 @@ function applyTransition(
       break;
 
     case 'unhealthy':
-      setStatus(ctx.db, serverId, 'unhealthy', 'Failing its health check — it may be hung or out of memory.');
+      setStatus(
+        ctx.db,
+        serverId,
+        'unhealthy',
+        'Failing its health check — it may be hung or out of memory.'
+      );
       emitEvent(ctx.db, {
         serverId,
         type: EVENT.serverUnhealthy,
@@ -428,7 +435,11 @@ export function syncSchedules(ctx: Context): void {
         .where(eq(schedules.id, row.id))
         .run();
     } catch (error) {
-      log.error('invalid cron expression', { scheduleId: row.id, cron: row.cron, error: String(error) });
+      log.error('invalid cron expression', {
+        scheduleId: row.id,
+        cron: row.cron,
+        error: String(error),
+      });
       ctx.db
         .update(schedules)
         .set({ enabled: false, lastStatus: 'error', lastMessage: `Invalid cron: ${row.cron}` })
@@ -440,7 +451,7 @@ export function syncSchedules(ctx: Context): void {
 
 async function runSchedule(ctx: Context, scheduleId: string): Promise<void> {
   const row = ctx.db.select().from(schedules).where(eq(schedules.id, scheduleId)).get();
-  if (!row || !row.enabled) {
+  if (!row?.enabled) {
     return;
   }
 
@@ -460,7 +471,10 @@ async function runSchedule(ctx: Context, scheduleId: string): Promise<void> {
       serverId: row.serverId,
       type: status === 'ok' ? EVENT.scheduleRan : EVENT.scheduleFailed,
       level: status === 'ok' ? 'info' : 'error',
-      message: status === 'ok' ? `Ran schedule "${row.name}"` : `Schedule "${row.name}" failed: ${message}`,
+      message:
+        status === 'ok'
+          ? `Ran schedule "${row.name}"`
+          : `Schedule "${row.name}" failed: ${message}`,
       actor: 'schedule',
       data: { scheduleId, action: row.action },
     });

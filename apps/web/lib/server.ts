@@ -1,6 +1,6 @@
 import 'server-only';
 import { type Context, createContext } from '@platter/core';
-import { type PlatterError, isErr } from '@platter/shared';
+import { isErr, type PlatterError } from '@platter/shared';
 
 /**
  * The request-side accessor for Platter's runtime context.

@@ -1,7 +1,8 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { type Context, listServers, resolveServer } from '@platter/core';
 import { LOADER_LABELS } from '@platter/shared';
 import { registerBackupTools } from './tools/backups';
+import { registerCreateTools } from './tools/create';
 import { registerDiagnosticTools } from './tools/diagnose';
 import { registerModTools } from './tools/mods';
 import { registerServerTools } from './tools/servers';
@@ -47,6 +48,7 @@ export function createMcpServer(ctx: Context): McpServer {
   );
 
   registerServerTools(server, ctx);
+  registerCreateTools(server, ctx);
   registerModTools(server, ctx);
   registerBackupTools(server, ctx);
   registerDiagnosticTools(server, ctx);
@@ -94,16 +96,30 @@ function registerResources(server: McpServer, ctx: Context): void {
     })
   );
 
+  /*
+   * A template, not a string.
+   *
+   * `registerResource` is overloaded on its second argument: a string registers a *fixed*
+   * resource at that exact URI, and a `ResourceTemplate` registers a pattern. Passing the string
+   * `platter://server/{id}` registered a resource literally named that — never expanded, never
+   * listed under `resources/templates/list`, and unreadable in both directions. A client asking
+   * for a real id found nothing registered at that URI, and a client dutifully reading the
+   * advertised literal got `%7Bid%7D` as the server reference.
+   *
+   * `list: undefined` because the collection is already `platter://servers`; advertising the
+   * same set twice makes a client enumerate it twice.
+   */
   server.registerResource(
     'server',
-    'platter://server/{id}',
+    new ResourceTemplate('platter://server/{id}', { list: undefined }),
     {
       title: 'One server',
       description: 'Full configuration and status for a single server.',
       mimeType: 'application/json',
     },
-    (uri: URL) => {
-      const id = uri.pathname.replace(/^\/+/, '') || uri.hostname;
+    (uri: URL, variables: { id?: string | string[] }) => {
+      const raw = Array.isArray(variables.id) ? variables.id[0] : variables.id;
+      const id = raw ?? '';
       const found = resolveServer(ctx.db, id);
       if (!found) {
         return {

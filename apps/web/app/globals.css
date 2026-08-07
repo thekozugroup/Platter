@@ -2,9 +2,9 @@
  * Astryx supplies the entire visual system: reset, component styles, and theme tokens.
  * The import order matters — reset, then components, then theme, so theme tokens win.
  */
-@import '@astryxdesign/core/reset.css';
-@import '@astryxdesign/core/astryx.css';
-@import '@astryxdesign/theme-neutral/theme.css';
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "@astryxdesign/theme-neutral/theme.css";
 
 /*
  * Everything below is Platter's own, and it is deliberately short. Astryx components handle
@@ -64,7 +64,7 @@ body {
   display: block;
 }
 
-.platter-console__line[data-stream='stderr'] {
+.platter-console__line[data-stream="stderr"] {
   color: var(--color-content-error, var(--color-content-primary));
 }
 
@@ -88,6 +88,12 @@ body {
   flex-shrink: 0;
 }
 
+/*
+ * `!important` is correct here and nowhere else. Honouring prefers-reduced-motion has to beat
+ * every animation on the page including inline styles, and someone who has asked their OS to
+ * stop animations is not asking for a negotiation about specificity.
+ */
+/* biome-ignore-start lint/complexity/noImportantStyles: an accessibility override must win. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -97,3 +103,4 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+/* biome-ignore-end lint/complexity/noImportantStyles: an accessibility override must win. */

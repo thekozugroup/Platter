@@ -4,16 +4,16 @@ import { copyFile, mkdir, rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { modInstalls } from '@platter/db';
+import type { ModProject, ModVersion } from '@platter/mods';
+import { fail, logger, ok, paths, type Result, ulid } from '@platter/shared';
 import { eq } from 'drizzle-orm';
+import { createBackup } from '../backups/create';
 import type { Context } from '../context';
 import { EVENT, emitEvent } from '../events';
 import { contentDirectory } from '../minecraft/manifest';
 import { resolveWithin } from '../paths';
-import { createBackup } from '../backups/create';
 import type { Server } from '../servers/repository';
-import { modInstalls } from '@platter/db';
-import type { ModProject, ModVersion } from '@platter/mods';
-import { type Result, fail, logger, ok, paths, ulid } from '@platter/shared';
 
 const log = logger.child('mods:install');
 
@@ -94,7 +94,7 @@ export async function installMods(
         reason:
           version.downloadBlockedReason ??
           'The author has disabled third-party downloads, so Platter cannot fetch this file. ' +
-            'Download it manually and drop it into the server\'s folder.',
+            "Download it manually and drop it into the server's folder.",
       });
       continue;
     }
@@ -241,7 +241,11 @@ export async function removeMods(
 async function fetchToCache(
   cacheDir: string,
   url: string,
-  expected: { sha1?: string | undefined; sha512?: string | undefined; expectedSize?: number | undefined }
+  expected: {
+    sha1?: string | undefined;
+    sha512?: string | undefined;
+    expectedSize?: number | undefined;
+  }
 ): Promise<Result<{ path: string; fromCache: boolean }>> {
   const key = expected.sha512 ?? expected.sha1;
   const cachePath = key ? join(cacheDir, `${key}.bin`) : undefined;
@@ -290,11 +294,17 @@ async function fetchToCache(
     }
     if (expected.sha512 && sha512.digest('hex') !== expected.sha512) {
       await rm(temporary, { force: true });
-      return fail('upstream_error', 'Downloaded file failed its SHA-512 check. Refusing to install it.');
+      return fail(
+        'upstream_error',
+        'Downloaded file failed its SHA-512 check. Refusing to install it.'
+      );
     }
     if (expected.sha1 && sha1.digest('hex') !== expected.sha1) {
       await rm(temporary, { force: true });
-      return fail('upstream_error', 'Downloaded file failed its SHA-1 check. Refusing to install it.');
+      return fail(
+        'upstream_error',
+        'Downloaded file failed its SHA-1 check. Refusing to install it.'
+      );
     }
 
     const finalPath = cachePath ?? join(cacheDir, `${ulid()}.bin`);
@@ -315,7 +325,14 @@ async function fetchToCache(
  * is the second line of defence, not the first.
  */
 function sanitiseFileName(name: string): string {
-  const base = basename(name).replace(/[\u0000-\u001f\u007f/\\]/g, '').trim();
-  const safe = base.length > 0 ? base : 'mod.jar';
+  const base = basename(name)
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point.
+    .replace(/[\u0000-\u001f\u007f/\\]/g, '')
+    .trim();
+  // `basename('.')` is `'.'`, and `resolveWithin(dir, '.')` resolves to `dir` itself — which is
+  // permitted, so the copy below would be a `copyFile` onto a directory. That throws `EISDIR`
+  // outside the `Result` discipline the rest of this function keeps, and the caller in the web
+  // action does not catch, so the user gets an error boundary instead of "skipped: unsafe name".
+  const safe = base.length > 0 && base !== '.' && base !== '..' ? base : 'mod.jar';
   return safe.length > 180 ? safe.slice(-180) : safe;
 }

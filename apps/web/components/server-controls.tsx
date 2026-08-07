@@ -6,8 +6,8 @@ import { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList'
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { useToast } from '@astryxdesign/core/Toast';
+import { VStack } from '@astryxdesign/core/VStack';
 import type { ServerStatus } from '@platter/shared';
 import { useState, useTransition } from 'react';
 import {
@@ -85,20 +85,15 @@ export function ServerControls({
           isDisabled={!actions.stop || pending}
           onClick={() => run(() => stopServerAction(serverId), `Stopping ${name}…`)}
         />
-        <Button
-          label="Delete"
-          variant="destructive"
-          isDisabled={pending}
-          onClick={openConfirm}
-        />
+        <Button label="Delete" variant="destructive" isDisabled={pending} onClick={openConfirm} />
       </HStack>
 
       <Dialog isOpen={confirmOpen} onOpenChange={setConfirmOpen} purpose="form" width={480}>
         <DialogHeader title={`Delete ${name}?`} onOpenChange={setConfirmOpen} />
         <VStack padding={4} gap={4}>
           <Text>
-            The container will be removed. By default the world, mods and backups stay on disk,
-            so you can recreate the server and point it at the same data.
+            The container will be removed. By default the world, mods and backups stay on disk, so
+            you can recreate the server and point it at the same data.
           </Text>
 
           <CheckboxList

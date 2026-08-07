@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events';
-import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
 import type { PlatterDatabase } from '@platter/db';
 import { events as eventsTable } from '@platter/db';
 import { type Actor, type EventLevel, ulid } from '@platter/shared';
+import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
 
 /**
  * The event stream.

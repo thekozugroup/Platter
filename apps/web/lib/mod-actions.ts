@@ -1,22 +1,17 @@
 'use server';
 
-import { and, eq } from 'drizzle-orm';
-import {
-  getVersionIndex,
-  installMods,
-  removeMods,
-  resolveServer,
-} from '@platter/core';
+import { getVersionIndex, installMods, removeMods, resolveServer } from '@platter/core';
 import { modInstalls } from '@platter/db';
 import {
-  CurseForgeClient,
+  acceptedLoaders,
   type CompatReport,
+  CurseForgeClient,
   ModRegistry,
   ModrinthClient,
-  acceptedLoaders,
   resolveDependencyGraph,
 } from '@platter/mods';
-import { LOADER_FAMILY, isErr, logger } from '@platter/shared';
+import { isErr, LOADER_FAMILY, logger } from '@platter/shared';
+import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getContext } from './server';
 
@@ -77,10 +72,7 @@ export interface SearchModsResult {
   degraded: { provider: string; reason: string }[];
 }
 
-export async function searchModsAction(
-  serverId: string,
-  query: string
-): Promise<SearchModsResult> {
+export async function searchModsAction(serverId: string, query: string): Promise<SearchModsResult> {
   const ctx = await getContext();
   const server = resolveServer(ctx.db, serverId);
   if (!server) {
@@ -97,9 +89,7 @@ export async function searchModsAction(
     };
   }
 
-  const found = await (
-    await registry()
-  ).search({
+  const found = await (await registry()).search({
     query,
     kind: family === 'plugin' ? 'plugin' : 'mod',
     loaders: acceptedLoaders({ loader: server.loader, gameVersion: server.gameVersion }),
@@ -210,10 +200,7 @@ export interface ModMutationResult {
   message: string;
 }
 
-export async function installModAction(
-  serverId: string,
-  ref: string
-): Promise<ModMutationResult> {
+export async function installModAction(serverId: string, ref: string): Promise<ModMutationResult> {
   const ctx = await getContext();
   const server = resolveServer(ctx.db, serverId);
   if (!server) {
@@ -281,7 +268,9 @@ export async function installModAction(
     message:
       `Installed ${outcome.value.installed.length} file${outcome.value.installed.length === 1 ? '' : 's'}. ` +
       'Restart the server to load them.' +
-      (skipped.length > 0 ? ` Skipped: ${skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}` : ''),
+      (skipped.length > 0
+        ? ` Skipped: ${skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}`
+        : ''),
   };
 }
 

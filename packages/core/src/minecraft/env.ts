@@ -1,8 +1,4 @@
-import {
-  type MinecraftLoader,
-  type ServerSettings,
-  heapForContainer,
-} from '@platter/shared';
+import { heapForContainer, type MinecraftLoader, type ServerSettings } from '@platter/shared';
 import { LOADER_TYPE, LOADER_VERSION_ENV } from './manifest';
 
 export interface BuildEnvInput {
@@ -14,8 +10,19 @@ export interface BuildEnvInput {
   rconPassword: string;
   /** Set when the server was created from a Modrinth modpack. */
   modrinthModpack?: { projectId: string; versionId?: string | undefined } | undefined;
-  /** Set when the server was created from a CurseForge modpack. Requires an API key. */
-  curseforgeModpack?: { fileId: string } | undefined;
+  /**
+   * Set when the server was created from a CurseForge modpack. Requires an API key.
+   *
+   * A file id alone does not identify a pack. The image's `start-deployAutoCF` maps `CF_SLUG` /
+   * `CF_PAGE_URL` to the project and treats `CF_FILE_ID` as a *pin* applied on top of one of
+   * them, so passing only the file id runs `install-curseforge --file-id=…` with nothing to
+   * install it from. Either identifier will do; the file id stays optional and means "this
+   * specific build" rather than "the newest".
+   */
+  curseforgeModpack?:
+    | { slug: string; fileId?: string | undefined; pageUrl?: undefined }
+    | { pageUrl: string; fileId?: string | undefined; slug?: undefined }
+    | undefined;
   curseforgeApiKey?: string | undefined;
   timezone?: string | undefined;
 }
@@ -116,21 +123,43 @@ export function buildContainerEnv(input: BuildEnvInput): Record<string, string> 
     set('LEVEL_TYPE', settings.levelType);
   }
 
+  /*
+   * Whitelist and ops: Platter's lists are authoritative.
+   *
+   * Both variables are emitted unconditionally, empty string included, and both are paired with
+   * `EXISTING_*_FILE=SYNCHRONIZE`. Neither half is optional.
+   *
+   * The image defaults `EXISTING_WHITELIST_FILE` to `SYNC_FILE_MERGE_LIST`, which its own
+   * `start-setupRbac` normalises to **MERGE** for the env-list form. Under MERGE, removing a
+   * name from Platter's list does nothing at all: `whitelist.json` keeps it and the player keeps
+   * joining. And the obvious `if (list.length > 0)` guard makes the last removal worse than the
+   * others — an unset variable is documented as "ignored", so emptying the list in the UI leaves
+   * the file exactly as it was, with no way to clear it from Platter ever again. The same is
+   * true of `OPS`, where the failure mode is that de-opping someone silently doesn't.
+   *
+   * SYNCHRONIZE removes entries that are not in the list while preserving `level` and
+   * `bypassesPlayerLimit` on the ones that stay, and `mc-image-helper` accepts an empty list, so
+   * "clear the whitelist" works. The cost is that changes made in-game with `/op` or
+   * `/whitelist add` are replaced by Platter's list on the next restart — which is the coherent
+   * contract for a panel that shows you these lists and lets you edit them, and is stated in the
+   * UI next to the fields.
+   */
   if (settings.whitelistEnabled) {
     set('ENABLE_WHITELIST', true);
     set('ENFORCE_WHITELIST', true);
-    if (settings.whitelist.length > 0) {
-      set('WHITELIST', settings.whitelist.join(','));
-    }
   }
-  if (settings.ops.length > 0) {
-    set('OPS', settings.ops.join(','));
-  }
+  set('WHITELIST', settings.whitelist.join(','));
+  set('EXISTING_WHITELIST_FILE', 'SYNCHRONIZE');
+  set('OPS', settings.ops.join(','));
+  set('EXISTING_OPS_FILE', 'SYNCHRONIZE');
 
   if (Object.keys(settings.extraProperties).length > 0) {
     set(
       'CUSTOM_SERVER_PROPERTIES',
       Object.entries(settings.extraProperties)
+        // Same reasoning as the env keys: a newline here is a property-injection primitive, and
+        // this function is not the only door into these settings.
+        .filter(([key, value]) => VALID_PROPERTY_KEY.test(key) && !/[\r\n]/.test(value))
         .map(([key, value]) => `${key}=${value}`)
         .join('\n')
     );
@@ -150,7 +179,14 @@ export function buildContainerEnv(input: BuildEnvInput): Record<string, string> 
 
   if (input.curseforgeModpack && input.curseforgeApiKey) {
     set('MODPACK_PLATFORM', 'AUTO_CURSEFORGE');
-    set('CF_FILE_ID', input.curseforgeModpack.fileId);
+    if (input.curseforgeModpack.slug) {
+      set('CF_SLUG', input.curseforgeModpack.slug);
+    } else if (input.curseforgeModpack.pageUrl) {
+      set('CF_PAGE_URL', input.curseforgeModpack.pageUrl);
+    }
+    if (input.curseforgeModpack.fileId) {
+      set('CF_FILE_ID', input.curseforgeModpack.fileId);
+    }
     set('CF_API_KEY', input.curseforgeApiKey);
     delete env.TYPE;
     delete env.VERSION;
@@ -159,8 +195,13 @@ export function buildContainerEnv(input: BuildEnvInput): Record<string, string> 
   /* --- Escape hatch ------------------------------------------------------ */
   // Applied last so a user override beats Platter's opinion. Deliberately excludes the
   // variables that would let a pack execute shell on the host's behalf.
+  //
+  // The key shape is re-checked here rather than trusted from the schema. `buildContainerEnv` is
+  // called with settings that came from the database, from an importer, and from the MCP layer,
+  // and a denylist that only holds when every caller validated first is a denylist that holds
+  // until someone adds a caller.
   for (const [key, value] of Object.entries(settings.extraEnv)) {
-    if (BLOCKED_ENV.has(key.toUpperCase())) {
+    if (!VALID_ENV_KEY.test(key) || BLOCKED_ENV.has(key.toUpperCase())) {
       continue;
     }
     env[key] = value;
@@ -172,10 +213,19 @@ export function buildContainerEnv(input: BuildEnvInput): Record<string, string> 
 /**
  * Variables Platter refuses to pass through from user-supplied config.
  *
- * The `LOAD_ENV_FROM_*` family lets a *downloaded artefact* define container environment
- * variables, and the image sources that file with bash — "any shell syntax it contains will be
- * evaluated". Worse, those values override the ones Platter sets, so a hostile pack could
- * rewrite `RCON_PASSWORD` or `UID`. That is arbitrary code execution by design; it stays off.
+ * Three families, for three different reasons.
+ *
+ * `LOAD_ENV_FROM_*` lets a *downloaded artefact* define container environment variables, and the
+ * image sources that file with bash — "any shell syntax it contains will be evaluated". Worse,
+ * those values override the ones Platter sets, so a hostile pack could rewrite `RCON_PASSWORD`
+ * or `UID`. That is arbitrary code execution by design; it stays off.
+ *
+ * The JVM argument family is the same primitive wearing a more respectable hat.
+ * `-XX:OnOutOfMemoryError="<command>"` runs a shell command on the next OOM, which for a modded
+ * server is a routine Tuesday, and `-javaagent:` loads arbitrary bytecode before `main`. These
+ * arrive in "recommended performance settings" snippets pasted from forums, which is precisely
+ * why they need to be refused rather than merely discouraged — the user pasting them has no way
+ * to tell the flags apart.
  *
  * The rest are variables Platter owns because correctness depends on them.
  */
@@ -184,6 +234,10 @@ const BLOCKED_ENV = new Set([
   'LOAD_ENV_FROM_FILE',
   'LOAD_ENV_FROM_ARCHIVE',
   'LOAD_ENV_FROM_ARCHIVE_ENTRY',
+  'JVM_OPTS',
+  'JVM_XX_OPTS',
+  'JVM_DD_OPTS',
+  'EXTRA_ARGS',
   'UID',
   'GID',
   'SKIP_SUDO',
@@ -197,4 +251,9 @@ const BLOCKED_ENV = new Set([
   'DISABLE_HEALTHCHECK',
 ]);
 
-export { BLOCKED_ENV };
+/** Conventional POSIX environment-variable name. No `=`, no whitespace, no surprises. */
+const VALID_ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
+/** `server.properties` keys are dotted lowercase words; anything else is not a real key. */
+const VALID_PROPERTY_KEY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+export { BLOCKED_ENV, VALID_ENV_KEY, VALID_PROPERTY_KEY };

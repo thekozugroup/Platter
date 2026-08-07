@@ -97,6 +97,28 @@ const CLASS_ID_BY_KIND: Readonly<Record<ModKind, number>> = {
   datapack: CLASS_ID.dataPacks,
 };
 
+/**
+ * Class order for a slug whose class the caller did not state.
+ *
+ * `slug` is unique *within* a class, not across them: "worldedit" is a real project name under
+ * both Mods and Bukkit Plugins, and a slug search that is not scoped to a class returns every one
+ * of them in whatever order the relevance ranking felt like. Taking the first row would let the
+ * same ref resolve to a different project between two runs, which turns a wrong install into an
+ * unreproducible one — so the order is written down instead of inherited from the API.
+ *
+ * Mods first because that is what the overwhelming majority of refs mean; modpacks last because
+ * installing an entire pack in place of one mod is the most expensive way to be wrong. A caller
+ * that already knows the class passes its `ModKind` and never reaches this.
+ */
+const SLUG_CLASS_PRECEDENCE: readonly number[] = [
+  CLASS_ID.mods,
+  CLASS_ID.bukkitPlugins,
+  CLASS_ID.dataPacks,
+  CLASS_ID.shaders,
+  CLASS_ID.resourcePacks,
+  CLASS_ID.modpacks,
+];
+
 const KIND_BY_CLASS_ID: Readonly<Record<number, ModKind>> = {
   [CLASS_ID.bukkitPlugins]: 'plugin',
   [CLASS_ID.mods]: 'mod',
@@ -453,6 +475,33 @@ export function normaliseMod(mod: CurseForgeModWire): ModProject {
   };
 }
 
+/**
+ * The one project a bare slug refers to, out of everything the search returned for it.
+ *
+ * Ranked rather than filtered, because the fallbacks matter: an entry whose `slug` came back null
+ * (the field is nullable and empties do turn up on older projects) still sorts in behind the
+ * exact matches instead of being discarded, and a class outside `SLUG_CLASS_PRECEDENCE` — Worlds,
+ * Customization, Addons — sorts last rather than out. Losing a real project to a strict filter is
+ * a `not_found` on something that exists, which is the failure this whole function is here to
+ * stop. Ties break on the lower project id: the older project is the one that has been answering
+ * to that name the longest, and it is stable across ranking changes upstream.
+ */
+export function chooseSlugMatch<
+  T extends { id: number; slug?: string | null | undefined; classId?: number | null | undefined },
+>(candidates: readonly T[], slug: string): T | undefined {
+  const wanted = slug.trim().toLowerCase();
+  const classRank = (candidate: T): number => {
+    const index = SLUG_CLASS_PRECEDENCE.indexOf(candidate.classId ?? -1);
+    return index === -1 ? SLUG_CLASS_PRECEDENCE.length : index;
+  };
+  const slugRank = (candidate: T): number =>
+    (candidate.slug ?? '').trim().toLowerCase() === wanted ? 0 : 1;
+
+  return [...candidates].sort(
+    (a, b) => slugRank(a) - slugRank(b) || classRank(a) - classRank(b) || a.id - b.id
+  )[0];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Client                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -673,37 +722,53 @@ export class CurseForgeClient implements ProviderClient {
   /**
    * `idOrSlug` accepts either, so callers can stay provider-agnostic. A slug costs one extra
    * search call; `classId` + `slug` is documented to yield a unique result.
+   *
+   * `classId` is sent only when `kind` says which class to look in. Defaulting it to Mods is the
+   * obvious-looking move — the uniqueness guarantee is stated in terms of the pair — but a slug
+   * filed under any other class then comes back as `data: []`, so every plugin, shader, data pack
+   * and modpack becomes unreachable by slug and only numeric ids work. An unscoped slug search
+   * costs exactly the same one request and finds all of them; the ambiguity it introduces is
+   * resolved by `chooseSlugMatch` rather than by the order the API happened to answer in.
    */
-  private async resolveModId(idOrSlug: string): Promise<Result<number>> {
+  private async resolveModId(idOrSlug: string, kind?: ModKind): Promise<Result<number>> {
     if (/^\d+$/.test(idOrSlug)) {
       return ok(Number(idOrSlug));
     }
+    const classId = kind === undefined ? undefined : CLASS_ID_BY_KIND[kind];
     const response = await this.http.getJson('/v1/mods/search', pagedEnvelope(z.array(modSchema)), {
       ttlMs: TTL.mod,
       query: {
         gameId: MINECRAFT_GAME_ID,
-        classId: CLASS_ID.mods,
+        classId,
         slug: idOrSlug,
-        pageSize: 1,
+        // A pinned class really is unique, so one row is all there is to fetch. Unpinned, the
+        // cross-class duplicates have to be on the page or there is nothing to choose between.
+        pageSize: classId === undefined ? CURSEFORGE_MAX_PAGE_SIZE : 1,
       },
     });
     if (!response.ok) {
       return response;
     }
-    const hit = response.value.data[0];
+    const hit = chooseSlugMatch(response.value.data, idOrSlug);
     return hit
       ? ok(hit.id)
       : fail('not_found', `No CurseForge project with slug "${idOrSlug}"`, {
-          details: { slug: idOrSlug },
+          details: { slug: idOrSlug, ...(kind === undefined ? {} : { kind }) },
         });
   }
 
-  async getProject(idOrSlug: string): Promise<Result<ModProject>> {
+  /**
+   * `kind` is a hint, not a filter: it narrows a slug lookup to one class and is ignored for a
+   * numeric id. Pass it when the caller already knows what it asked for — a hit that came back
+   * from `search`, or a ref typed by a user who picked a content type — and leave it off when it
+   * would only be a guess, because a wrong class is a `not_found` on a project that exists.
+   */
+  async getProject(idOrSlug: string, kind?: ModKind): Promise<Result<ModProject>> {
     const off = this.unavailable();
     if (off) {
       return off;
     }
-    const id = await this.resolveModId(idOrSlug);
+    const id = await this.resolveModId(idOrSlug, kind);
     if (!id.ok) {
       return id;
     }
@@ -740,62 +805,105 @@ export class CurseForgeClient implements ProviderClient {
 
   /* --- Files ------------------------------------------------------------- */
 
-  async getVersions(idOrSlug: string, filter: VersionFilter = {}): Promise<Result<ModVersion[]>> {
+  /** `kind` is the same slug-scoping hint as `getProject`'s, and is ignored for a numeric id. */
+  async getVersions(
+    idOrSlug: string,
+    filter: VersionFilter = {},
+    kind?: ModKind
+  ): Promise<Result<ModVersion[]>> {
     const off = this.unavailable();
     if (off) {
       return off;
     }
-    const id = await this.resolveModId(idOrSlug);
+    const id = await this.resolveModId(idOrSlug, kind);
     return id.ok ? this.getModFiles(id.value, filter) : id;
   }
 
   /**
-   * Files for one mod.
+   * Files for one mod, paged to exhaustion or to `filter.limit`.
    *
    * `/files` only accepts the *singular* `gameVersion` and `modLoaderType` — there are no plural
    * forms here at all. Anything beyond the first entry of each filter is applied client-side
    * against the file's own pseudo-version tags, which is authoritative anyway.
+   *
+   * The paging is not an optimisation, it is the difference between a correct answer and a
+   * plausible one. `pageSize` is hard-capped at 50 upstream, and a single page of a mature mod is
+   * only its 50 newest builds: JEI alone has 166 files for Forge 1.20.1. Stopping there means the
+   * client-side loader filter narrows an already-truncated list, and "use an older build instead"
+   * can never reach past the 50th newest — which is exactly where the build that still works on
+   * an older server tends to live. `filter.limit` is documented as a cap both providers honour,
+   * so it caps the walk instead of silently becoming its size.
    */
   async getModFiles(modId: number, filter: VersionFilter = {}): Promise<Result<ModVersion[]>> {
     const off = this.unavailable();
     if (off) {
       return off;
     }
+    // Also the clamp: a limit under 50 asks for one short page rather than a full one we discard.
     const bounds = checkPageBounds(0, filter.limit ?? CURSEFORGE_MAX_PAGE_SIZE);
     if (!bounds.ok) {
       return bounds;
     }
-    const response = await this.http.getJson(
-      `/v1/mods/${modId}/files`,
-      pagedEnvelope(z.array(fileSchema)),
-      {
-        ttlMs: TTL.file,
-        query: {
-          gameVersion: filter.gameVersions?.[0],
-          modLoaderType: filter.loaders?.[0] ? modLoaderTypeFor(filter.loaders[0]) : undefined,
-          index: 0,
-          pageSize: bounds.value.pageSize,
-        },
+    const pageSize = bounds.value.pageSize;
+    const limit = filter.limit ?? Number.POSITIVE_INFINITY;
+    const wanted = new Set((filter.loaders ?? []).map(normaliseLoaderName));
+
+    const collected: ModVersion[] = [];
+    for (let index = 0; ; index += pageSize) {
+      const page = checkPageBounds(index, pageSize);
+      if (!page.ok) {
+        // Past `index + pageSize <= 10000`. There is no cursor to continue with, so the honest
+        // move is to return the 10,000 files we did read rather than fail a call that mostly
+        // succeeded — no Minecraft project has ever come close to that many files anyway.
+        this.log.warn('stopping CurseForge file paging at the result window', { modId, index });
+        break;
       }
-    );
-    if (!response.ok) {
-      return response;
+      const response = await this.http.getJson(
+        `/v1/mods/${modId}/files`,
+        pagedEnvelope(z.array(fileSchema)),
+        {
+          ttlMs: TTL.file,
+          query: {
+            gameVersion: filter.gameVersions?.[0],
+            modLoaderType: filter.loaders?.[0] ? modLoaderTypeFor(filter.loaders[0]) : undefined,
+            index: page.value.index,
+            pageSize: page.value.pageSize,
+          },
+        }
+      );
+      if (!response.ok) {
+        return response;
+      }
+
+      for (const file of response.value.data) {
+        if (REJECTED_FILE_STATUS.has(file.fileStatus)) {
+          continue;
+        }
+        const version = normaliseFile(file);
+        // An empty loader list means loader-agnostic (data packs, universal jars); keeping those
+        // is correct, and `compat.ts` grades them as unknown rather than compatible.
+        const matches =
+          wanted.size === 0 ||
+          version.loaders.length === 0 ||
+          version.loaders.some((loader) => wanted.has(loader));
+        if (matches) {
+          collected.push(version);
+        }
+      }
+
+      // The limit is counted after filtering, so a page mostly full of other loaders' builds
+      // does not end the walk early with three files to show for it.
+      if (collected.length >= limit) {
+        break;
+      }
+      // `resultCount` is this page's size; a short page is the last one. `data.length` is checked
+      // too because an empty page with a lying count would otherwise loop until the window bound.
+      if (response.value.data.length === 0 || response.value.pagination.resultCount < pageSize) {
+        break;
+      }
     }
 
-    const wanted = new Set((filter.loaders ?? []).map(normaliseLoaderName));
-    const versions = response.value.data
-      .filter((file) => !REJECTED_FILE_STATUS.has(file.fileStatus))
-      .map((file) => normaliseFile(file));
-    const filtered =
-      wanted.size > 0
-        ? versions.filter(
-            // An empty loader list means loader-agnostic (data packs, universal jars); keeping
-            // those is correct, and `compat.ts` grades them as unknown rather than compatible.
-            (version) =>
-              version.loaders.length === 0 || version.loaders.some((loader) => wanted.has(loader))
-          )
-        : versions;
-    return ok(filtered);
+    return ok(filter.limit === undefined ? collected : collected.slice(0, filter.limit));
   }
 
   async getModFile(modId: number, fileId: number): Promise<Result<ModVersion>> {
