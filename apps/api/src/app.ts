@@ -30,9 +30,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     genReqId,
     trustProxy: config.trustProxy,
     bodyLimit: BODY_LIMIT_BYTES,
-    // `/servers` and `/servers/` are the same endpoint; a trailing slash from a client is
-    // not worth a 404.
-    ignoreTrailingSlash: true,
+    routerOptions: {
+      // `/servers` and `/servers/` are the same endpoint; a trailing slash from a client
+      // is not worth a 404.
+      ignoreTrailingSlash: true,
+    },
   });
 
   // This pair is what makes `.withTypeProvider<ZodTypeProvider>()` work in every route

@@ -25,11 +25,12 @@ export const AUTH_RATE_LIMIT: RateLimitOptions = { max: 10, timeWindow: '1 minut
 export const SENSITIVE_RATE_LIMIT: RateLimitOptions = { max: 5, timeWindow: '1 minute' };
 
 /**
- * Buckets are keyed by principal where we know one, so a shared NAT does not let one user
- * exhaust everyone else's budget, and rotating IPs does not reset an attacker's.
+ * Buckets are keyed by API key where one is presented, so rotating source addresses does
+ * not reset an automated caller's budget. Bearer tokens cannot be used here: this runs in
+ * `onRequest`, long before `authenticate` has verified anything, and trusting an
+ * unverified token as a bucket key would let a forged one share someone else's budget.
  */
 function rateLimitKey(request: FastifyRequest): string {
-  if (request.auth) return `user:${request.auth.user.id}`;
   const apiKey = request.headers['x-api-key'];
   if (typeof apiKey === 'string') {
     const prefix = apiKey.split('.')[0];
@@ -83,14 +84,14 @@ const securityPlugin: FastifyPluginAsync = async (app) => {
     max: config.rateLimitMax,
     timeWindow: '1 minute',
     keyGenerator: rateLimitKey,
-    // Returned instead of the plugin's own body so a throttled client parses the same
-    // envelope as every other failure.
-    errorResponseBuilder: (request, context) => {
-      return new PlatterError(
-        'rate_limited',
-        `Too many requests. Try again in ${context.after}.`,
-      ).toBody(request.id);
-    },
+    // The plugin *throws* whatever this returns, so it has to be an Error — returning a
+    // plain body object lands in the catch-all 500 branch of the error handler instead.
+    // A PlatterError carries its own status and renders the standard envelope, so a
+    // throttled client parses the same shape as every other failure.
+    errorResponseBuilder: (_request, context) =>
+      context.statusCode === 403
+        ? new PlatterError('forbidden', 'Blocked for repeatedly exceeding the rate limit.')
+        : new PlatterError('rate_limited', `Too many requests. Try again in ${context.after}.`),
   });
 };
 
