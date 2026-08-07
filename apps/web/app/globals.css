@@ -37,11 +37,27 @@ body {
   color: var(--color-content-primary);
   padding: var(--spacing-4);
   border-radius: var(--radius-md);
+
+  /*
+   * Sized against the viewport rather than left to grow with its content.
+   *
+   * The obvious approach — `flex: 1` inside a full-height frame — does not work here: the
+   * surrounding Layout does not subtract its own header from the height it hands down, so the
+   * console ends up taller than the space available and pushes the command input off the bottom
+   * of the page. That is exactly where you need the input when something has gone wrong.
+   *
+   * `clamp` keeps this honest as the header changes size: the console never collapses below a
+   * readable 20 lines, never grows past the viewport, and the input always sits directly under
+   * it. The 21rem allowance covers the app header, tabs, page padding and the toolbar.
+   */
+  flex: 0 1 auto;
+  min-height: 0;
+  height: clamp(18rem, calc(100dvh - 21rem), 60rem);
+
   /* Anchored to the bottom so new output pushes upward without the reader losing their place. */
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  min-height: 0;
 }
 
 .platter-console__line {

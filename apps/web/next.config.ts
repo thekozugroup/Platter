@@ -37,6 +37,12 @@ const config: NextConfig = {
 
   // Local-first: nothing here should be phoning home.
   poweredByHeader: false,
+
+  // In development Next refuses cross-origin requests for its own assets, and it treats
+  // `127.0.0.1` and `localhost` as different origins. Platter binds to 127.0.0.1 by default, so
+  // without this every asset 403s, nothing hydrates, and the page renders as a lifeless shell —
+  // with the only clue buried in the browser console.
+  allowedDevOrigins: ['127.0.0.1', 'localhost', '0.0.0.0', '[::1]'],
 };
 
 export default config;

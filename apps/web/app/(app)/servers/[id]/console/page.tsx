@@ -18,10 +18,8 @@ export default async function ConsolePage({ params }: { params: Promise<{ id: st
     notFound();
   }
 
-  // The console owns the full height of the content region — it is the one view where more
-  // visible lines is straightforwardly better.
   return (
-    <LayoutContent padding={5} isScrollable={false}>
+    <LayoutContent padding={5}>
       <Console serverId={server.id} status={server.status} />
     </LayoutContent>
   );

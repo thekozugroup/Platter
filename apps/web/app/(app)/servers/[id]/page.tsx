@@ -85,8 +85,7 @@ export default async function ServerOverviewPage({
           <VStack gap={3}>
             <Heading level={2}>Connect</Heading>
             <Text type="supporting">
-              Give this address to anyone on your network. From this machine, `localhost` works
-              too.
+              Give this address to anyone on your network.
             </Text>
             <Grid columns={{ minWidth: 260, max: 2 }} gap={3}>
               <CopyableValue label="Server address" value={`localhost:${server.port}`} />
@@ -116,8 +115,13 @@ export default async function ServerOverviewPage({
                 {health && health !== 'none' ? (
                   <MetadataListItem label="Health">{health}</MetadataListItem>
                 ) : null}
-                {exitCode !== undefined && server.status !== 'running' ? (
-                  <MetadataListItem label="Last exit code">{String(exitCode)}</MetadataListItem>
+                {/* Only worth showing when it explains something — a clean 0 is noise. */}
+                {exitCode !== undefined && exitCode !== 0 && server.status !== 'running' ? (
+                  <MetadataListItem label="Last exit code">
+                    {exitCode === 137
+                      ? '137 — killed, usually out of memory'
+                      : String(exitCode)}
+                  </MetadataListItem>
                 ) : null}
               </MetadataList>
               <Text type="supporting">{image.reason}</Text>

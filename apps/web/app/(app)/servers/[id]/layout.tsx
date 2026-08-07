@@ -8,7 +8,6 @@ import { getServer } from '@platter/core';
 import { LOADER_LABELS } from '@platter/shared';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { LiveRefresh } from '@/components/live-refresh';
 import { ServerControls } from '@/components/server-controls';
 import { ServerTabs } from '@/components/server-tabs';
 import { presentStatus } from '@/lib/status';
@@ -55,9 +54,7 @@ export default async function ServerLayout({
   const presentation = presentStatus(server.status);
 
   return (
-    <>
-      <LiveRefresh serverId={id} />
-      <Layout height="fill">
+    <Layout height="fill">
         <LayoutHeader hasDivider>
           <VStack paddingInline={5} paddingBlock={4} gap={4}>
             <HStack justify="between" align="center" wrap="wrap" gap={3}>
@@ -85,8 +82,7 @@ export default async function ServerLayout({
           </VStack>
         </LayoutHeader>
 
-        {children}
-      </Layout>
-    </>
+      {children}
+    </Layout>
   );
 }

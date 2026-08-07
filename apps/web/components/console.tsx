@@ -155,7 +155,7 @@ export function Console({
   const running = status === 'running' || status === 'unhealthy' || status === 'starting';
 
   return (
-    <VStack gap={3} height="100%" minHeight={0}>
+    <VStack gap={3} minHeight={0}>
       <HStack justify="between" align="center" gap={3} wrap="wrap">
         <Text type="supporting">
           {connected
@@ -187,7 +187,7 @@ export function Console({
         ) : (
           lines.map((line) => (
             <span key={line.seq} className="platter-console__line" data-stream={line.stream}>
-              {line.timestamp ? (
+              {line.timestamp && !hasOwnTimestamp(line.text) ? (
                 <span className="platter-console__time">{formatTime(line.timestamp)}</span>
               ) : null}
               {line.text}
@@ -242,4 +242,16 @@ export function Console({
 
 function formatTime(epochMs: number): string {
   return new Date(epochMs).toLocaleTimeString(undefined, { hour12: false });
+}
+
+/**
+ * Minecraft's own log format already opens with `[HH:mm:ss INFO]`, and the itzg entrypoint
+ * prefixes its lines similarly. Rendering Docker's timestamp alongside produces every line
+ * stamped twice, a few characters apart, which is both noisy and mildly confusing — the two
+ * clocks are not guaranteed to agree.
+ */
+const OWN_TIMESTAMP = /^\s*\[\d{2}:\d{2}:\d{2}/;
+
+function hasOwnTimestamp(text: string): boolean {
+  return OWN_TIMESTAMP.test(text);
 }
