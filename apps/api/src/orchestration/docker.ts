@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { StringDecoder } from 'node:string_decoder';
 import Docker from 'dockerode';
 import { PlatterError } from '@platter/shared';
 import { withTimeout } from '../lib/async.js';
@@ -20,9 +21,9 @@ import type {
  * The real driver: dockerode over a unix socket or a tcp endpoint.
  *
  * Two things here are easy to get subtly wrong and expensive to debug in production —
- * demultiplexing the log stream (see `LogDecoder`) and computing usage from Docker's
- * cumulative counters (see `readUsage`). Both are commented where the reasoning is not
- * obvious from the code.
+ * demultiplexing the log stream (`LogDecoder`) and deriving usage from Docker's cumulative
+ * counters (`cpuPercentFrom`, `memoryBytesFrom`). Both are commented where the reasoning
+ * is not obvious from the code.
  */
 
 const MIB = 1024 * 1024;
@@ -102,24 +103,29 @@ const FRAME_HEADER_BYTES = 8;
  * Lines are then split here rather than downstream because a single frame can hold many
  * lines or half of one, and the partial tail has to survive until the rest arrives.
  */
-class LogDecoder {
-  private buffer = Buffer.alloc(0);
+export class LogDecoder {
+  private buffer: Buffer = Buffer.alloc(0);
   private readonly partial = new Map<'stdout' | 'stderr', string>();
+  /**
+   * One decoder per stream, because a multi-byte character can be split across two frames
+   * exactly as easily as a frame can be split across two reads. Decoding each payload
+   * independently would turn a `é` that straddles the boundary into two replacement
+   * characters.
+   */
+  private readonly decoders = new Map<'stdout' | 'stderr', StringDecoder>();
 
   constructor(private readonly raw: boolean) {}
 
   push(chunk: Buffer): DriverLogLine[] {
-    this.buffer = this.buffer.length === 0 ? chunk : Buffer.concat([this.buffer, chunk]);
     const lines: DriverLogLine[] = [];
 
     if (this.raw) {
       // A TTY container has no framing at all; everything is stdout.
-      const text = this.buffer.toString('utf8');
-      this.buffer = Buffer.alloc(0);
-      this.split('stdout', text, lines);
+      this.split('stdout', chunk, lines);
       return lines;
     }
 
+    this.buffer = this.buffer.length === 0 ? chunk : Buffer.concat([this.buffer, chunk]);
     for (;;) {
       if (this.buffer.length < FRAME_HEADER_BYTES) break;
       const length = this.buffer.readUInt32BE(4);
@@ -128,7 +134,7 @@ class LogDecoder {
       const type = this.buffer.readUInt8(0);
       const payload = this.buffer.subarray(FRAME_HEADER_BYTES, FRAME_HEADER_BYTES + length);
       this.buffer = this.buffer.subarray(FRAME_HEADER_BYTES + length);
-      this.split(type === 2 ? 'stderr' : 'stdout', payload.toString('utf8'), lines);
+      this.split(type === 2 ? 'stderr' : 'stdout', payload, lines);
     }
 
     return lines;
@@ -137,16 +143,24 @@ class LogDecoder {
   /** Emits whatever is left when the stream ends, so a last line without `\n` is not lost. */
   flush(): DriverLogLine[] {
     const lines: DriverLogLine[] = [];
-    for (const [stream, text] of this.partial) {
-      if (text.length > 0) lines.push(decorate(stream, text));
+    for (const [stream, decoder] of this.decoders) {
+      const tail = (this.partial.get(stream) ?? '') + decoder.end();
+      if (tail.length > 0) lines.push(decorate(stream, tail));
     }
     this.partial.clear();
+    this.decoders.clear();
     this.buffer = Buffer.alloc(0);
     return lines;
   }
 
-  private split(stream: 'stdout' | 'stderr', text: string, out: DriverLogLine[]): void {
-    const combined = (this.partial.get(stream) ?? '') + text;
+  private split(stream: 'stdout' | 'stderr', payload: Buffer, out: DriverLogLine[]): void {
+    let decoder = this.decoders.get(stream);
+    if (!decoder) {
+      decoder = new StringDecoder('utf8');
+      this.decoders.set(stream, decoder);
+    }
+
+    const combined = (this.partial.get(stream) ?? '') + decoder.write(payload);
     const parts = combined.split('\n');
     this.partial.set(stream, parts.pop() ?? '');
     for (const part of parts) out.push(decorate(stream, part));

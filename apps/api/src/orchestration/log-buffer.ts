@@ -139,7 +139,7 @@ export class LogHub {
   }
 
   /** Oldest first, capped at what the ring still holds. */
-  backlog(limit = CAPACITY): LogLine[] {
+  backlog(limit: number = CAPACITY): LogLine[] {
     const wanted = Math.max(0, Math.min(Math.trunc(limit), this.stored));
     const lines: LogLine[] = [];
     for (let seq = this.nextSeq - wanted; seq < this.nextSeq; seq += 1) {

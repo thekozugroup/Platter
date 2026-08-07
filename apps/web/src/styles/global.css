@@ -17,6 +17,7 @@
   --color-surface: var(--pl-surface);
   --color-surface-hover: var(--pl-surface-hover);
   --color-surface-active: var(--pl-surface-active);
+  --color-surface-sidebar: var(--pl-surface-sidebar);
 
   --color-label: var(--pl-label);
   --color-label-secondary: var(--pl-label-secondary);
@@ -29,20 +30,31 @@
   --color-fill-tertiary: var(--pl-fill-tertiary);
 
   --color-separator: var(--pl-separator);
+  --color-separator-strong: var(--pl-separator-strong);
   --color-separator-opaque: var(--pl-separator-opaque);
   --color-hairline: var(--pl-hairline);
 
+  --color-primary: var(--pl-primary);
+  --color-primary-hover: var(--pl-primary-hover);
+  --color-primary-active: var(--pl-primary-active);
+  --color-primary-on: var(--pl-primary-on);
+
   --color-accent: var(--pl-accent);
   --color-accent-hover: var(--pl-accent-hover);
-  --color-accent-active: var(--pl-accent-active);
   --color-accent-subtle: var(--pl-accent-subtle);
   --color-accent-on: var(--pl-accent-on);
 
+  --color-pill: var(--pl-pill-bg);
+  --color-pill-border: var(--pl-pill-border);
+
   --color-success: var(--pl-success);
+  --color-success-dot: var(--pl-success-dot);
   --color-success-subtle: var(--pl-success-subtle);
   --color-warning: var(--pl-warning);
+  --color-warning-dot: var(--pl-warning-dot);
   --color-warning-subtle: var(--pl-warning-subtle);
   --color-danger: var(--pl-danger);
+  --color-danger-dot: var(--pl-danger-dot);
   --color-danger-subtle: var(--pl-danger-subtle);
   --color-info: var(--pl-info);
   --color-info-subtle: var(--pl-info-subtle);

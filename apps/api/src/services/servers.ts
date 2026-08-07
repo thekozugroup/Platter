@@ -227,7 +227,7 @@ function toServerSummary(row: SummaryRow): ServerSummary {
  * rendering: a server whose blueprint file was deleted must still be listable and
  * deletable.
  */
-async function findBlueprint(key: string, log?: FastifyBaseLogger): Promise<Blueprint | null> {
+export async function findBlueprint(key: string, log?: FastifyBaseLogger): Promise<Blueprint | null> {
   try {
     return await getBlueprint(key);
   } catch (error) {
@@ -423,11 +423,33 @@ function validateOne(
 }
 
 /**
+ * Strips the variables a blueprint marks hidden.
+ *
+ * Hidden variables are the blueprint's own — they are never rendered, so a request that
+ * carries one is either a stale form or an attempt to set an environment variable the
+ * blueprint deliberately did not expose. Applied to request input only; values already
+ * stored on the row keep theirs.
+ */
+export function withoutHiddenVariables(
+  blueprint: Blueprint,
+  values: Record<string, string>,
+): Record<string, string> {
+  const hidden = new Set(
+    blueprint.variables.filter((variable) => variable.hidden).map((variable) => variable.key),
+  );
+  const visible: Record<string, string> = {};
+  for (const [key, value] of Object.entries(values)) {
+    if (!hidden.has(key)) visible[key] = value;
+  }
+  return visible;
+}
+
+/**
  * Resolves the values that will be written to the row.
  *
- * Only keys the blueprint declares survive: an unknown key in the request is dropped
- * rather than rejected, because it is either a stale form or an attempt to inject an
- * environment variable the blueprint never intended to expose.
+ * Only keys the blueprint declares survive: an unknown key is dropped rather than
+ * rejected, because it is either a stale form or a variable the blueprint has since
+ * removed, and neither is worth failing a create over.
  */
 export function resolveVariables(
   blueprint: Blueprint,
@@ -438,8 +460,7 @@ export function resolveVariables(
   const values: Record<string, string> = {};
 
   for (const variable of blueprint.variables) {
-    // Hidden variables are the blueprint's own; a request cannot set them.
-    const supplied = variable.hidden ? undefined : provided[variable.key];
+    const supplied = provided[variable.key];
     const fallback = variable.default === null ? undefined : String(variable.default);
     const raw = supplied !== undefined && supplied !== '' ? supplied : fallback;
 
@@ -638,7 +659,7 @@ export async function createServer(
 
   const limits = resolveLimits(blueprint, input.limits);
   assertMeetsBlueprintMinimums(blueprint, limits);
-  const variables = resolveVariables(blueprint, input.variables, log);
+  const variables = resolveVariables(blueprint, withoutHiddenVariables(blueprint, input.variables), log);
   const node = await selectNode(input.nodeId, limits);
 
   const allocations = await allocatePorts(node.id, input.ports, blueprint.ports);
@@ -724,8 +745,12 @@ export async function updateServer(
       throw conflict('That blueprint is no longer installed, so its settings cannot be changed.');
     }
     // Merged with what is stored: a form that only submits the fields it rendered must
-    // not silently clear the variables it did not.
-    const merged = { ...parseVariables(server.variables, server.id, log), ...input.variables };
+    // not silently clear the variables it did not — including the hidden ones, which the
+    // form never had.
+    const merged = {
+      ...parseVariables(server.variables, server.id, log),
+      ...withoutHiddenVariables(blueprint, input.variables),
+    };
     data.variables = JSON.stringify(resolveVariables(blueprint, merged, log));
   }
 
@@ -774,25 +799,6 @@ export async function getServerStats(server: ServerRecord): Promise<ServerStats>
     playersMax: null,
     sampledAt: (usage?.sampledAt ?? new Date()).toISOString(),
   };
-}
-
-// ---------------------------------------------------------------------------
-// Console input
-// ---------------------------------------------------------------------------
-
-/**
- * Console input is written to the container's stdin, where a newline ends the command —
- * so a value containing one is two commands, and the second was never authorised or
- * audited. Rejected rather than trimmed for exactly that reason.
- */
-export function assertSendableCommand(server: ServerRecord, command: string): void {
-  if (/[\r\n]/.test(command)) throw badRequest('A console command cannot span multiple lines.');
-  if (command.trim().length === 0) throw badRequest('Enter a command to send.');
-
-  const status = presentStatus(server);
-  if (status !== 'running') {
-    throw new PlatterError('invalid_state', `${server.name} is ${status}, so it cannot take a command.`);
-  }
 }
 
 // ---------------------------------------------------------------------------
