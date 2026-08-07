@@ -12,6 +12,8 @@ import { heapForContainer, LOADER_LABELS } from '@platter/shared';
 import { notFound } from 'next/navigation';
 import { ActivityList } from '@/components/activity-list';
 import { CopyableValue } from '@/components/copyable-value';
+import { DockerUnavailable } from '@/components/docker-unavailable';
+import { lanAddresses } from '@/lib/network';
 import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +29,7 @@ export default async function ServerOverviewPage({ params }: { params: Promise<{
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
-    notFound();
+    return <DockerUnavailable message={result.error.message} />;
   }
 
   const described = await describeServer(result.context, id);
@@ -42,6 +44,10 @@ export default async function ServerOverviewPage({ params }: { params: Promise<{
     result.context.env.PLATTER_MINECRAFT_IMAGE_REPO
   );
   const heapMiB = heapForContainer(server.memoryMiB);
+
+  // Best-first; the rest are offered as alternatives rather than hidden, because only the person
+  // at the keyboard knows which network their friends are actually on.
+  const [lan, ...others] = lanAddresses();
 
   const stats =
     server.containerId && server.status === 'running'
@@ -80,11 +86,32 @@ export default async function ServerOverviewPage({ params }: { params: Promise<{
         <Card padding={4}>
           <VStack gap={3}>
             <Heading level={2}>Connect</Heading>
-            <Text type="supporting">Give this address to anyone on your network.</Text>
+            {/*
+             * The shareable address comes first, and `localhost` is labelled as what it is.
+             *
+             * These were the wrong way round: the page showed `localhost:25565` directly under
+             * "Give this address to anyone on your network", so everyone who was handed it
+             * connected to their own machine. Platter publishes game ports on every interface,
+             * so the LAN address works — it was simply never displayed.
+             */}
+            <Text type="supporting">
+              {lan
+                ? `Give the first address to anyone on your network. Platter picked it from ${lan.iface}; if your friends are on a different network, use the address for that one.`
+                : 'Platter could not find a network address for this machine. Anyone on your network can still connect using its IP address and the port below.'}
+            </Text>
             <Grid columns={{ minWidth: 260, max: 2 }} gap={3}>
-              <CopyableValue label="Server address" value={`localhost:${server.port}`} />
+              {lan ? (
+                <CopyableValue label="Server address" value={`${lan.address}:${server.port}`} />
+              ) : null}
+              <CopyableValue label="From this machine" value={`localhost:${server.port}`} />
               <CopyableValue label="Port" value={String(server.port)} />
             </Grid>
+            {others.length > 0 ? (
+              <Text type="supporting">
+                Other addresses for this machine:{' '}
+                {others.map((entry) => `${entry.address} (${entry.iface})`).join(', ')}
+              </Text>
+            ) : null}
           </VStack>
         </Card>
 

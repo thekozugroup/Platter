@@ -77,11 +77,38 @@ export interface Logger {
   readonly level: LogLevel;
 }
 
+/**
+ * Is there a Node-style stderr to write to?
+ *
+ * `@platter/shared` is a barrel, and a client component that imports one value from it — a label
+ * map, a version helper — pulls this whole module into the browser bundle. Bundlers shim
+ * `process.env` and nothing else, so `process.stderr` is `undefined` there and reading `.isTTY`
+ * off it throws at *module evaluation time*: not a caught error in a handler, but the whole
+ * client tree failing to mount. The page server-renders correctly, flashes, and blanks — which is
+ * the worst failure shape available, because the HTML in view-source looks fine.
+ *
+ * So the logger degrades to the console instead of assuming a terminal.
+ */
+function nodeStderr(): NodeJS.WriteStream | undefined {
+  return typeof process !== 'undefined' && typeof process.stderr?.write === 'function'
+    ? process.stderr
+    : undefined;
+}
+
 export function createLogger(options: LoggerOptions = {}): Logger {
   const level = options.level ?? 'info';
   const scope = options.scope;
-  const asJson = options.json ?? !process.stderr.isTTY;
-  const write = options.write ?? ((line: string) => process.stderr.write(`${line}\n`));
+  const stderr = nodeStderr();
+  const asJson = options.json ?? (stderr ? !stderr.isTTY : false);
+  const write =
+    options.write ??
+    (stderr
+      ? (line: string) => {
+          stderr.write(`${line}\n`);
+        }
+      : (line: string) => {
+          console.error(line);
+        });
   const threshold = LEVEL_ORDER[level];
 
   const emit = (entry: LogLevel, message: string, context?: Record<string, unknown>): void => {
@@ -130,6 +157,10 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 
 /** Default logger. Subsystems should call `.child('name')` rather than creating their own. */
 export const logger = createLogger({
-  level: (process.env.PLATTER_LOG_LEVEL as LogLevel | undefined) ?? 'info',
+  // Guarded for the same reason as `nodeStderr` — `process` itself may be absent.
+  level:
+    (typeof process !== 'undefined'
+      ? (process.env.PLATTER_LOG_LEVEL as LogLevel | undefined)
+      : undefined) ?? 'info',
   scope: 'platter',
 });

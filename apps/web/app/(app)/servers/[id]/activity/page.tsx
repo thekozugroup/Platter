@@ -3,8 +3,8 @@ import { LayoutContent } from '@astryxdesign/core/Layout';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { listEvents } from '@platter/core';
-import { notFound } from 'next/navigation';
 import { ActivityList } from '@/components/activity-list';
+import { DockerUnavailable } from '@/components/docker-unavailable';
 import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export default async function ServerActivityPage({ params }: { params: Promise<{
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
-    notFound();
+    return <DockerUnavailable message={result.error.message} />;
   }
 
   const events = listEvents(result.context.db, { serverId: id, limit: 200 });

@@ -1,11 +1,11 @@
 'use client';
 
-import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { HStack } from '@astryxdesign/core/HStack';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { pixel, proportional, Table } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
 import { Timestamp } from '@astryxdesign/core/Timestamp';
@@ -106,13 +106,42 @@ export function BackupsPanel({
                 <VStack gap={0.5}>
                   <Timestamp value={new Date(backup.createdAt).toISOString()} format="auto" />
                   {backup.label ? <Text type="supporting">{backup.label}</Text> : null}
-                  {backup.status === 'failed' ? (
-                    <Text type="supporting" color="accent">
-                      {backup.statusMessage ?? 'Failed'}
-                    </Text>
-                  ) : null}
                 </VStack>
               ),
+            },
+            {
+              /*
+               * A status column, because a failed backup used to look like a successful one.
+               *
+               * The only signal was a sentence rendered in `color="accent"` — the brand colour,
+               * which reads as a caption, not an error — while the row simultaneously showed a
+               * green "Live" pill derived from `hotBackup` alone, independent of whether the
+               * backup worked. Someone scanning the column for "did last night's run succeed"
+               * saw green and moved on. Now the loudest element in a failed row says failed.
+               */
+              key: 'status',
+              header: 'Status',
+              width: pixel(210),
+              renderCell: (backup) => {
+                const presentation = presentBackupStatus(backup.status);
+                return (
+                  <VStack gap={0.5}>
+                    <HStack gap={1.5} align="center">
+                      <StatusDot
+                        variant={presentation.variant}
+                        label={presentation.label}
+                        isPulsing={presentation.pulsing}
+                      />
+                      <Text type="supporting">{presentation.label}</Text>
+                    </HStack>
+                    {backup.status === 'failed' && backup.statusMessage ? (
+                      <Text type="supporting" maxLines={2}>
+                        {backup.statusMessage}
+                      </Text>
+                    ) : null}
+                  </VStack>
+                );
+              },
             },
             {
               key: 'sizeBytes',
@@ -129,13 +158,11 @@ export function BackupsPanel({
               header: 'Taken',
               width: pixel(190),
               renderCell: (backup) => (
-                <HStack gap={1.5} wrap="wrap">
-                  <Badge
-                    label={backup.hotBackup ? 'Live' : 'Offline'}
-                    variant={backup.hotBackup ? 'success' : 'neutral'}
-                  />
-                  <Badge label={triggerLabel(backup.trigger)} variant="neutral" />
-                </HStack>
+                // Metadata, not status. A green "success" pill on every hot backup competes with
+                // the status column for exactly the attention the status column needs.
+                <Text type="supporting">
+                  {triggerLabel(backup.trigger)} · {backup.hotBackup ? 'while running' : 'offline'}
+                </Text>
               ),
             },
             {
@@ -149,6 +176,14 @@ export function BackupsPanel({
                     label="Restore"
                     size="sm"
                     isDisabled={backup.status !== 'complete' || pending}
+                    {...(backup.status !== 'complete'
+                      ? {
+                          disabledMessage:
+                            backup.status === 'failed'
+                              ? 'This backup did not finish, so there is nothing to restore.'
+                              : 'This backup is still being written.',
+                        }
+                      : {})}
                     onClick={() => setRestoring(backup)}
                   />
                   <Button
@@ -246,4 +281,29 @@ function formatBytes(bytes: number): string {
     unit++;
   }
   return `${value.toFixed(value < 10 && unit > 0 ? 1 : 0)} ${units[unit]}`;
+}
+
+/**
+ * How a backup's own status reads.
+ *
+ * Separate from `presentStatus` for servers: the vocabulary is different ("Complete", not
+ * "Running") and conflating them would mean one map answering two unrelated questions.
+ */
+function presentBackupStatus(status: string): {
+  label: string;
+  variant: 'success' | 'warning' | 'error' | 'accent' | 'neutral';
+  pulsing: boolean;
+} {
+  switch (status) {
+    case 'complete':
+      return { label: 'Complete', variant: 'success', pulsing: false };
+    case 'running':
+      return { label: 'In progress', variant: 'accent', pulsing: true };
+    case 'pending':
+      return { label: 'Queued', variant: 'neutral', pulsing: false };
+    case 'failed':
+      return { label: 'Failed', variant: 'error', pulsing: false };
+    default:
+      return { label: status, variant: 'neutral', pulsing: false };
+  }
 }

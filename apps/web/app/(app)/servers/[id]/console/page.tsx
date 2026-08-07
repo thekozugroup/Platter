@@ -2,6 +2,7 @@ import { LayoutContent } from '@astryxdesign/core/Layout';
 import { getServer } from '@platter/core';
 import { notFound } from 'next/navigation';
 import { Console } from '@/components/console';
+import { DockerUnavailable } from '@/components/docker-unavailable';
 import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export default async function ConsolePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
-    notFound();
+    return <DockerUnavailable message={result.error.message} />;
   }
 
   const server = getServer(result.context.db, id);

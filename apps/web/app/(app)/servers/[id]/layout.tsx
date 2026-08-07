@@ -8,8 +8,10 @@ import { getServer } from '@platter/core';
 import { LOADER_LABELS } from '@platter/shared';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { DockerUnavailable } from '@/components/docker-unavailable';
 import { ServerControls } from '@/components/server-controls';
 import { ServerTabs } from '@/components/server-tabs';
+import { lanAddresses } from '@/lib/network';
 import { tryGetContext } from '@/lib/server';
 import { presentStatus } from '@/lib/status';
 
@@ -43,7 +45,7 @@ export default async function ServerLayout({
   const result = await tryGetContext();
 
   if (!result.ok) {
-    notFound();
+    return <DockerUnavailable message={result.error.message} />;
   }
 
   const server = getServer(result.context.db, id);
@@ -71,7 +73,9 @@ export default async function ServerLayout({
               </HStack>
               <Text type="supporting">
                 {LOADER_LABELS[server.loader]} {server.gameVersion} ·{' '}
-                <span className="platter-mono">localhost:{server.port}</span>
+                <span className="platter-mono">
+                  {lanAddresses()[0]?.address ?? 'localhost'}:{server.port}
+                </span>
               </Text>
             </VStack>
 

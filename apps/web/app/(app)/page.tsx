@@ -1,4 +1,3 @@
-import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -9,7 +8,9 @@ import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { listServers } from '@platter/core';
 import type { Metadata } from 'next';
+import { DockerUnavailable } from '@/components/docker-unavailable';
 import { ServerCard } from '@/components/server-card';
+import { lanAddresses } from '@/lib/network';
 import { tryGetContext } from '@/lib/server';
 
 export const metadata: Metadata = { title: 'Dashboard' };
@@ -23,6 +24,9 @@ export default async function DashboardPage() {
   }
 
   const servers = listServers(result.context.db);
+  // Resolved once for the whole grid: it is the same answer for every card, and it is the
+  // address someone can actually hand to a friend.
+  const host = lanAddresses()[0]?.address ?? 'localhost';
 
   return (
     <Layout height="fill">
@@ -63,32 +67,12 @@ export default async function DashboardPage() {
                 gameVersion={server.gameVersion}
                 port={server.port}
                 memoryMiB={server.memoryMiB}
+                host={host}
                 statusMessage={server.statusMessage}
               />
             ))}
           </Grid>
         )}
-      </LayoutContent>
-    </Layout>
-  );
-}
-
-/**
- * Docker being down is an ordinary state for a local app, not an exception. It gets a real
- * explanation with the exact command to fix it, rather than an error boundary.
- */
-function DockerUnavailable({ message }: { message: string }) {
-  return (
-    <Layout height="fill">
-      <LayoutContent padding={5}>
-        <VStack gap={4} maxWidth={640}>
-          <Banner status="error" title="Platter can't reach Docker" description={message} />
-          <Text type="supporting">
-            Platter runs every game server in its own container, so it needs a running Docker
-            engine. Start Docker Desktop, Colima, OrbStack or `sudo systemctl start docker`, then
-            reload this page.
-          </Text>
-        </VStack>
       </LayoutContent>
     </Layout>
   );

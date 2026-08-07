@@ -151,7 +151,11 @@ export async function reconcileServer(ctx: Context, serverId: string): Promise<v
   }
   if (!server.containerId) {
     if (server.status !== 'stopped' && server.status !== 'error') {
-      setStatus(ctx.db, serverId, 'stopped', 'No container exists for this server.');
+      // Phrased for the person reading it in the UI, not for the log. "No container exists"
+      // is accurate and unhelpful — a Minecraft server owner does not know what a container is,
+      // and the sentence reads as though something is missing or corrupt when the server is
+      // simply not running.
+      setStatus(ctx.db, serverId, 'stopped', 'Not started yet. Start it whenever you like.');
     }
     return;
   }

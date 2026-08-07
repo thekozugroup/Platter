@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@astryxdesign/core/Button';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Switch } from '@astryxdesign/core/Switch';
 import { Text } from '@astryxdesign/core/Text';
@@ -9,7 +10,7 @@ import { useToast } from '@astryxdesign/core/Toast';
 import { VStack } from '@astryxdesign/core/VStack';
 import type { ServerStatus } from '@platter/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { sendCommandAction } from '@/lib/actions';
+import { sendCommandAction, startServerAction } from '@/lib/actions';
 
 interface LogLine {
   seq: number;
@@ -28,6 +29,8 @@ interface LogLine {
  */
 interface ConsoleLine extends LogLine {
   key: string;
+  /** `local` means Platter wrote it — an RCON response, not container output. */
+  origin: 'container' | 'local';
 }
 
 /**
@@ -68,6 +71,9 @@ export function Console({ serverId, status }: { serverId: string; status: Server
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  /** Why the stream is not connected, when the endpoint told us. */
+  const [failure, setFailure] = useState<{ status: number; message: string } | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const scroller = useRef<HTMLDivElement | null>(null);
   const showToast = useToast();
@@ -111,6 +117,7 @@ export function Console({ serverId, status }: { serverId: string; status: Server
       source.addEventListener('open', () => {
         attempt = 0;
         setConnected(true);
+        setFailure(null);
       });
 
       source.addEventListener('line', (event) => {
@@ -144,7 +151,7 @@ export function Console({ serverId, status }: { serverId: string; status: Server
 
         setLines((current) => {
           const next = current.length >= MAX_LINES ? current.slice(-MAX_LINES + 1) : current;
-          return [...next, { ...line, key: makeKey() }];
+          return [...next, { ...line, key: makeKey(), origin: 'container' as const }];
         });
       });
 
@@ -154,6 +161,28 @@ export function Console({ serverId, status }: { serverId: string; status: Server
         if (closed) {
           return;
         }
+
+        /*
+         * Find out *why*, because the endpoint knows and `EventSource` throws that away.
+         *
+         * A server with no container answers 409 with "Server has no container" — actionable,
+         * final, and previously discarded in favour of an indefinite 20-second retry loop under
+         * a "Waiting for output…" message that would never stop waiting. A one-shot fetch of the
+         * same URL costs nothing and turns a lie into an explanation.
+         */
+        void fetch(`/api/servers/${serverId}/logs?tail=1`)
+          .then(async (response) => {
+            if (closed || response.ok) {
+              return;
+            }
+            const body = (await response.text()).trim();
+            setFailure({
+              status: response.status,
+              message: body || 'The log stream is unavailable.',
+            });
+          })
+          .catch(() => undefined);
+
         // A stopped server closes the stream immediately; backing off keeps this from becoming
         // a reconnect loop against a container that is not coming back.
         attempt = Math.min(attempt + 1, 6);
@@ -217,6 +246,7 @@ export function Console({ serverId, status }: { serverId: string; status: Server
         ...current,
         {
           key: makeKey(),
+          origin: 'local' as const,
           seq: -1,
           stream: 'stdout',
           // Rendered without a clock: this line never came from the container, so stamping it
@@ -230,40 +260,121 @@ export function Console({ serverId, status }: { serverId: string; status: Server
 
   const running = status === 'running' || status === 'unhealthy' || status === 'starting';
 
+  /*
+   * What the toolbar says about the stream.
+   *
+   * Only claims "showing the last output" when output was actually received. The previous
+   * version asserted it for every non-connected state, including the one where the request was
+   * refused and nothing was ever fetched.
+   */
+  const streamStatus = connected
+    ? `Streaming · ${lines.length} line${lines.length === 1 ? '' : 's'}`
+    : lines.length > 0
+      ? `Disconnected · showing ${lines.length} line${lines.length === 1 ? '' : 's'} received earlier`
+      : failure
+        ? 'Not streaming.'
+        : running
+          ? 'Connecting…'
+          : 'Not running.';
+
   return (
     <VStack gap={3} minHeight={0}>
       <HStack justify="between" align="center" gap={3} wrap="wrap">
-        <Text type="supporting">
-          {connected
-            ? `Streaming · ${lines.length} line${lines.length === 1 ? '' : 's'}`
-            : running
-              ? 'Reconnecting…'
-              : 'Not running. Showing the last output before it stopped.'}
+        {/*
+         * The one thing worth announcing. The log itself is not a live region — see the
+         * `aria-live="off"` note on the console below.
+         */}
+        <Text type="supporting" aria-live="polite">
+          {streamStatus}
         </Text>
         <HStack gap={3} align="center">
           <Switch label="Follow output" value={follow} onChange={setFollow} size="sm" />
-          <Button label="Clear" variant="ghost" size="sm" onClick={() => setLines([])} />
+          <Button
+            label="Clear"
+            variant="ghost"
+            size="sm"
+            isDisabled={lines.length === 0}
+            onClick={() => setLines([])}
+          />
         </HStack>
       </HStack>
 
+      {/*
+       * `role="log"` with `aria-live="off"`, and focusable.
+       *
+       * The region was `aria-live="polite"` over the whole log, which queues every appended line
+       * for announcement. A crash-looping modded server emits thousands of lines a minute, so a
+       * screen reader would never stop talking — the user could not hear the toasts, the command
+       * errors, or anything else on the page. Connection state is announced by the toolbar line
+       * above instead, which changes a handful of times rather than continuously.
+       *
+       * `tabIndex={0}` because a scrollable region has to be reachable by keyboard (WCAG 2.1.1);
+       * before the flex-end fix it was not scrollable at all, so this was moot.
+       */}
       <section
         className="platter-console"
         ref={scroller}
         onScroll={onScroll}
         aria-label="Server console output"
-        aria-live="polite"
+        role="log"
+        aria-live="off"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: WCAG 2.1.1 requires a scrollable region to be keyboard reachable.
+        tabIndex={0}
       >
         {lines.length === 0 ? (
-          <Text type="supporting">Waiting for output…</Text>
+          <EmptyState
+            isCompact
+            title={failure ? 'No console output' : running ? 'Waiting for output…' : 'Not running'}
+            description={
+              failure
+                ? failure.status === 409
+                  ? 'This server has never been started, so there is no container to read logs from.'
+                  : failure.message
+                : running
+                  ? 'Connected to the server. Output appears here as it is produced.'
+                  : 'Start the server to see its console. Your world is safe on disk in the meantime.'
+            }
+            {...(running
+              ? {}
+              : {
+                  actions: (
+                    <Button
+                      label="Start server"
+                      variant="primary"
+                      isLoading={starting}
+                      onClick={() => {
+                        setStarting(true);
+                        void startServerAction(serverId)
+                          .then((outcome) => {
+                            if (!outcome.ok) {
+                              showToast({
+                                body: outcome.message ?? 'Could not start the server.',
+                                type: 'error',
+                              });
+                            }
+                          })
+                          .finally(() => setStarting(false));
+                      }}
+                    />
+                  ),
+                })}
+          />
         ) : (
-          lines.map((line) => (
-            <span key={line.key} className="platter-console__line" data-stream={line.stream}>
-              {line.timestamp && !hasOwnTimestamp(line.text) ? (
-                <span className="platter-console__time">{formatTime(line.timestamp)}</span>
-              ) : null}
-              {line.text}
-            </span>
-          ))
+          <span className="platter-console__body">
+            {lines.map((line) => (
+              <span
+                key={line.key}
+                className="platter-console__line"
+                data-stream={line.stream}
+                data-origin={line.origin}
+              >
+                {line.timestamp && !hasOwnTimestamp(line.text) ? (
+                  <span className="platter-console__time">{formatTime(line.timestamp)}</span>
+                ) : null}
+                {line.text}
+              </span>
+            ))}
+          </span>
         )}
       </section>
 
@@ -295,7 +406,11 @@ export function Console({ serverId, status }: { serverId: string; status: Server
             }
             if (event.key === 'ArrowDown') {
               event.preventDefault();
-              const next = historyIndex - 1;
+              // Clamped at -1 — "no history entry selected". Without the floor, one ArrowDown
+              // press on a fresh field takes the index to -2, and every subsequent ArrowUp
+              // computes -1, fails its own `>= 0` guard, and leaves it there. History dies
+              // permanently until the next command is submitted.
+              const next = Math.max(historyIndex - 1, -1);
               setHistoryIndex(next);
               setCommand(next >= 0 ? (history[next] ?? '') : '');
             }

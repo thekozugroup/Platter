@@ -247,20 +247,37 @@ export function NewServerForm({
             {/* CheckboxList is controlled and does not post a value, so the form carries it. */}
             <input type="hidden" name="acceptEula" value={acceptEula ? 'on' : ''} />
             {state.fieldErrors?.acceptEula ? (
-              <Text type="supporting" color="accent">
-                {state.fieldErrors.acceptEula}
-              </Text>
+              <Banner
+                status="error"
+                title="EULA not accepted"
+                description={state.fieldErrors.acceptEula}
+              />
             ) : null}
           </VStack>
         </Section>
 
         <HStack gap={2} justify="start">
+          {/*
+           * Disabled buttons have to say why.
+           *
+           * The EULA checkbox sits about 200px up the page inside a section whose label is
+           * hidden, below three other sections. Nothing connected it to a greyed-out button at
+           * the bottom, so the user filled in every field, scrolled down, found "Create server"
+           * dead, and had to guess. Worse, because the button could never be clicked in that
+           * state, the good server-side message — "You must accept the Minecraft EULA to
+           * continue." — was unreachable code.
+           */}
           <Button
             label={pending ? 'Creating…' : 'Create server'}
             variant="primary"
             type="submit"
             isLoading={pending}
             isDisabled={!acceptEula || name.trim().length === 0}
+            {...(name.trim().length === 0
+              ? { disabledMessage: 'Give the server a name first.' }
+              : acceptEula
+                ? {}
+                : { disabledMessage: 'Accept the Minecraft EULA above to continue.' })}
           />
           <Button label="Cancel" variant="ghost" href="/" />
         </HStack>

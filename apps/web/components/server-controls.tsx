@@ -6,6 +6,7 @@ import { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList'
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { useToast } from '@astryxdesign/core/Toast';
 import { VStack } from '@astryxdesign/core/VStack';
 import type { ServerStatus } from '@platter/shared';
@@ -116,20 +117,26 @@ export function ServerControls({
                 title="This cannot be undone"
                 description={`Type "${name}" to confirm you want to destroy the data.`}
               />
-              {/* A confirmation input, not layout — the field label is the banner above it. */}
-              <input
-                aria-label={`Type ${name} to confirm`}
+              {/*
+               * A real TextInput, not a hand-styled `<input>`.
+               *
+               * The bespoke version referenced `--color-border-default`, which does not exist,
+               * so the whole `border` shorthand was invalid and collapsed to `border: 0` — and
+               * its background resolved to the same colour as the dialog behind it. The result
+               * was floating grey text with no box and no affordance, in front of the app's
+               * only irreversible action, while the user wondered why the button stayed
+               * disabled.
+               */}
+              <TextInput
+                label={`Type ${name} to confirm`}
+                isLabelHidden
                 value={typedName}
-                onChange={(event) => setTypedName(event.target.value)}
+                onChange={setTypedName}
                 placeholder={name}
-                style={{
-                  padding: 'var(--spacing-2)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-default)',
-                  background: 'var(--color-background-surface)',
-                  color: 'var(--color-content-primary)',
-                  font: 'inherit',
-                }}
+                width="100%"
+                {...(typedName.length > 0 && typedName !== name
+                  ? { status: { type: 'error' as const, message: "That doesn't match." } }
+                  : {})}
               />
             </VStack>
           ) : null}

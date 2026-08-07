@@ -5,6 +5,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { getServer, listBackups } from '@platter/core';
 import { notFound } from 'next/navigation';
 import { BackupsPanel } from '@/components/backups-panel';
+import { DockerUnavailable } from '@/components/docker-unavailable';
 import { tryGetContext } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export default async function BackupsPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
-    notFound();
+    return <DockerUnavailable message={result.error.message} />;
   }
 
   const server = getServer(result.context.db, id);

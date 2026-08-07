@@ -9,9 +9,15 @@
 /*
  * Everything below is Platter's own, and it is deliberately short. Astryx components handle
  * layout and spacing; the only things that need bespoke CSS are the ones no component covers:
- * the log console's virtualised scroll surface, and a couple of scrollbar affordances.
+ * the log console's scroll surface, and a couple of inline machine-value affordances.
  *
- * Every value is a theme token. No raw hex, no raw px.
+ * Every value is a real Astryx token — checked against `astryx docs tokens`, not guessed from
+ * the shape of the name. An earlier version of this file invented eight tokens that do not
+ * exist (`--color-content-primary`, `--color-border-default`, `--radius-md`, `--font-family-mono`
+ * and friends). CSS does not warn about that: an undefined custom property resolves to the empty
+ * string, the whole declaration is dropped, and you are left with a console rendering stderr in
+ * exactly the same colour as stdout and a body with no background. The failure is invisible in
+ * code review and only shows up if someone measures the computed styles.
  */
 
 html,
@@ -21,22 +27,29 @@ body {
 
 body {
   margin: 0;
-  background: var(--color-background-wash);
+  background: var(--color-background-body);
 }
 
-/* The live console. A monospace, scroll-anchored surface that Astryx has no primitive for. */
+/*
+ * The live console. A monospace scroll surface Astryx has no primitive for.
+ *
+ * `--font-size-sm` (12px), not `--font-size-2xs` (8px). The 2xs end of the scale exists for
+ * superscripts and dense chart labels; this is the primary debugging surface of the app, and
+ * 8px monospace is not readable text.
+ */
 .platter-console {
-  font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: var(--font-size-2xs);
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-sm);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--color-background-surface);
-  color: var(--color-content-primary);
+  color: var(--color-text-primary);
   padding: var(--spacing-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-container);
+  border: 1px solid var(--color-border);
 
   /*
    * Sized against the viewport rather than left to grow with its content.
@@ -46,36 +59,70 @@ body {
    * console ends up taller than the space available and pushes the command input off the bottom
    * of the page. That is exactly where you need the input when something has gone wrong.
    *
-   * `clamp` keeps this honest as the header changes size: the console never collapses below a
-   * readable 20 lines, never grows past the viewport, and the input always sits directly under
-   * it. The 21rem allowance covers the app header, tabs, page padding and the toolbar.
+   * The allowance is a custom property so the narrow-viewport override below can change it in
+   * one place, and so it is visible as a number rather than buried in a calc.
    */
+  --platter-console-chrome: 21rem;
   flex: 0 1 auto;
   min-height: 0;
-  height: clamp(18rem, calc(100dvh - 21rem), 60rem);
+  height: clamp(18rem, calc(100dvh - var(--platter-console-chrome)), 60rem);
 
-  /* Anchored to the bottom so new output pushes upward without the reader losing their place. */
+  /*
+   * Scroll anchoring, and specifically NOT `justify-content: flex-end`.
+   *
+   * That is the intuitive way to pin content to the bottom of a flex container, and inside a
+   * scroll container it silently destroys the scrollback. Content overflowing the *start* edge
+   * of a flex scroll container is not added to the scrollable overflow region — Chromium reports
+   * `scrollHeight === clientHeight`, no scrollbar appears, and everything above the visible box
+   * is painted nowhere and reachable by nothing. Measured on a 200-line console: 1950px of log
+   * output above the frame, unreachable by wheel, drag or keyboard. `MAX_LINES` becomes
+   * meaningless, the follow-the-tail effect becomes a no-op, and someone opening the console to
+   * read a crash stack can see only the last thirty lines of it.
+   *
+   * `margin-block-start: auto` on the content wrapper does the same job — short output sits at
+   * the bottom, long output scrolls — while leaving the overflow scrollable.
+   */
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  overflow-anchor: auto;
+}
+
+/* Narrow viewports spend more height on the header and tabs, so the console gets less. */
+@media (max-width: 40rem) {
+  .platter-console {
+    --platter-console-chrome: 27rem;
+  }
+}
+
+.platter-console__body {
+  margin-block-start: auto;
 }
 
 .platter-console__line {
   display: block;
 }
 
+/*
+ * stderr has to be distinguishable from stdout. It is the single most useful signal in a crash
+ * log, and with the previous undefined token both rendered identically.
+ */
 .platter-console__line[data-stream="stderr"] {
-  color: var(--color-content-error, var(--color-content-primary));
+  color: var(--color-text-red);
 }
 
 .platter-console__time {
-  color: var(--color-content-secondary);
+  color: var(--color-text-secondary);
   margin-inline-end: var(--spacing-2);
+}
+
+/* Locally-injected command echoes, so they read as yours rather than the server's. */
+.platter-console__line[data-origin="local"] {
+  color: var(--color-text-accent);
 }
 
 /* Inline machine values: IPs, ports, mod ids, file paths. */
 .platter-mono {
-  font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-family-code);
   font-variant-numeric: tabular-nums;
 }
 
@@ -83,7 +130,7 @@ body {
 .platter-thumb {
   width: var(--spacing-10);
   height: var(--spacing-10);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-element);
   object-fit: cover;
   flex-shrink: 0;
 }

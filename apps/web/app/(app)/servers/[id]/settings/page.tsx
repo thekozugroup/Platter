@@ -1,6 +1,7 @@
 import { LayoutContent } from '@astryxdesign/core/Layout';
 import { getServer } from '@platter/core';
 import { notFound } from 'next/navigation';
+import { DockerUnavailable } from '@/components/docker-unavailable';
 import { SettingsForm } from '@/components/settings-form';
 import { tryGetContext } from '@/lib/server';
 
@@ -10,7 +11,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const result = await tryGetContext();
   if (!result.ok) {
-    notFound();
+    return <DockerUnavailable message={result.error.message} />;
   }
 
   const server = getServer(result.context.db, id);
