@@ -1,232 +1,276 @@
 # Platter design language
 
-This is the contract for the interface. It exists so that screens built at different
-times by different people still feel like one product.
+This is the contract for the interface. It exists so screens built at different times by
+different people still feel like one product.
 
-Two influences, deliberately combined:
+Platter's visual identity is the **Ghost design system** — minimal, warm-editorial, with a
+retro-gaming twist. Near-pure-white canvas, near-black *pixelated* display headings, clean
+neutral-grey body sans, hairline dividers, and one signature frosted-glass floating pill.
 
-- **Apple's Human Interface Guidelines** for *structure* — semantic type and colour roles,
-  a strict spacing grid, generous hit targets, motion that explains rather than decorates,
-  and a strong bias toward deference: the chrome recedes, the content is the interface.
-- **Android 17 frost** for *materials* — translucent surfaces that are frosted acrylic,
-  not lenses.
+Three sources, in priority order when they disagree:
 
-Everything below is enforced by `apps/web/src/styles/tokens.css`. If you find yourself
-writing a raw hex value, a one-off pixel size or a bespoke shadow, the token you need
-either exists or should be added there.
-
----
-
-## 1. Frost, not liquid glass
-
-This is the single most load-bearing visual decision, so it gets the most words.
-
-Apple's liquid glass simulates a lens: light refracts through it, edges pick up a specular
-highlight, and content behind it distorts. Platter deliberately does **not** do that.
-Platter uses the Android 17 treatment: a **frosted, tinted, flat-edged** surface.
-
-**A frost surface is:**
-
-| Property | Value |
-| --- | --- |
-| Backdrop | `blur()` at one of four levels, plus `saturate(1.7)` to stop colour washing out |
-| Tint | A translucent surface colour *over* the blur — around 72% opacity, not 20% |
-| Border | A single flat hairline, uniform on all four sides |
-| Shadow | Two soft layers (tight key + wide ambient) |
-| Corners | Large radii — `--pl-radius-lg` and up for anything panel-sized |
-
-**A frost surface is never:**
-
-- ❌ **Edge specular highlights** — no `linear-gradient` "sheen" along the top edge, no
-  brighter border on one side than another. That is the liquid-glass tell.
-- ❌ **Rim lights or inner glow** — no `inset` box-shadows simulating light catching an edge.
-- ❌ **Refraction or lensing** — no backdrop scaling, no displacement, no chromatic edges.
-- ❌ **Barely-there tint** — a 20%-opacity surface over a blur is glass. Frost is opaque
-  enough to read text on without a second scrim.
-
-Four levels, matching the token names:
-
-- `frost-thin` (`12px`) — inline chips, hovering toolbars over content.
-- `frost-regular` (`24px`) — cards, popovers, dropdowns. The default.
-- `frost-thick` (`40px`) — sheets, dialogs, anything that takes focus from the page.
-- `frost-chrome` (`56px`) — the app header and sidebar, which sit above scrolling content.
-
-**Frost is not free.** `backdrop-filter` forces a compositing layer and repaints as content
-scrolls behind it. Use it on chrome and overlays — surfaces that are few and long-lived.
-Do **not** put it on list items, table rows, or anything rendered N times: a grid of 40
-frosted cards will drop frames on a laptop. Those get a solid `--pl-surface` instead.
-
-Honour `prefers-reduced-transparency`: the tokens already collapse blur to `0` and the
-tint to a solid colour, so a correctly-built component needs no extra work.
+1. **`apps/web/src/styles/tokens.css`** — the machine-readable truth. Every colour, size,
+   radius, duration and material. If you are writing a raw hex value or an arbitrary pixel
+   size, the token you need either exists or should be added there.
+2. **This document** — the rules the tokens cannot express.
+3. **Apple HIG** — supplies structure only: semantic roles, the spacing grid, 44px hit
+   targets, motion that explains rather than decorates.
 
 ---
 
-## 2. Typography
+## 1. Components: Shark UI
 
-Use the semantic roles, not sizes. `--pl-text-headline` says what the text *is*; `15px`
-says only how big it is, and will drift.
+The interface is assembled from [Shark UI](https://shark.vini.one) — 95 shadcn-style
+components on Ark UI and Tailwind v4, already installed under `apps/web/src/components/ui/`.
+A local reference for the whole registry is at `docs/reference/shark-ui-llms.txt`.
 
-| Role | Size | Weight | Used for |
-| --- | --- | --- | --- |
-| `display` | 34px | 700 | One per screen at most — the page title |
-| `title-1` | 28px | 700 | Major section heads |
-| `title-2` | 22px | 600 | Card and panel titles |
-| `title-3` | 18px | 600 | Subsection heads |
-| `headline` | 16px | 600 | Emphasised body, list item titles |
-| `body` | 16px | 400 | Default reading text |
-| `callout` | 15px | 400 | Slightly de-emphasised body |
-| `subhead` | 14px | 400/500 | Form labels, table headers, metadata |
-| `footnote` | 13px | 400 | Helper text under inputs |
-| `caption` | 12px | 400/500 | Timestamps, badge text, axis labels |
-| `caption-2` | 11px | 500 | The floor. Nothing smaller ships. |
+**Use the Shark component before writing your own.** The registry already covers Chart,
+Sidebar, Command, Status, Table, Data List, File Upload, Tree View, QR Code, Bottom
+Navigation, Steps, Tour, Field, Combobox, Toast and much more. A hand-rolled equivalent will
+be less accessible, less consistent, and will not inherit the theme.
 
-Rules:
+Shark components read shadcn's semantic variables (`--background`, `--foreground`,
+`--primary`, `--muted`, `--border`, `--ring`, `--card`, `--sidebar-*`, `--chart-*`, plus
+Shark's `--success` / `--warning` / `--info`). Those variables are **already mapped onto the
+Ghost palette** at the bottom of `global.css`. This means:
 
-- **Never below 11px**, and 11px only for non-essential secondary text.
-- Large text gets negative tracking (`--pl-tracking-display`), small text gets positive.
-  This is not optional polish; untracked 34px text looks visibly loose.
-- Line height 1.5 for prose, 1.3 for headings, 1.15 for single-line display text.
-- Numbers that change in place — timers, byte counts, CPU percentages — use
-  `font-variant-numeric: tabular-nums`, or the layout jitters every tick.
-- Monospace (`--pl-font-mono`) for: the console, file contents, IDs, ports, addresses.
+- Components inherit the brand automatically. Do not restyle them one by one.
+- To change the brand, change the mapping — not 95 files.
+- Adding a component later (`pnpm dlx shadcn@latest add @shark/<name>`) gets themed for free.
+
+Modify a file in `components/ui/` only to fix a real bug, never to apply per-screen styling.
+Screen-specific composition lives in `components/<feature>/`.
 
 ---
 
-## 3. Colour
+## 2. Colour
 
-Reference **semantic** tokens (`--pl-label-secondary`), never ramp tokens
-(`--ramp-neutral-600`) and never raw values. Every semantic token is defined in both
-themes; a component that uses only semantic tokens is automatically theme-correct.
+**There is no chromatic brand accent.** This is the rule most likely to be broken by accident
+and the one that most defines the look. Colour comes from game key-art; the chrome stays
+monochrome. The focus ring is near-black. "Primary" is near-black, not blue.
 
-**Text emphasis has exactly four levels** — `label`, `label-secondary`, `label-tertiary`,
-`label-quaternary`. If you want a fifth, you actually want a different layout.
-
-**Status colours are fixed vocabulary.** They mean one thing each, everywhere:
-
-| Status | Token | Server states |
+| Role | Value | Use |
 | --- | --- | --- |
-| Green | `--pl-success` | `running` |
-| Amber | `--pl-warning` | `starting`, `stopping`, `restarting`, `installing` |
-| Red | `--pl-danger` | `crashed`, `install_failed` |
-| Grey | `--pl-neutral-status` | `offline`, `suspended` |
-| Violet | `--pl-accent` | Brand, selection, focus — **never** a status |
+| Canvas | `#ffffff` | Page background |
+| Ink | `#111111` | Headings, primary text |
+| Grey dark | `#333333` | Strong secondary text |
+| Grey mid | `#555555` | Default body text |
+| Grey light | `#777777` | Tertiary, captions |
+| Grey border | `#dddddd` | Visible hairlines |
+| Border subtle | `rgba(0,0,0,0.06)` | Near-invisible dividers |
+| Primary fill | `#161616` | The one primary action per view |
+| Primary label | `#f7f7f7` | **Off-white, not pure white** |
 
-The accent is violet precisely so it can never be confused with a status. Do not use it to
-mean "good".
+The warm off-whites — stone `#f7f4ef`, cream `#faf8f5`, ember `#f5ebe0`, sand `#faf9f7` — are
+*surface tints*, not colours. They warm the sidebar and hovered rows. Never flood a page with
+them and never use one to mean something.
+
+**Two deliberate deviations from the Ghost brand spec**, both documented in `tokens.css`:
+
+- **Functional status colour.** A control panel has to signal running / starting / crashed at
+  a glance. Green, amber and red appear *only* as status, in a muted register:
+  green = `running`; amber = `starting`/`stopping`/`restarting`/`installing`;
+  red = `crashed`/`install_failed`; grey = `offline`/`suspended`.
+- **An opt-in dark theme.** Light is canonical and the default. Dark inverts the same
+  monochrome ramp. The console is dark in both.
 
 **Colour is never the only signal.** Around 4% of the people using this are red-green
-colourblind, and a status dot that differs only in hue tells them nothing. Every status
-carries a shape or a label too: the running dot pulses, the crashed dot is a filled ring,
-and all of them sit next to a word.
+colourblind. Every status carries a label, and the running dot pulses while the crashed dot
+is a filled ring.
 
-Contrast: body text meets **WCAG AA (4.5:1)**, large text and UI boundaries meet 3:1.
-Tertiary and quaternary labels are for non-essential text only — they do not meet AA at
-body size and must never carry information available nowhere else.
-
----
-
-## 4. Layout and spacing
-
-- **4pt grid.** Every margin, padding and gap is a `--pl-space-*` token. An `11px` gap is
-  a bug.
-- **Hit targets are 44×44px minimum.** A 32px-tall icon button is fine *visually*, but it
-  needs padding or a pseudo-element to reach 44px of touchable area. This is the most
-  commonly violated rule in the guide — check it on every icon button you write.
-- Content maxes out at `--pl-content-max` (1440px) and stays centred. Full-bleed text at
-  2560px is unreadable.
-- Breakpoints: `< 768px` phone (sidebar becomes a sheet, tables become cards),
-  `768–1279px` tablet (sidebar collapses to icons), `≥ 1280px` desktop.
-- The layout is a fixed sidebar + fixed header + scrolling content region. Only the content
-  region scrolls; chrome never moves.
+Contrast: body text meets **WCAG AA (4.5:1)**; large text and UI boundaries meet 3:1. Ghost's
+grey ramp is tuned for an editorial page — `#777777` on white is *below* AA at body size, so
+tertiary grey is for genuinely non-essential text only, never for information available
+nowhere else.
 
 ---
 
-## 5. Motion
+## 3. Typography
 
-Motion exists to explain what just happened — where a thing came from, what it became.
-Decorative animation is worse than none.
+A deliberate **two-typeface system**, self-hosted from the `geist` npm package so an
+air-gapped install renders identically.
 
-- Durations come from tokens; `--pl-duration-fast` (140ms) for hover and press feedback,
-  `--pl-duration-normal` (220ms) for the common transition, `--pl-duration-slow` (320ms)
-  for a full-screen or sheet transition. Nothing routine exceeds 320ms.
-- `--pl-ease-standard` for most things, `--pl-ease-out` for entrances,
-  `--pl-ease-spring` for direct manipulation (drag, toggle, sheet drag-to-dismiss).
-- **Animate only `transform` and `opacity`.** Animating `width`, `height`, `top` or
-  `box-shadow` triggers layout or paint every frame and will visibly stutter.
-- Things scale *from where they came from*: a popover opens from its trigger's corner
-  (`transform-origin`), not from its own centre.
-- **`prefers-reduced-motion` is honoured everywhere.** The tokens collapse durations to
-  1ms, but transform-based entrances still need a `@media` guard to become a plain fade —
-  a 1ms scale-from-95% is a flash, which is exactly what motion-sensitive users are
-  avoiding. Never remove the state change, only the movement.
+- **`Geist Pixel Square`** — the chunky pixel display face. **Headings only** (`h1`–`h3`).
+  Always weight 500; heavier fills in the pixel blocks and turns to mush. Tight tracking
+  (`-0.025em` at 60px) and 1:1 leading are what give it the compact terminal look.
+- **`Geist Sans`** — everything else: body, UI, buttons, labels, card titles.
+- **`Geist Mono`** — IPs, ports, ids, file contents, the console.
+
+**Never set body copy in the pixel face** — it is unreadable at 16px. **Never set a page
+heading in the sans face.** Mixing the two within one role is the fastest way to make the
+system look accidental.
+
+| Role | Size | Face | Weight |
+| --- | --- | --- | --- |
+| Display | 60px | Pixel | 500 |
+| Title 1 | 36px | Pixel | 500 |
+| Title 2 | 24px | Pixel | 500 |
+| Title 3 / card title | 20px | Sans | 600 |
+| Body large | 18px / 28px | Sans | 400 |
+| Body | 16px | Sans | 400 |
+| Subhead / label | 14px | Sans | 400–500 |
+| Caption | 12px | Sans | 400–500 |
+| Caption 2 | 11px | Sans | 500 — the floor |
+
+Numbers that change in place — timers, byte counts, CPU percentages, player counts — use
+`font-variant-numeric: tabular-nums`, or the layout jitters on every tick.
 
 ---
 
-## 6. Interaction states
+## 4. Shape, elevation, and the one glass surface
+
+**Radius is the system's defining tension: interactive chrome is heavily rounded, content
+imagery is sharp.**
+
+- Buttons: `32px` — a compact pill.
+- Floating nav: fully round.
+- Cards and panels: `12px` (`--pl-radius-md`); `18px` for large feature cards.
+- **Game key-art: `0px`.** Full-bleed, square corners. Rounding key-art breaks the
+  square-versus-pill contrast the whole system rests on.
+
+**Elevation is nearly absent.** Hairlines separate surfaces; shadow is reserved for things
+that genuinely float. All shadows are black at 5–8% alpha:
+
+- Card hover lift: `0 8px 24px rgba(0,0,0,0.08)` plus `translateY(-2px)`.
+- Floating nav: `0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.05)`.
+
+Never a heavy, large-blur, or coloured shadow.
+
+**Frost is one surface, not a style.** The signature is a fully-round floating pill — white at
+80% over `backdrop-filter: blur(8px)` with a 1px `rgba(0,0,0,0.06)` edge. Beyond that pill and
+the occasional modal, surfaces are flat.
+
+Specifically banned, because they are the *liquid glass* signature this design is not:
+specular edge gradients, inner rim lights or glow, refraction/lensing, and barely-there tints.
+Frost here is frosted acrylic — tinted and opaque enough to read text on unaided.
+
+Never put `backdrop-filter` on anything that repeats. It forces a compositing layer and
+repaints as content scrolls behind it; a grid of 40 frosted cards drops frames on a laptop.
+
+`prefers-reduced-transparency` collapses blur to zero and the tint to a solid surface — the
+tokens already handle it.
+
+---
+
+## 5. Layout and spacing
+
+- **8px base grid.** Every margin, padding and gap is a token: 4, 8, 12, 16, 24, 32, 48, 64,
+  112. An 11px gap is a bug.
+- Content column caps at **1180px**, centred. Gutters 24px mobile / 48px desktop.
+- Only game key-art goes full-bleed — never body text.
+- **Hit targets are 44×44px minimum.** A 32px icon button needs padding or the `.hit-target`
+  utility to reach it. This is the most commonly violated rule in this guide — check every
+  icon button you write.
+- Generous vertical rhythm: ~96–128px between major sections. The airiness is a defining
+  trait; do not compress it to fit more in.
+- Breakpoints: `<768px` phone (sidebar becomes a sheet, tables become cards, bottom
+  navigation appears), `768–1279px` tablet (sidebar collapses to icons), `≥1280px` desktop.
+- Layout is a fixed sidebar + fixed header + one scrolling content region. Chrome never moves.
+
+---
+
+## 6. Iconography
+
+**[pixelarticons](https://pixelarticons.com/)**, installed at
+`apps/web/node_modules/pixelarticons` — 877 icons as SVG and as React components
+(`import Icon from 'pixelarticons/react/Server.js'`). The pixel-art style is the deliberate
+partner to the pixel display face; a smooth outline set would fight it.
+
+Use icons sparingly and functionally — navigation, actions, status. Ghost's own aesthetic is
+icon-light and text-led, so an icon should be earning its place rather than decorating. Never
+an icon alone where a word would be clearer, and every icon-only button carries an
+`aria-label`.
+
+---
+
+## 7. Motion
+
+Motion explains what happened — where a thing came from, what it became. Decorative animation
+is worse than none.
+
+- 150ms for hover and focus; 220ms for the common transition; 320ms for a sheet or full-screen
+  change. Nothing routine exceeds 320ms.
+- Standard easing `cubic-bezier(0.4, 0, 0.2, 1)`. **No bouncy or overshoot easing anywhere** —
+  Ghost is explicit about this.
+- **Animate only `transform` and `opacity`.** Animating width, height, top or box-shadow
+  triggers layout or paint every frame and visibly stutters.
+- Popovers scale from their trigger's corner via `transform-origin`, not from their own centre.
+- **One ambient animation, at most.** No parallax, no marquees, no autoplay.
+- `prefers-reduced-motion` is honoured everywhere. Tokens collapse durations to 1ms, but a
+  transform-based entrance still needs a guard to become a plain fade — a 1ms scale-from-95% is
+  a flash, exactly what motion-sensitive users are avoiding. Remove the movement, never the
+  state change.
+
+---
+
+## 8. Interaction states
 
 Every interactive element defines all six. Missing states are the difference between an
 interface that feels finished and one that feels like a prototype.
 
 1. **Rest**
-2. **Hover** — surface lifts one step (`--pl-surface-hover`). Pointer devices only
-   (`@media (hover: hover)`), or touch devices get a sticky hover that never clears.
-3. **Focus-visible** — a 2px `--pl-accent-ring` at 2px offset. Never `outline: none`
-   without a replacement; keyboard users navigate entirely by this ring.
-4. **Active/pressed** — `scale(0.97)` plus a darker surface. The scale is what makes a
-   click feel physical.
-5. **Disabled** — 40% opacity, `cursor: not-allowed`, and `aria-disabled` rather than the
-   `disabled` attribute where the element still needs to be focusable to explain itself.
-   A disabled control must always be accompanied by *why* — in a tooltip if nowhere else.
-6. **Loading** — the control keeps its size and swaps its label for a spinner. A button
-   that shrinks mid-submit moves everything under it.
+2. **Hover** — surface warms one step. Pointer devices only (`@media (hover: hover)`), or
+   touch devices get a sticky hover that never clears.
+3. **Focus-visible** — 2px near-black ring at 2px offset. Never `outline: none` without a
+   replacement.
+4. **Active** — `scale(0.97)`. The scale is what makes a click feel physical.
+5. **Disabled** — 40% opacity, `cursor: not-allowed`, and **always accompanied by why** — in a
+   tooltip if nowhere else.
+6. **Loading** — the control keeps its width and swaps its label for a spinner. A button that
+   shrinks mid-submit moves everything under it.
 
 ---
 
-## 7. Feedback and empty states
+## 9. Feedback, and being honest
 
-- **Optimistic where it's safe, honest where it isn't.** Renaming a server updates
-  instantly and rolls back on failure. Starting a server does not pretend — it shows the
-  real `starting` state, because lying about a 30-second operation is worse than waiting.
-- **Skeletons, not spinners**, for content that has a known shape. Spinners only for
-  indeterminate waits under ~1s.
-- **Destructive actions confirm**, and the confirmation names the thing being destroyed
-  and what is lost. "Delete server" is not a confirmation; "Delete *Survival SMP*? Its
-  world data and 4 backups are permanently deleted" is.
-- **Errors are actionable.** State what happened, why, and what to do. The error codes in
-  `@platter/shared` map to human copy in `ERROR_MESSAGES` — start there, then add context.
-- **Empty states teach.** An empty server list is the best moment to explain what Platter
-  does and offer the primary action. A grey "No data" is a wasted screen.
+- **Optimistic where it is safe, honest where it is not.** Renaming a server updates instantly
+  and rolls back on failure. Starting a server does not pretend — it shows the real `starting`
+  state, because lying about a 30-second operation is worse than waiting.
+- **Skeletons, not spinners**, for content with a known shape.
+- **Destructive actions confirm, naming what is lost.** "Delete server" is not a confirmation.
+  "Delete *Survival SMP*? Its world data and 4 backups are permanently deleted" is.
+- **Errors are actionable**: what happened, why, what to do.
+- **Empty states teach.** An empty server list is the best moment to explain what Platter does
+  and offer the primary action.
+- **The AI proposes; the human decides.** Mod proposals from an agent show the full mod detail
+  — description, images, author, license, downloads, dependencies — and require explicit
+  approval. Never let a screen imply an agent action already took effect when it has not.
 
 ---
 
-## 8. Accessibility floor
+## 10. Accessibility floor
 
 Non-negotiable, and specifically audited:
 
-- Every interactive element reachable and operable by keyboard, in a sensible tab order.
+- Everything reachable and operable by keyboard, in a sensible tab order.
 - Visible focus on everything focusable.
-- Dialogs trap focus, close on `Escape`, and restore focus to their trigger on close.
-- Icon-only buttons carry an `aria-label`.
-- Live regions (`aria-live="polite"`) announce status changes — a server going from
-  starting to running must be perceivable without watching a colour.
-- Form inputs have real `<label>`s; errors are tied to their field with `aria-describedby`
-  and `aria-invalid`.
-- The console is a log view: `role="log"` with `aria-live="polite"`, and it must not steal
-  focus when new lines arrive.
-- Nothing conveys meaning through colour alone.
-- Tested at 200% browser zoom without horizontal scrolling or clipped content.
+- Dialogs trap focus, close on `Escape`, restore focus to their trigger.
+- Icon-only buttons carry `aria-label`.
+- `aria-live="polite"` announces async status changes — a server going from starting to
+  running must be perceivable without watching a colour.
+- Inputs have real `<label>`s; errors tie to their field via `aria-describedby` and
+  `aria-invalid`.
+- The console is `role="log"` with `aria-live="polite"` and must not steal focus as lines
+  arrive.
+- Charts are never the only representation of their data — pair every chart with the current
+  value in text.
+- Works at 200% browser zoom with no horizontal scrolling or clipped content.
 
 ---
 
-## 9. Voice
+## 11. Voice
 
-Interface copy is plain, specific and calm.
+Plain, specific, calm — and confident enough to name real mechanics. Ghost writes
+"Your VM, your token, your billing", not "seamless cloud orchestration".
 
+- Terse declarative fragments. Imperative triads where they fit: *Pick a game. Pick a region.
+  Press play.*
+- Second person, active voice. Sentence case everywhere — headings, buttons, labels.
+- Buttons are verbs: "Create server", not "Submit". "Delete backup", not "OK".
+- Name the real thing — Docker, RCON, a port, a mod loader — rather than a marketing
+  abstraction. The people self-hosting a game server are not afraid of the words.
 - Say what happened, not how the system feels about it. "Couldn't reach the node" beats
   "Oops! Something went wrong 😕".
-- Second person, active voice, no jargon where a normal word exists.
-- Sentence case for everything — headings, buttons, labels. Not Title Case.
-- Buttons are verbs: "Create server", not "Submit". "Delete backup", not "OK".
-- Never blame the user. Never apologise more than once.
-- Numbers get units and thousands separators. Times are relative under a week
-  (`4 minutes ago`) and absolute beyond it, always with the exact timestamp in a tooltip.
+- Never blame the user. Never apologise twice.
+- Numbers get units and separators. Times are relative under a week, absolute beyond it,
+  always with the exact timestamp in a tooltip.
