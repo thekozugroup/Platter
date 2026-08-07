@@ -1,6 +1,13 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { and, eq } from 'drizzle-orm';
-import { type Context, contentDirectory, getVersionIndex, resolveServer } from '@platter/core';
+import {
+  type Context,
+  contentDirectory,
+  getVersionIndex,
+  installMods,
+  removeMods,
+  resolveServer,
+} from '@platter/core';
 import { modInstalls } from '@platter/db';
 import { LOADER_FAMILY, LOADER_LABELS, isErr } from '@platter/shared';
 import { z } from 'zod';
@@ -8,7 +15,6 @@ import { proposeAndConfirm, recordOutcome } from '../confirm';
 import { formatBytes, result, toolError } from '../format';
 import { acceptedLoaders, resolveDependencyGraph } from '@platter/mods';
 import { getRegistry } from '../registry';
-import { installMods, removeMods } from '../install';
 
 /**
  * Mod curation.

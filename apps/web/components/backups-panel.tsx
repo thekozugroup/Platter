@@ -6,7 +6,7 @@ import { Card } from '@astryxdesign/core/Card';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { HStack } from '@astryxdesign/core/HStack';
-import { Table, TableCell, TableHeaderCell, TableRow } from '@astryxdesign/core/Table';
+import { Table, pixel, proportional } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
 import { Timestamp } from '@astryxdesign/core/Timestamp';
 import { VStack } from '@astryxdesign/core/VStack';
@@ -19,7 +19,7 @@ import {
   restoreBackupAction,
 } from '@/lib/actions';
 
-export interface BackupRow {
+export interface BackupRow extends Record<string, unknown> {
   id: string;
   label: string | null;
   status: string;
@@ -96,16 +96,19 @@ export function BackupsPanel({
           isCompact
         />
       ) : (
-        <Table label="Backups">
-          <TableRow isHeader>
-            <TableHeaderCell>When</TableHeaderCell>
-            <TableHeaderCell>Size</TableHeaderCell>
-            <TableHeaderCell>Taken</TableHeaderCell>
-            <TableHeaderCell>{''}</TableHeaderCell>
-          </TableRow>
-          {backups.map((backup) => (
-            <TableRow key={backup.id}>
-              <TableCell>
+        // Data-driven rather than hand-rolled rows: the columns are uniform and comparable, so
+        // letting Table own the layout keeps the header, widths and ARIA row indices correct.
+        <Table<BackupRow>
+          data={backups}
+          idKey="id"
+          density="compact"
+          hasHover
+          columns={[
+            {
+              key: 'createdAt',
+              header: 'When',
+              width: proportional(2),
+              renderCell: (backup) => (
                 <VStack gap={0.5}>
                   <Timestamp value={new Date(backup.createdAt).toISOString()} format="auto" />
                   {backup.label ? <Text type="supporting">{backup.label}</Text> : null}
@@ -115,13 +118,23 @@ export function BackupsPanel({
                     </Text>
                   ) : null}
                 </VStack>
-              </TableCell>
-              <TableCell>
+              ),
+            },
+            {
+              key: 'sizeBytes',
+              header: 'Size',
+              width: pixel(110),
+              renderCell: (backup) => (
                 <Text type="code">
-                  {backup.sizeBytes === null ? '—' : formatBytes(backup.sizeBytes)}
+                  {backup.sizeBytes === null ? '\u2014' : formatBytes(backup.sizeBytes)}
                 </Text>
-              </TableCell>
-              <TableCell>
+              ),
+            },
+            {
+              key: 'trigger',
+              header: 'Taken',
+              width: pixel(190),
+              renderCell: (backup) => (
                 <HStack gap={1.5} wrap="wrap">
                   <Badge
                     label={backup.hotBackup ? 'Live' : 'Offline'}
@@ -129,8 +142,14 @@ export function BackupsPanel({
                   />
                   <Badge label={triggerLabel(backup.trigger)} variant="neutral" />
                 </HStack>
-              </TableCell>
-              <TableCell>
+              ),
+            },
+            {
+              key: 'actions',
+              header: '',
+              width: pixel(170),
+              align: 'end',
+              renderCell: (backup) => (
                 <HStack gap={1} justify="end">
                   <Button
                     label="Restore"
@@ -156,10 +175,10 @@ export function BackupsPanel({
                     }}
                   />
                 </HStack>
-              </TableCell>
-            </TableRow>
-          ))}
-        </Table>
+              ),
+            },
+          ]}
+        />
       )}
 
       <Dialog

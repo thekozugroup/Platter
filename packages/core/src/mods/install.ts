@@ -5,20 +5,17 @@ import { basename, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { eq } from 'drizzle-orm';
-import {
-  type Context,
-  EVENT,
-  type Server,
-  contentDirectory,
-  createBackup,
-  emitEvent,
-  resolveWithin,
-} from '@platter/core';
+import type { Context } from '../context';
+import { EVENT, emitEvent } from '../events';
+import { contentDirectory } from '../minecraft/manifest';
+import { resolveWithin } from '../paths';
+import { createBackup } from '../backups/create';
+import type { Server } from '../servers/repository';
 import { modInstalls } from '@platter/db';
 import type { ModProject, ModVersion } from '@platter/mods';
 import { type Result, fail, logger, ok, paths, ulid } from '@platter/shared';
 
-const log = logger.child('mcp:install');
+const log = logger.child('mods:install');
 
 export interface InstallCandidate {
   project: ModProject;
@@ -53,7 +50,7 @@ export async function installMods(
   ctx: Context,
   server: Server,
   candidates: readonly InstallCandidate[],
-  options: { proposalId?: string } = {}
+  options: { proposalId?: string | undefined; actor?: 'user' | 'ai' } = {}
 ): Promise<Result<InstallOutcome>> {
   const directory = contentDirectory(server.loader);
   if (!directory) {
@@ -68,7 +65,7 @@ export async function installMods(
       serverId: server.id,
       label: `Before installing ${candidates.map((c) => c.project.title).join(', ')}`.slice(0, 120),
       trigger: 'pre-change',
-      actor: 'ai',
+      actor: options.actor ?? 'user',
     });
     if (!backup.ok) {
       return fail(
@@ -138,7 +135,7 @@ export async function installMods(
         fileSize: written.size,
         sha1: file.sha1 ?? null,
         status: 'installed',
-        installedBy: 'ai',
+        installedBy: options.actor ?? 'user',
         proposalId: options.proposalId ?? null,
       })
       .onConflictDoUpdate({
@@ -162,7 +159,7 @@ export async function installMods(
       serverId: server.id,
       type: EVENT.modInstalled,
       message: `Installed ${project.title} ${version.versionNumber ?? ''}`.trim(),
-      actor: 'ai',
+      actor: options.actor ?? 'user',
       data: { provider: project.provider, projectId: project.projectId, file: fileName },
     });
   }

@@ -9,6 +9,7 @@ import {
   recreateContainer,
   resolveServer,
   restartServer,
+  removeMods,
   restoreBackup,
   updateServer,
   updateSettings,
@@ -19,7 +20,6 @@ import { isErr, ulid } from '@platter/shared';
 import { z } from 'zod';
 import { proposeAndConfirm, recordOutcome } from '../confirm';
 import { result, toolError } from '../format';
-import { removeMods } from '../install';
 
 /**
  * Diagnosis and repair.

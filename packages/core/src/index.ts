@@ -19,5 +19,6 @@ export * from './minecraft/manifest';
 export * from './servers/repository';
 export * from './servers/service';
 
+export * from './mods/install';
 export * from './backups/create';
 export * from './backups/restore';

@@ -1,0 +1,72 @@
+# Platter, self-hosted.
+#
+#   docker compose -f docker/compose.yaml up -d
+#
+# Then open http://localhost:4880.
+
+name: platter
+
+services:
+  platter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/thekozugroup/platter:latest
+    restart: unless-stopped
+
+    ports:
+      # The UI. Loopback-only by default — see SECURITY.md before widening this, and set
+      # PLATTER_AUTH_TOKEN if you do (Platter refuses to start otherwise).
+      - '127.0.0.1:4880:4880'
+      # The range game servers are published on. Exposed on all interfaces because the entire
+      # point is that other people can connect to them.
+      - '25565-25664:25565-25664'
+      - '25565-25664:25565-25664/udp'
+
+    environment:
+      PLATTER_DATA_DIR: /data
+      PLATTER_PORT_RANGE_START: 25565
+      PLATTER_PORT_RANGE_END: 25664
+      # Optional. Modrinth works anonymously; a token raises the rate limit.
+      MODRINTH_TOKEN: ${MODRINTH_TOKEN:-}
+      # Optional. Without it, CurseForge is hidden entirely rather than failing at search time.
+      CURSEFORGE_API_KEY: ${CURSEFORGE_API_KEY:-}
+      # Set this to expose the UI beyond loopback.
+      PLATTER_AUTH_TOKEN: ${PLATTER_AUTH_TOKEN:-}
+
+    volumes:
+      # Everything Platter owns: the database, every world, every backup. Back this up.
+      - platter-data:/data
+      # Platter creates and manages game containers, so it needs the daemon.
+      #
+      # This is root-equivalent access to the host. That is inherent to any Docker-driven
+      # control panel — PufferPanel, Pterodactyl and Portainer all require it. What Platter does
+      # about it: every destructive call is gated on the `platter.managed` label, game
+      # containers are unprivileged with capabilities dropped and hard resource caps, and images
+      # come from an allowlist. Read SECURITY.md before deciding this trade is acceptable.
+      #
+      # For a stronger posture, put a socket proxy (e.g. tecnativa/docker-socket-proxy) in front
+      # and point DOCKER_HOST at it.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    # The container process must be able to read the Docker socket. `docker` is the usual group
+    # on Linux hosts; run `stat -c '%g' /var/run/docker.sock` and set PLATTER_DOCKER_GID if
+    # yours differs. On Docker Desktop the socket is owned by root and this is not needed.
+    group_add:
+      - ${PLATTER_DOCKER_GID:-999}
+
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4880/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+    # Platter itself is small; the game servers are what use memory, and each gets its own cap.
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+volumes:
+  platter-data:
