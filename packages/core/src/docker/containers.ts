@@ -11,7 +11,7 @@ import {
   fail,
   ok,
 } from '@platter/shared';
-import { requireManaged } from './guard.js';
+import { requireManaged } from './guard';
 
 export interface CreateContainerInput {
   name: string;

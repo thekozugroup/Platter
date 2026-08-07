@@ -22,7 +22,7 @@ import {
   slugify,
   ulid,
 } from '@platter/shared';
-import type { Context } from '../context.js';
+import type { Context } from '../context';
 import {
   createContainer,
   removeContainer,
@@ -30,15 +30,15 @@ import {
   startContainer,
   stopContainer,
   writeToStdin,
-} from '../docker/containers.js';
-import { findByServerId, inspectContainer } from '../docker/guard.js';
-import { ensureImage, type PullProgress } from '../docker/images.js';
-import { EVENT, emitEvent } from '../events.js';
-import { buildContainerEnv } from '../minecraft/env.js';
-import { selectImage } from '../minecraft/manifest.js';
-import { allocatePort, releaseServerPorts } from '../ports.js';
-import { closeRcon, rconCommand } from '../rcon.js';
-import { getServer, hydrate, setStatus, type Server, updateServer } from './repository.js';
+} from '../docker/containers';
+import { findByServerId, inspectContainer } from '../docker/guard';
+import { ensureImage, type PullProgress } from '../docker/images';
+import { EVENT, emitEvent } from '../events';
+import { buildContainerEnv } from '../minecraft/env';
+import { selectImage } from '../minecraft/manifest';
+import { allocatePort, releaseServerPorts } from '../ports';
+import { closeRcon, rconCommand } from '../rcon';
+import { getServer, hydrate, setStatus, type Server, updateServer } from './repository';
 
 const log = logger.child('servers');
 

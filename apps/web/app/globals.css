@@ -1,0 +1,83 @@
+/*
+ * Astryx supplies the entire visual system: reset, component styles, and theme tokens.
+ * The import order matters — reset, then components, then theme, so theme tokens win.
+ */
+@import '@astryxdesign/core/reset.css';
+@import '@astryxdesign/core/astryx.css';
+@import '@astryxdesign/theme-neutral/theme.css';
+
+/*
+ * Everything below is Platter's own, and it is deliberately short. Astryx components handle
+ * layout and spacing; the only things that need bespoke CSS are the ones no component covers:
+ * the log console's virtualised scroll surface, and a couple of scrollbar affordances.
+ *
+ * Every value is a theme token. No raw hex, no raw px.
+ */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background-wash);
+}
+
+/* The live console. A monospace, scroll-anchored surface that Astryx has no primitive for. */
+.platter-console {
+  font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--font-size-2xs);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--color-background-surface);
+  color: var(--color-content-primary);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-md);
+  /* Anchored to the bottom so new output pushes upward without the reader losing their place. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 0;
+}
+
+.platter-console__line {
+  display: block;
+}
+
+.platter-console__line[data-stream='stderr'] {
+  color: var(--color-content-error, var(--color-content-primary));
+}
+
+.platter-console__time {
+  color: var(--color-content-secondary);
+  margin-inline-end: var(--spacing-2);
+}
+
+/* Inline machine values: IPs, ports, mod ids, file paths. */
+.platter-mono {
+  font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Server card art. Sized by the grid; the rule only constrains the image itself. */
+.platter-thumb {
+  width: var(--spacing-10);
+  height: var(--spacing-10);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

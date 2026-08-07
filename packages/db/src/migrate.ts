@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import type { PlatterDatabase } from './client.js';
+import type { PlatterDatabase } from './client';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -34,7 +34,7 @@ export function applyMigrations(db: PlatterDatabase, migrationsFolder = MIGRATIO
 
 /* Allow `tsx src/migrate.ts` for a manual run. */
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  const { createDatabase } = await import('./client.js');
+  const { createDatabase } = await import('./client');
   const { paths } = await import('@platter/shared');
   const { loadEnv } = await import('@platter/shared/env');
   const env = loadEnv();

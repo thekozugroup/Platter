@@ -7,12 +7,12 @@ import { eq } from 'drizzle-orm';
 import * as tar from 'tar-fs';
 import { backups } from '@platter/db';
 import { type Result, fail, logger, ok, paths, ulid } from '@platter/shared';
-import type { Context } from '../context.js';
-import { EVENT, emitEvent } from '../events.js';
-import { isWithin } from '../paths.js';
-import { getServer } from '../servers/repository.js';
-import { startServer, stopServer } from '../servers/service.js';
-import { createBackup } from './create.js';
+import type { Context } from '../context';
+import { EVENT, emitEvent } from '../events';
+import { isWithin } from '../paths';
+import { getServer } from '../servers/repository';
+import { startServer, stopServer } from '../servers/service';
+import { createBackup } from './create';
 
 const log = logger.child('backups');
 

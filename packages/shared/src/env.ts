@@ -91,9 +91,12 @@ export const envSchema = z
   })
   .transform((env) => ({
     ...env,
+    // A relative PLATTER_DATA_DIR is resolved against the working directory. The
+    // `turbopackIgnore` comment stops Next's build tracer from concluding that this is dynamic
+    // filesystem access and pulling the entire repository into the standalone output.
     PLATTER_DATA_DIR: isAbsolute(env.PLATTER_DATA_DIR)
       ? env.PLATTER_DATA_DIR
-      : resolve(process.cwd(), env.PLATTER_DATA_DIR),
+      : resolve(/* turbopackIgnore: true */ process.cwd(), env.PLATTER_DATA_DIR),
   }))
   .superRefine((env, ctx) => {
     if (env.PLATTER_PORT_RANGE_END < env.PLATTER_PORT_RANGE_START) {

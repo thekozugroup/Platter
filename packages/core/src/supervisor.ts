@@ -2,15 +2,15 @@ import { Cron } from 'croner';
 import { and, eq } from 'drizzle-orm';
 import { schedules } from '@platter/db';
 import { type ServerStatus, logger } from '@platter/shared';
-import type { Context } from './context.js';
-import { inspectContainer, listManaged } from './docker/guard.js';
-import { readLogTail } from './docker/logs.js';
-import { EVENT, emitEvent } from './events.js';
-import { READY_PATTERN } from './minecraft/manifest.js';
-import { reapIdleRcon } from './rcon.js';
-import { getServer, listServers, setStatus, updateServer } from './servers/repository.js';
-import { restartServer, startServer, stopServer } from './servers/service.js';
-import { createBackup, pruneBackups } from './backups/create.js';
+import type { Context } from './context';
+import { inspectContainer, listManaged } from './docker/guard';
+import { readLogTail } from './docker/logs';
+import { EVENT, emitEvent } from './events';
+import { READY_PATTERN } from './minecraft/manifest';
+import { reapIdleRcon } from './rcon';
+import { getServer, listServers, setStatus, updateServer } from './servers/repository';
+import { restartServer, startServer, stopServer } from './servers/service';
+import { createBackup, pruneBackups } from './backups/create';
 
 const log = logger.child('supervisor');
 
@@ -468,7 +468,7 @@ async function runSchedule(ctx: Context, scheduleId: string): Promise<void> {
           finish('error', 'No command configured.');
           return;
         }
-        const { sendCommand } = await import('./servers/service.js');
+        const { sendCommand } = await import('./servers/service');
         const result = await sendCommand(ctx, row.serverId, payload.command, { actor: 'schedule' });
         if (!result.ok) {
           finish('error', result.error.message);

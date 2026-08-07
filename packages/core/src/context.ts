@@ -4,7 +4,7 @@ import type { PlatterDatabase } from '@platter/db';
 import { applyMigrations, getDatabase } from '@platter/db';
 import { type Env, loadEnv } from '@platter/shared/env';
 import { type Result, ok, paths } from '@platter/shared';
-import { checkDocker, createDockerClient, ensureNetwork } from './docker/client.js';
+import { checkDocker, createDockerClient, ensureNetwork } from './docker/client';
 
 /**
  * The shared runtime context.

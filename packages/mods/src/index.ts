@@ -1,1 +1,119 @@
-export {};
+/**
+ * `@platter/mods` — mod discovery and compatibility.
+ *
+ * The intended entry point is `ModRegistry`: it fans a search across whichever providers are
+ * configured and turns a project reference into a specific file with a verdict attached. The
+ * provider clients and `checkCompatibility` are exported alongside it because the MCP server and
+ * the diagnostics package need them directly, and because a pure, synchronous compatibility
+ * check is worth being able to call without constructing anything.
+ */
+
+export {
+  type CompatInput,
+  type CompatReport,
+  type ConflictRef,
+  type DependencyPlan,
+  type DependencyPlanNode,
+  type DependencyResolution,
+  type DependencyResolver,
+  type Finding,
+  type InstalledMod,
+  NEOFORGE_FORGE_BRIDGE_VERSION,
+  type ResolveGraphInput,
+  SINGLETON_ROLES,
+  type TargetServer,
+  type UnresolvedDependency,
+  type Verdict,
+  checkCompatibility,
+  compareGameVersions,
+  dependencyKey,
+  resolveDependencyGraph,
+} from './compat';
+export {
+  CLASS_ID,
+  CURSEFORGE_BASE_URL,
+  CURSEFORGE_MAX_PAGE_SIZE,
+  CURSEFORGE_MAX_RESULT_WINDOW,
+  CurseForgeClient,
+  type CurseForgeClientOptions,
+  type CurseForgeFileWire,
+  type CurseForgeModWire,
+  ENVIRONMENT_VERSION_TYPE_ID,
+  LOADER_VERSION_TYPE_ID,
+  MINECRAFT_GAME_ID,
+  MOD_LOADER_TYPE,
+  RELATION_TYPE_TO_KIND,
+  checkPageBounds,
+  downloadState,
+  environmentTagsOf,
+  gameVersionsOf,
+  loadersOf,
+  modLoaderTypeFor,
+  normaliseFile,
+  normaliseMod,
+} from './curseforge';
+export {
+  HttpClient,
+  type HttpClientOptions,
+  PLATTER_VERSION,
+  type RequestOptions,
+  TokenBucket,
+  TtlCache,
+  USER_AGENT,
+} from './http';
+export {
+  FALLBACK_LOADER_NAMES,
+  MODRINTH_BASE_URL,
+  MODRINTH_FACET_FIELDS,
+  MODRINTH_MAX_LIMIT,
+  MODRINTH_RATE_LIMIT,
+  ModrinthClient,
+  type ModrinthClientOptions,
+  type ModrinthProjectWire,
+  type ModrinthSearchHitWire,
+  type ModrinthVersionWire,
+  buildFacets,
+  encodeArrayParam,
+  normaliseProject,
+  normaliseSearchHit,
+  normaliseVersion,
+  partitionCategories,
+  validateFacet,
+} from './modrinth';
+export {
+  ModRegistry,
+  type ModRegistryOptions,
+  type ResolveOptions,
+  type ResolvedForServer,
+  acceptedLoaders,
+} from './registry';
+export {
+  MOD_ENVIRONMENTS,
+  type DependencyRef,
+  type ModEnvironment,
+  type ModFile,
+  type ModProject,
+  type ModSearchQuery,
+  type ModSearchResult,
+  type ModSort,
+  type ModVersion,
+  type ProviderAvailability,
+  type ProviderClient,
+  type ReleaseChannel,
+  type ResolvedModSearchQuery,
+  type VersionFilter,
+  dependencyRefSchema,
+  deriveEnvironment,
+  environmentToSides,
+  modEnvironmentSchema,
+  modFileSchema,
+  modProjectSchema,
+  modSearchQuerySchema,
+  modSearchResultSchema,
+  modVersionSchema,
+  normaliseLoaderName,
+  parseQualifiedId,
+  qualifiedId,
+  releaseChannelSchema,
+  serverSideOf,
+} from './types';

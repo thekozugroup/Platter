@@ -3,7 +3,7 @@ import {
   type ServerSettings,
   heapForContainer,
 } from '@platter/shared';
-import { LOADER_TYPE, LOADER_VERSION_ENV } from './manifest.js';
+import { LOADER_TYPE, LOADER_VERSION_ENV } from './manifest';
 
 export interface BuildEnvInput {
   loader: MinecraftLoader;

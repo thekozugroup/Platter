@@ -16,10 +16,10 @@ import {
   paths,
   ulid,
 } from '@platter/shared';
-import type { Context } from '../context.js';
-import { EVENT, emitEvent } from '../events.js';
-import { resumeSaves, suspendSaves } from '../rcon.js';
-import { getServer } from '../servers/repository.js';
+import type { Context } from '../context';
+import { EVENT, emitEvent } from '../events';
+import { resumeSaves, suspendSaves } from '../rcon';
+import { getServer } from '../servers/repository';
 
 const log = logger.child('backups');
 

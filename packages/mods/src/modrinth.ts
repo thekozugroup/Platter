@@ -10,7 +10,7 @@ import {
   ok,
 } from '@platter/shared';
 import { z } from 'zod';
-import { HttpClient, type HttpClientOptions } from './http.js';
+import { HttpClient, type HttpClientOptions } from './http';
 import {
   type DependencyRef,
   type ModProject,
@@ -23,7 +23,7 @@ import {
   deriveEnvironment,
   normaliseLoaderName,
   qualifiedId,
-} from './types.js';
+} from './types';
 
 /**
  * Modrinth API v2.

@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import * as schema from './schema.js';
+import * as schema from './schema';
 
 type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 
