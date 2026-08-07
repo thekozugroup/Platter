@@ -1,0 +1,85 @@
+# The whole deployment. `docker compose up -d` and Platter is running.
+#
+# Defaults are SQLite on a named volume — no external database to operate. A Postgres
+# service is included but commented out, because most self-hosters running a handful of
+# game servers do not need it, and an unnecessary database is an unnecessary outage.
+
+services:
+  platter:
+    image: ghcr.io/thekozugroup/platter:latest
+    # Comment the image above and uncomment this to build locally.
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: platter
+    restart: unless-stopped
+    ports:
+      - '${PLATTER_PORT:-8080}:8080'
+    environment:
+      # Required. Generate with: openssl rand -base64 48
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — see .env.example}
+      # The address players connect to. Wrong value here means every server shows an
+      # address nobody can reach, so it is worth setting deliberately.
+      PUBLIC_HOST: ${PUBLIC_HOST:-127.0.0.1}
+      PORT_RANGE_START: ${PORT_RANGE_START:-25000}
+      PORT_RANGE_END: ${PORT_RANGE_END:-25999}
+      # Optional — AI features degrade gracefully to hidden when unset.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-opus-5}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      SEED_ON_START: ${SEED_ON_START:-1}
+      # DATABASE_URL: postgresql://platter:platter@postgres:5432/platter
+    volumes:
+      - platter-data:/data
+      # Platter manages game servers as sibling containers on the host's Docker daemon.
+      # This is real privilege: socket access is equivalent to root on the host. Read the
+      # security note in DEPLOYMENT.md before exposing this instance to the internet, and
+      # prefer a rootless daemon or a socket proxy for anything multi-tenant.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # The container runs as an unprivileged user, so it needs the host group that owns
+    # the socket. Find it with: stat -c '%g' /var/run/docker.sock
+    group_add:
+      - ${DOCKER_GID:-999}
+    # Game servers publish their own ports on the host directly, so Platter needs no
+    # special networking beyond its own.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/api/v1/system/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # Uncomment for Postgres. Also set DATABASE_URL on the platter service above.
+  # postgres:
+  #   image: postgres:17-alpine
+  #   container_name: platter-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: platter
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+  #     POSTGRES_DB: platter
+  #   volumes:
+  #     - platter-postgres:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ['CMD-SHELL', 'pg_isready -U platter']
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  platter-data:
+  # platter-postgres:
