@@ -29,14 +29,11 @@ export default defineConfig({
     sourcemap: true,
     /* Warn early: the API serves this bundle, and a fat SPA slows every cold load. */
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router'],
-          editor: ['@uiw/react-codemirror', '@codemirror/lang-json', '@codemirror/lang-yaml'],
-        },
-      },
-    },
+    /*
+     * Chunking is left to rolldown. Hand-written `manualChunks` groups tend to fight the
+     * route-level lazy boundaries the router already establishes, and rolldown's default
+     * splitting respects those.
+     */
   },
   test: {
     environment: 'jsdom',

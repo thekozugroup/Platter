@@ -1,314 +1,370 @@
 /**
- * Platter design tokens.
+ * Platter design tokens — built from the Ghost design system.
  *
- * The visual target is Ghost (useghost.sh): a calm, light, near-white interface built from
- * hairline-bordered cards on white, near-black pill buttons, restrained grey secondary
- * text, and almost no shadow. Colour appears only where it carries meaning — a status dot,
- * a destructive action.
+ * Ghost's personality is minimal warm-editorial with a retro-gaming twist: a near-pure-white
+ * canvas, near-black *pixelated* display headings (GeistPixelSquare), clean neutral-grey body
+ * sans (Geist), hairline dividers, and one signature frosted-glass floating pill.
  *
- * Apple's HIG supplies the *structure*: semantic label/fill/separator roles rather than
- * raw greys, a semantic type scale, a 4pt grid, 44px minimum hit targets, and motion that
- * explains rather than decorates.
+ * Three rules from that system drive most of what follows:
+ *   1. **No chromatic brand accent.** Colour comes from game key-art, never from chrome.
+ *   2. **Elevation is nearly absent.** Hairlines separate surfaces; shadows are black at
+ *      5-8% alpha and reserved for things that genuinely float.
+ *   3. **One glass surface only.** The floating pill nav is the signature; multiplying blur
+ *      surfaces dilutes it. Flat stays flat.
  *
- * Android 17 frost supplies the *overlay* material only — dialogs, popovers, command
- * palette, sticky chrome. Explicitly not Apple liquid glass: no specular edge highlights,
- * no rim lights, no refraction. Flat cards stay flat; frost never appears on a surface
- * that repeats.
+ * Apple's HIG supplies structure: semantic label roles, an 8px grid, 44px hit targets, and
+ * motion that explains rather than decorates.
  *
- * Colours are authored in OKLCH so lightness steps are perceptually even.
+ * Two deliberate deviations from the captured Ghost spec, both for reasons the marketing
+ * site never had to solve:
+ *   - **Status colour exists.** A control panel must signal running / starting / crashed at
+ *     a glance, and the Ghost dashboard itself uses coloured status dots. These are
+ *     functional signals, not brand accent, and they appear nowhere else.
+ *   - **A dark theme exists.** Light is canonical and the default. Dark is opt-in, built by
+ *     inverting the same monochrome ramp — an ops tool people leave open on a second
+ *     monitor earns it, and the console is dark in either theme.
  */
 
 /* ==========================================================================
-   Palette — raw ramps. Components never reference these directly.
+   Typefaces — self-hosted from the `geist` package. No CDN: a self-hosted panel
+   should render identically on a machine with no internet access.
    ========================================================================== */
 
-:root {
-  /* Neutrals carry almost no chroma. Ghost's greys read as true greys, and any tint
-     here would fight the game artwork the interface is mostly a frame for. */
-  --ramp-neutral-0: oklch(100% 0 0);
-  --ramp-neutral-25: oklch(99.2% 0 0);
-  --ramp-neutral-50: oklch(98.2% 0 0);
-  --ramp-neutral-100: oklch(96.4% 0 0);
-  --ramp-neutral-150: oklch(94.4% 0 0);
-  --ramp-neutral-200: oklch(92.2% 0 0);
-  --ramp-neutral-300: oklch(87% 0 0);
-  --ramp-neutral-400: oklch(74% 0 0);
-  --ramp-neutral-500: oklch(62% 0 0);
-  --ramp-neutral-600: oklch(51% 0 0);
-  --ramp-neutral-700: oklch(40% 0 0);
-  --ramp-neutral-800: oklch(28% 0 0);
-  --ramp-neutral-850: oklch(23% 0 0);
-  --ramp-neutral-900: oklch(18% 0 0);
-  --ramp-neutral-950: oklch(13% 0 0);
-  --ramp-neutral-1000: oklch(8% 0 0);
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('../../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+  font-style: normal;
+}
 
-  /*
-   * Blue is the interactive accent — focus rings, selection, links. It is deliberately
-   * *not* the primary button colour: in this design the primary action is near-black,
-   * which is what keeps a screen full of controls from looking like a toy.
-   */
-  --ramp-blue-300: oklch(80% 0.09 250);
-  --ramp-blue-400: oklch(72% 0.13 250);
-  --ramp-blue-500: oklch(63% 0.16 253);
-  --ramp-blue-600: oklch(55% 0.17 255);
-  --ramp-blue-700: oklch(46% 0.15 257);
+@font-face {
+  font-family: 'Geist Sans';
+  src: url('../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
 
-  /* Status ramps. These are the only saturated colour most screens contain. */
-  --ramp-green-400: oklch(78% 0.15 152);
-  --ramp-green-500: oklch(70% 0.16 152);
-  --ramp-green-600: oklch(60% 0.15 152);
-
-  --ramp-amber-400: oklch(84% 0.14 78);
-  --ramp-amber-500: oklch(77% 0.15 70);
-  --ramp-amber-600: oklch(68% 0.14 63);
-
-  --ramp-red-400: oklch(72% 0.17 24);
-  --ramp-red-500: oklch(63% 0.2 24);
-  --ramp-red-600: oklch(55% 0.2 25);
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
 }
 
 /* ==========================================================================
-   Semantic tokens — light (the primary theme)
+   Palette
+   ========================================================================== */
+
+:root {
+  /* Ghost's core monochrome system, verbatim. */
+  --ghost-white: #ffffff;
+  --ghost-black: #111111;
+  --ghost-charcoal: #2a2a2a;
+  --ghost-gray-dark: #333333;
+  --ghost-gray-mid: #555555;
+  --ghost-gray-light: #777777;
+  --ghost-gray-border: #dddddd;
+
+  /* Reserved warm off-whites. These are surface tints for occasional section banding —
+     never a feature colour, never flooded across a page. */
+  --ghost-stone: #f7f4ef;
+  --ghost-cream: #faf8f5;
+  --ghost-ember: #f5ebe0;
+  --ghost-sand: #faf9f7;
+
+  /* Primary CTA. The label is off-white, not pure white — Ghost is specific about this. */
+  --ghost-primary: #161616;
+  --ghost-on-primary: #f7f7f7;
+
+  --ghost-border-subtle: rgba(0, 0, 0, 0.06);
+  --ghost-shadow-tint: rgba(0, 0, 0, 0.08);
+  --ghost-shadow-tint-soft: rgba(0, 0, 0, 0.05);
+  --ghost-nav-surface: rgba(255, 255, 255, 0.8);
+
+  /* Functional status triad. Muted on purpose: these sit on a monochrome canvas and would
+     shout at full saturation. Green/amber/red are the only chroma in the chrome. */
+  --status-green: #3f9b56;
+  --status-green-dot: #46b163;
+  --status-amber: #a8762a;
+  --status-amber-dot: #d99a3c;
+  --status-red: #c0453d;
+  --status-red-dot: #d8564c;
+}
+
+/* ==========================================================================
+   Semantic tokens — light (canonical)
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
-  /* The page is a hair off-white; cards are pure white on top of it. That one step is
-     what separates surfaces here — not shadow. */
-  --pl-bg: var(--ramp-neutral-50);
-  --pl-bg-elevated: var(--ramp-neutral-0);
-  --pl-bg-sunken: var(--ramp-neutral-100);
-  --pl-surface: var(--ramp-neutral-0);
-  --pl-surface-hover: var(--ramp-neutral-50);
-  --pl-surface-active: var(--ramp-neutral-100);
-  /* Sidebar sits slightly back from the content it navigates. */
-  --pl-surface-sidebar: var(--ramp-neutral-25);
+  --pl-bg: var(--ghost-white);
+  /* The dashboard's sidebar and sunken regions use the warm off-whites rather than a
+     cooler grey — it is what keeps the near-blank canvas from reading as clinical. */
+  --pl-bg-elevated: var(--ghost-white);
+  --pl-bg-sunken: var(--ghost-sand);
+  --pl-surface: var(--ghost-white);
+  --pl-surface-hover: var(--ghost-sand);
+  --pl-surface-active: var(--ghost-cream);
+  --pl-surface-sidebar: var(--ghost-sand);
+  --pl-surface-warm: var(--ghost-stone);
 
-  --pl-label: var(--ramp-neutral-950);
-  --pl-label-secondary: var(--ramp-neutral-500);
-  --pl-label-tertiary: var(--ramp-neutral-400);
-  --pl-label-quaternary: var(--ramp-neutral-300);
-  --pl-label-inverted: var(--ramp-neutral-0);
+  --pl-label: var(--ghost-black);
+  --pl-label-secondary: var(--ghost-gray-mid);
+  --pl-label-tertiary: var(--ghost-gray-light);
+  --pl-label-quaternary: #9a9a9a;
+  --pl-label-inverted: var(--ghost-on-primary);
+  --pl-label-strong-secondary: var(--ghost-gray-dark);
 
-  --pl-fill: oklch(50% 0 0 / 0.08);
-  --pl-fill-secondary: oklch(50% 0 0 / 0.055);
-  --pl-fill-tertiary: oklch(50% 0 0 / 0.035);
+  --pl-fill: rgba(0, 0, 0, 0.06);
+  --pl-fill-secondary: rgba(0, 0, 0, 0.04);
+  --pl-fill-tertiary: rgba(0, 0, 0, 0.025);
 
-  /* Hairlines do the work shadows would otherwise do. They must be visible but never
-     assertive — this value is the single most load-bearing number in the theme. */
-  --pl-separator: oklch(0% 0 0 / 0.09);
-  --pl-separator-strong: oklch(0% 0 0 / 0.14);
-  --pl-separator-opaque: var(--ramp-neutral-200);
-  --pl-hairline: oklch(0% 0 0 / 0.08);
+  /* Two hairline weights: pick by the contrast the edge actually needs. */
+  --pl-separator: var(--ghost-border-subtle);
+  --pl-separator-strong: var(--ghost-gray-border);
+  --pl-separator-opaque: var(--ghost-gray-border);
+  --pl-hairline: var(--ghost-border-subtle);
 
-  /* Primary action: near-black pill. */
-  --pl-primary: var(--ramp-neutral-900);
-  --pl-primary-hover: var(--ramp-neutral-800);
-  --pl-primary-active: var(--ramp-neutral-950);
-  --pl-primary-on: var(--ramp-neutral-0);
+  --pl-primary: var(--ghost-primary);
+  --pl-primary-hover: var(--ghost-charcoal);
+  --pl-primary-active: var(--ghost-black);
+  --pl-primary-on: var(--ghost-on-primary);
 
-  --pl-accent: var(--ramp-blue-600);
-  --pl-accent-hover: var(--ramp-blue-700);
-  --pl-accent-subtle: oklch(63% 0.16 253 / 0.1);
-  --pl-accent-on: var(--ramp-neutral-0);
-  --pl-accent-ring: oklch(63% 0.16 253 / 0.5);
+  /* "Accent" is monochrome here by design. Focus rings are near-black, because the system
+     has no brand hue to spend on them. */
+  --pl-accent: var(--ghost-black);
+  --pl-accent-hover: var(--ghost-charcoal);
+  --pl-accent-subtle: rgba(0, 0, 0, 0.05);
+  --pl-accent-on: var(--ghost-on-primary);
+  --pl-accent-ring: rgba(17, 17, 17, 0.55);
 
-  --pl-success: var(--ramp-green-600);
-  --pl-success-dot: var(--ramp-green-500);
-  --pl-success-subtle: oklch(70% 0.16 152 / 0.13);
-  --pl-warning: var(--ramp-amber-600);
-  --pl-warning-dot: var(--ramp-amber-500);
-  --pl-warning-subtle: oklch(77% 0.15 70 / 0.16);
-  --pl-danger: var(--ramp-red-600);
-  --pl-danger-dot: var(--ramp-red-500);
-  --pl-danger-subtle: oklch(63% 0.2 24 / 0.11);
-  --pl-info: var(--ramp-blue-600);
-  --pl-info-subtle: oklch(63% 0.16 253 / 0.1);
-  --pl-neutral-status: var(--ramp-neutral-400);
-  --pl-neutral-subtle: oklch(50% 0 0 / 0.08);
+  --pl-success: var(--status-green);
+  --pl-success-dot: var(--status-green-dot);
+  --pl-success-subtle: rgba(70, 177, 99, 0.12);
+  --pl-warning: var(--status-amber);
+  --pl-warning-dot: var(--status-amber-dot);
+  --pl-warning-subtle: rgba(217, 154, 60, 0.14);
+  --pl-danger: var(--status-red);
+  --pl-danger-dot: var(--status-red-dot);
+  --pl-danger-subtle: rgba(216, 86, 76, 0.11);
+  --pl-info: var(--ghost-gray-dark);
+  --pl-info-subtle: rgba(0, 0, 0, 0.05);
+  --pl-neutral-status: var(--ghost-gray-light);
+  --pl-neutral-subtle: rgba(0, 0, 0, 0.05);
 
-  /* Status pill background — the light grey capsule behind a dot and its label. */
-  --pl-pill-bg: var(--ramp-neutral-100);
-  --pl-pill-border: oklch(0% 0 0 / 0.06);
+  /* The status capsule behind a dot and its label. */
+  --pl-pill-bg: var(--ghost-sand);
+  --pl-pill-border: var(--ghost-border-subtle);
 
-  /* Frost, for overlays only. */
-  --pl-frost-tint: oklch(100% 0 0 / 0.8);
-  --pl-frost-tint-thin: oklch(100% 0 0 / 0.66);
-  --pl-frost-tint-thick: oklch(100% 0 0 / 0.9);
-  --pl-frost-border: oklch(0% 0 0 / 0.08);
-  --pl-frost-scrim: oklch(25% 0 0 / 0.28);
+  /* Frost — the signature floating pill, and sparingly, overlays. */
+  --pl-frost-tint: var(--ghost-nav-surface);
+  --pl-frost-tint-thin: rgba(255, 255, 255, 0.66);
+  --pl-frost-tint-thick: rgba(255, 255, 255, 0.92);
+  --pl-frost-border: var(--ghost-border-subtle);
+  --pl-frost-scrim: rgba(17, 17, 17, 0.24);
 
-  /* The console is always dark. A light terminal is a readability tax nobody asked for. */
-  --pl-console-bg: var(--ramp-neutral-950);
-  --pl-console-fg: oklch(91% 0 0);
-  --pl-console-dim: oklch(60% 0 0);
-  --pl-console-stderr: var(--ramp-red-400);
-  --pl-console-system: var(--ramp-blue-300);
-  --pl-console-highlight: oklch(84% 0.14 78 / 0.28);
+  /* The console is dark in both themes. A light terminal is a readability tax. */
+  --pl-console-bg: #0f0f0f;
+  --pl-console-fg: #e8e8e8;
+  --pl-console-dim: #8a8a8a;
+  --pl-console-stderr: #e8837a;
+  --pl-console-system: #8ab4d8;
+  --pl-console-highlight: rgba(217, 154, 60, 0.28);
 
-  /*
-   * Shadows are nearly absent by design. Elevation comes from the hairline and the
-   * surface step; shadow is reserved for things that genuinely float above the page.
-   */
-  --pl-shadow-1: 0 1px 2px oklch(0% 0 0 / 0.04);
-  --pl-shadow-2: 0 1px 3px oklch(0% 0 0 / 0.06), 0 1px 2px oklch(0% 0 0 / 0.04);
-  --pl-shadow-3: 0 4px 12px oklch(0% 0 0 / 0.08), 0 1px 3px oklch(0% 0 0 / 0.05);
-  --pl-shadow-4: 0 12px 32px oklch(0% 0 0 / 0.12), 0 2px 8px oklch(0% 0 0 / 0.06);
+  /* Ghost's exact elevation stack. Nothing heavier than this ships. */
+  --pl-shadow-1: 0 1px 2px var(--ghost-shadow-tint-soft);
+  --pl-shadow-2: 0 2px 6px var(--ghost-shadow-tint-soft);
+  --pl-shadow-3: 0 8px 24px var(--ghost-shadow-tint);
+  --pl-shadow-nav: 0 10px 15px -3px var(--ghost-shadow-tint-soft),
+    0 4px 6px -4px var(--ghost-shadow-tint-soft);
+  --pl-shadow-4: 0 16px 40px rgba(0, 0, 0, 0.12);
 }
 
 /* ==========================================================================
-   Semantic tokens — dark
+   Semantic tokens — dark (opt-in)
    ========================================================================== */
 
 .dark {
   color-scheme: dark;
 
-  --pl-bg: var(--ramp-neutral-1000);
-  --pl-bg-elevated: var(--ramp-neutral-900);
-  --pl-bg-sunken: oklch(5.5% 0 0);
-  --pl-surface: var(--ramp-neutral-900);
-  --pl-surface-hover: var(--ramp-neutral-850);
-  --pl-surface-active: var(--ramp-neutral-800);
-  --pl-surface-sidebar: oklch(11% 0 0);
+  --pl-bg: #0d0d0d;
+  --pl-bg-elevated: #161616;
+  --pl-bg-sunken: #080808;
+  --pl-surface: #161616;
+  --pl-surface-hover: #1e1e1e;
+  --pl-surface-active: #262626;
+  --pl-surface-sidebar: #111111;
+  --pl-surface-warm: #1a1815;
 
-  --pl-label: oklch(97% 0 0);
-  --pl-label-secondary: oklch(70% 0 0);
-  --pl-label-tertiary: oklch(56% 0 0);
-  --pl-label-quaternary: oklch(44% 0 0);
-  --pl-label-inverted: var(--ramp-neutral-950);
+  --pl-label: #f2f2f2;
+  --pl-label-secondary: #a6a6a6;
+  --pl-label-tertiary: #7d7d7d;
+  --pl-label-quaternary: #5c5c5c;
+  --pl-label-inverted: var(--ghost-black);
+  --pl-label-strong-secondary: #d0d0d0;
 
-  --pl-fill: oklch(100% 0 0 / 0.1);
-  --pl-fill-secondary: oklch(100% 0 0 / 0.06);
-  --pl-fill-tertiary: oklch(100% 0 0 / 0.04);
+  --pl-fill: rgba(255, 255, 255, 0.08);
+  --pl-fill-secondary: rgba(255, 255, 255, 0.05);
+  --pl-fill-tertiary: rgba(255, 255, 255, 0.03);
 
-  --pl-separator: oklch(100% 0 0 / 0.1);
-  --pl-separator-strong: oklch(100% 0 0 / 0.16);
-  --pl-separator-opaque: var(--ramp-neutral-800);
-  --pl-hairline: oklch(100% 0 0 / 0.09);
+  --pl-separator: rgba(255, 255, 255, 0.09);
+  --pl-separator-strong: rgba(255, 255, 255, 0.16);
+  --pl-separator-opaque: #2e2e2e;
+  --pl-hairline: rgba(255, 255, 255, 0.09);
 
-  /* Inverted: the primary action becomes a near-white pill on dark. */
-  --pl-primary: oklch(96% 0 0);
-  --pl-primary-hover: oklch(89% 0 0);
-  --pl-primary-active: oklch(100% 0 0);
-  --pl-primary-on: var(--ramp-neutral-950);
+  /* Inverted: the primary action becomes an off-white pill on near-black. */
+  --pl-primary: #f2f2f2;
+  --pl-primary-hover: #ffffff;
+  --pl-primary-active: #e0e0e0;
+  --pl-primary-on: #161616;
 
-  --pl-accent: var(--ramp-blue-400);
-  --pl-accent-hover: var(--ramp-blue-300);
-  --pl-accent-subtle: oklch(72% 0.13 250 / 0.16);
-  --pl-accent-on: var(--ramp-neutral-950);
-  --pl-accent-ring: oklch(72% 0.13 250 / 0.6);
+  --pl-accent: #f2f2f2;
+  --pl-accent-hover: #ffffff;
+  --pl-accent-subtle: rgba(255, 255, 255, 0.08);
+  --pl-accent-on: var(--ghost-black);
+  --pl-accent-ring: rgba(242, 242, 242, 0.6);
 
-  --pl-success: var(--ramp-green-400);
-  --pl-success-dot: var(--ramp-green-400);
-  --pl-success-subtle: oklch(78% 0.15 152 / 0.16);
-  --pl-warning: var(--ramp-amber-400);
-  --pl-warning-dot: var(--ramp-amber-400);
-  --pl-warning-subtle: oklch(84% 0.14 78 / 0.14);
-  --pl-danger: var(--ramp-red-400);
-  --pl-danger-dot: var(--ramp-red-400);
-  --pl-danger-subtle: oklch(72% 0.17 24 / 0.16);
-  --pl-info: var(--ramp-blue-400);
-  --pl-info-subtle: oklch(72% 0.13 250 / 0.14);
-  --pl-neutral-status: oklch(58% 0 0);
-  --pl-neutral-subtle: oklch(100% 0 0 / 0.1);
+  --pl-success: #5cc179;
+  --pl-success-dot: #5cc179;
+  --pl-success-subtle: rgba(92, 193, 121, 0.15);
+  --pl-warning: #e0a856;
+  --pl-warning-dot: #e0a856;
+  --pl-warning-subtle: rgba(224, 168, 86, 0.14);
+  --pl-danger: #e5726a;
+  --pl-danger-dot: #e5726a;
+  --pl-danger-subtle: rgba(229, 114, 106, 0.14);
+  --pl-info: #a6a6a6;
+  --pl-info-subtle: rgba(255, 255, 255, 0.06);
+  --pl-neutral-status: #7d7d7d;
+  --pl-neutral-subtle: rgba(255, 255, 255, 0.08);
 
-  --pl-pill-bg: oklch(100% 0 0 / 0.07);
-  --pl-pill-border: oklch(100% 0 0 / 0.08);
+  --pl-pill-bg: rgba(255, 255, 255, 0.06);
+  --pl-pill-border: rgba(255, 255, 255, 0.08);
 
-  --pl-frost-tint: oklch(18% 0 0 / 0.8);
-  --pl-frost-tint-thin: oklch(18% 0 0 / 0.6);
-  --pl-frost-tint-thick: oklch(14% 0 0 / 0.92);
-  --pl-frost-border: oklch(100% 0 0 / 0.08);
-  --pl-frost-scrim: oklch(0% 0 0 / 0.6);
+  --pl-frost-tint: rgba(22, 22, 22, 0.8);
+  --pl-frost-tint-thin: rgba(22, 22, 22, 0.62);
+  --pl-frost-tint-thick: rgba(17, 17, 17, 0.93);
+  --pl-frost-border: rgba(255, 255, 255, 0.08);
+  --pl-frost-scrim: rgba(0, 0, 0, 0.6);
 
-  --pl-console-bg: oklch(10% 0 0);
+  --pl-console-bg: #0a0a0a;
 
-  --pl-shadow-1: 0 1px 2px oklch(0% 0 0 / 0.4);
-  --pl-shadow-2: 0 1px 3px oklch(0% 0 0 / 0.5);
-  --pl-shadow-3: 0 6px 20px oklch(0% 0 0 / 0.55);
-  --pl-shadow-4: 0 16px 44px oklch(0% 0 0 / 0.65);
+  --pl-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --pl-shadow-2: 0 2px 6px rgba(0, 0, 0, 0.55);
+  --pl-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --pl-shadow-nav: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --pl-shadow-4: 0 16px 40px rgba(0, 0, 0, 0.7);
 }
 
 /* ==========================================================================
-   Scales — theme-independent
+   Scales
    ========================================================================== */
 
 :root {
-  /* HIG's semantic roles on a 16px web baseline. */
-  --pl-text-display: 2.5rem; /* 40px — the page title, once per screen */
-  --pl-text-title-1: 1.75rem;
-  --pl-text-title-2: 1.375rem;
-  --pl-text-title-3: 1.125rem;
-  --pl-text-headline: 1rem;
-  --pl-text-body: 1rem;
+  /*
+   * Two typefaces, strictly separated. The pixel face is for headings ONLY — it is
+   * unreadable as body copy at 16px, and mixing the two inside one role is the fastest
+   * way to make this system look accidental.
+   */
+  --pl-font-display: 'Geist Pixel Square', 'Geist Sans', ui-monospace, monospace;
+  --pl-font-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --pl-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Display sizes — pixel face, weight 500, 1:1 leading, negative tracking. That
+     compression is what gives the chunky pixel block its terminal look. */
+  --pl-text-display: 3.75rem; /* 60px — hero only */
+  --pl-text-title-1: 2.25rem; /* 36px — page titles */
+  --pl-text-title-2: 1.5rem; /* 24px */
+  --pl-text-title-3: 1.25rem; /* 20px — card/feature titles, in the SANS face */
+
+  /* Body sizes — sans face. */
+  --pl-text-headline: 1.25rem; /* 20px, weight 600 */
+  --pl-text-body-lg: 1.125rem; /* 18px / 28px, lead paragraphs */
+  --pl-text-body: 1rem; /* 16px base */
   --pl-text-callout: 0.9375rem;
-  --pl-text-subhead: 0.875rem;
+  --pl-text-subhead: 0.875rem; /* 14px — labels, table headers */
   --pl-text-footnote: 0.8125rem;
   --pl-text-caption: 0.75rem;
   --pl-text-caption-2: 0.6875rem; /* the floor */
 
-  --pl-leading-tight: 1.1;
+  --pl-leading-display: 1;
+  --pl-leading-tight: 1.05;
   --pl-leading-snug: 1.3;
   --pl-leading-normal: 1.5;
-  --pl-leading-relaxed: 1.65;
+  --pl-leading-body-lg: 1.5556; /* 28/18 — Ghost's confirmed reading measure */
 
-  /* The display size is set genuinely tight — that compression is a large part of what
-     makes this family of interfaces read as considered rather than generic. */
-  --pl-tracking-display: -0.03em;
-  --pl-tracking-title: -0.018em;
-  --pl-tracking-body: -0.008em;
-  --pl-tracking-caption: 0.002em;
+  --pl-tracking-display: -0.025em;
+  --pl-tracking-title: -0.02em;
+  --pl-tracking-body: 0em;
+  --pl-tracking-caption: 0.01em;
   --pl-tracking-caps: 0.05em;
+  --pl-tracking-index: 0.02em;
 
-  --pl-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter',
-    'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji';
-  --pl-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', Menlo,
-    Consolas, 'Liberation Mono', monospace;
+  --pl-weight-display: 500; /* never heavier on the pixel face — it fills in and muddies */
+  --pl-weight-body: 400;
+  --pl-weight-label: 500;
+  --pl-weight-title: 600;
 
-  --pl-space-0-5: 0.125rem;
-  --pl-space-1: 0.25rem;
-  --pl-space-2: 0.5rem;
-  --pl-space-3: 0.75rem;
-  --pl-space-4: 1rem;
-  --pl-space-5: 1.25rem;
-  --pl-space-6: 1.5rem;
-  --pl-space-8: 2rem;
-  --pl-space-10: 2.5rem;
-  --pl-space-12: 3rem;
-  --pl-space-16: 4rem;
+  /* 8px base grid; 4px only for the smallest inline adjustments. */
+  --pl-space-2xs: 4px;
+  --pl-space-xs: 8px;
+  --pl-space-sm: 12px;
+  --pl-space-md: 16px;
+  --pl-space-lg: 24px;
+  --pl-space-xl: 32px;
+  --pl-space-2xl: 48px;
+  --pl-space-3xl: 64px;
+  --pl-space-4xl: 112px;
 
-  /* Ghost's radii: modest on cards and controls, generous on the app frame. */
+  /*
+   * Radius is the system's defining tension: interactive chrome is heavily rounded,
+   * content imagery is sharp. Do not round game key-art.
+   */
+  --pl-radius-none: 0px;
   --pl-radius-xs: 6px;
   --pl-radius-sm: 8px;
-  --pl-radius-md: 10px;
-  --pl-radius-lg: 12px;
-  --pl-radius-xl: 16px;
-  --pl-radius-2xl: 20px;
+  --pl-radius-md: 12px;
+  --pl-radius-card: 18px;
+  --pl-radius-button: 32px;
+  --pl-radius-pill: 999px;
   --pl-radius-full: 9999px;
 
   --pl-hit-target: 44px;
   --pl-control-sm: 32px;
-  --pl-control-md: 38px;
-  --pl-control-lg: 44px;
+  --pl-control-md: 40px;
+  --pl-control-lg: 48px;
 
-  --pl-blur-thin: 12px;
-  --pl-blur-regular: 24px;
-  --pl-blur-thick: 40px;
-  --pl-blur-chrome: 32px;
-  --pl-frost-saturate: 1.6;
+  --pl-blur-nav: 8px; /* Ghost's signature pill */
+  --pl-blur-overlay: 16px;
+  --pl-frost-saturate: 1.4;
 
-  --pl-duration-instant: 80ms;
-  --pl-duration-fast: 140ms;
-  --pl-duration-normal: 200ms;
-  --pl-duration-slow: 300ms;
-  --pl-duration-deliberate: 450ms;
+  --pl-container-max: 1180px;
+  --pl-container-gutter: 24px;
+  --pl-container-gutter-lg: 48px;
+  --pl-nav-clearance: 88px;
+  --pl-sidebar-width: 260px;
+  --pl-sidebar-width-collapsed: 68px;
+  --pl-header-height: 64px;
 
-  --pl-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --pl-breakpoint-md: 768px;
+  --pl-breakpoint-lg: 1280px;
+
+  /* Motion: fast for hover/focus, base for the card lift, one slow ambient loop.
+     No bouncy or overshoot easing anywhere — Ghost is explicit about that. */
+  --pl-duration-fast: 150ms;
+  --pl-duration-normal: 220ms;
+  --pl-duration-slow: 320ms;
+  --pl-duration-float: 3000ms;
+
+  --pl-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --pl-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --pl-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
-  --pl-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --pl-ease-float: ease-in-out;
 
   --pl-z-base: 0;
   --pl-z-sticky: 100;
@@ -317,13 +373,9 @@
   --pl-z-overlay: 400;
   --pl-z-modal: 500;
   --pl-z-popover: 600;
+  --pl-z-nav: 650;
   --pl-z-toast: 700;
   --pl-z-tooltip: 800;
-
-  --pl-sidebar-width: 260px;
-  --pl-sidebar-width-collapsed: 68px;
-  --pl-header-height: 64px;
-  --pl-content-max: 1400px;
 }
 
 /* ==========================================================================
@@ -332,42 +384,40 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --pl-duration-instant: 1ms;
     --pl-duration-fast: 1ms;
     --pl-duration-normal: 1ms;
     --pl-duration-slow: 1ms;
-    --pl-duration-deliberate: 1ms;
   }
 }
 
-/* Some people find blurred backdrops genuinely hard to read against; the OS preference
-   is the right signal, and frost collapsing to a solid surface costs this design nothing. */
 @media (prefers-reduced-transparency: reduce) {
   :root {
     --pl-frost-tint: var(--pl-surface);
     --pl-frost-tint-thin: var(--pl-surface);
     --pl-frost-tint-thick: var(--pl-surface);
-    --pl-blur-thin: 0px;
-    --pl-blur-regular: 0px;
-    --pl-blur-thick: 0px;
-    --pl-blur-chrome: 0px;
+    --pl-blur-nav: 0px;
+    --pl-blur-overlay: 0px;
   }
 }
 
+/*
+ * Ghost's greys are tuned for an editorial page, not for a low-vision reader. At
+ * increased contrast the ramp tightens toward the near-black ink.
+ */
 @media (prefers-contrast: more) {
   :root {
-    --pl-separator: oklch(0% 0 0 / 0.28);
-    --pl-separator-strong: oklch(0% 0 0 / 0.42);
-    --pl-label-secondary: var(--ramp-neutral-700);
-    --pl-label-tertiary: var(--ramp-neutral-600);
-    --pl-hairline: oklch(0% 0 0 / 0.26);
+    --pl-label-secondary: var(--ghost-gray-dark);
+    --pl-label-tertiary: var(--ghost-gray-mid);
+    --pl-separator: rgba(0, 0, 0, 0.24);
+    --pl-separator-strong: rgba(0, 0, 0, 0.4);
+    --pl-hairline: rgba(0, 0, 0, 0.24);
   }
 
   .dark {
-    --pl-separator: oklch(100% 0 0 / 0.3);
-    --pl-separator-strong: oklch(100% 0 0 / 0.44);
-    --pl-label-secondary: oklch(84% 0 0);
-    --pl-label-tertiary: oklch(72% 0 0);
-    --pl-hairline: oklch(100% 0 0 / 0.26);
+    --pl-label-secondary: #d8d8d8;
+    --pl-label-tertiary: #b4b4b4;
+    --pl-separator: rgba(255, 255, 255, 0.28);
+    --pl-separator-strong: rgba(255, 255, 255, 0.42);
+    --pl-hairline: rgba(255, 255, 255, 0.28);
   }
 }
