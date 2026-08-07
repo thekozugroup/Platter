@@ -47,13 +47,23 @@ interface RawStats {
 
 export function computeStats(raw: RawStats): ContainerStats {
   const cpuDelta = raw.cpu_stats.cpu_usage.total_usage - raw.precpu_stats.cpu_usage.total_usage;
-  const systemDelta = (raw.cpu_stats.system_cpu_usage ?? 0) - (raw.precpu_stats.system_cpu_usage ?? 0);
+  const previousSystem = raw.precpu_stats.system_cpu_usage ?? 0;
+  const systemDelta = (raw.cpu_stats.system_cpu_usage ?? 0) - previousSystem;
   const cores = raw.cpu_stats.online_cpus ?? raw.cpu_stats.cpu_usage.percpu_usage?.length ?? 1;
 
-  // The first sample after a container starts has no `precpu` baseline, so both deltas are
-  // zero or negative. Reporting 0 there is honest; reporting NaN or a huge spike is not.
+  /*
+   * Without a previous sample there is no rate to report.
+   *
+   * Docker zeroes `precpu_stats` on the first read of a stream, which makes `systemDelta` the
+   * host's entire uptime and turns the calculation into a lifetime average. That reads as a
+   * plausible small number rather than an obvious error, so a freshly started server shows a
+   * misleading figure that never quite settles. The Docker CLI guards on exactly this, and so
+   * does Platter: no baseline means 0, and the next poll two seconds later has a real one.
+   */
   const cpuPercent =
-    systemDelta > 0 && cpuDelta > 0 ? (cpuDelta / systemDelta) * cores * 100 : 0;
+    previousSystem > 0 && systemDelta > 0 && cpuDelta > 0
+      ? (cpuDelta / systemDelta) * cores * 100
+      : 0;
 
   // `memory_stats.usage` includes the page cache, which for a Minecraft server reading chunk
   // files is easily a gigabyte of memory that is not actually in use and is instantly

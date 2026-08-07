@@ -1,3 +1,4 @@
+import { StringDecoder } from 'node:string_decoder';
 import type { Readable } from 'node:stream';
 import type Docker from 'dockerode';
 import { type Result, attempt, fail, ok } from '@platter/shared';
@@ -42,6 +43,16 @@ export async function* demuxLines(
   let buffer = Buffer.alloc(0);
   // Partial line carried across frames, per stream.
   const partial: Record<'stdout' | 'stderr', string> = { stdout: '', stderr: '' };
+  /*
+   * A UTF-8 character can straddle a frame boundary — Docker splits by bytes, not codepoints.
+   * Decoding each frame independently turns a multi-byte character into replacement glyphs, so
+   * a MOTD with an accent or a player name with a non-Latin script arrives corrupted. A
+   * StringDecoder per stream holds the incomplete trailing bytes until the rest arrives.
+   */
+  const decoder: Record<'stdout' | 'stderr', StringDecoder> = {
+    stdout: new StringDecoder('utf8'),
+    stderr: new StringDecoder('utf8'),
+  };
 
   for await (const chunk of source) {
     buffer = Buffer.concat([buffer, chunk as Buffer]);
@@ -54,13 +65,13 @@ export async function* demuxLines(
         break; // Wait for the rest of this frame.
       }
 
-      const payload = buffer.subarray(HEADER_SIZE, HEADER_SIZE + payloadLength).toString('utf8');
+      const payloadBytes = buffer.subarray(HEADER_SIZE, HEADER_SIZE + payloadLength);
       buffer = buffer.subarray(HEADER_SIZE + payloadLength);
 
       // Docker uses 1 for stdout and 2 for stderr. Anything else (0 = stdin echo) is ignored.
       const stream: 'stdout' | 'stderr' = streamType === 2 ? 'stderr' : 'stdout';
 
-      const combined = partial[stream] + payload;
+      const combined = partial[stream] + decoder[stream].write(payloadBytes);
       const parts = combined.split('\n');
       // The trailing element is either an incomplete line or an empty string; carry it forward.
       partial[stream] = parts.pop() ?? '';
@@ -74,8 +85,9 @@ export async function* demuxLines(
 
   // Flush whatever was left when the stream ended — usually the final line of a crash.
   for (const stream of ['stdout', 'stderr'] as const) {
-    if (partial[stream].length > 0) {
-      yield toLogLine(partial[stream], stream, seq++, options.withTimestamps ?? false);
+    const tail = partial[stream] + decoder[stream].end();
+    if (tail.length > 0) {
+      yield toLogLine(tail.replace(/\r$/, ''), stream, seq++, options.withTimestamps ?? false);
     }
   }
 }

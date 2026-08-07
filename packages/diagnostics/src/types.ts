@@ -25,8 +25,14 @@ import type { MinecraftLoader } from '@platter/shared';
 export interface RawLogLine {
   seq: number;
   stream: 'stdout' | 'stderr';
-  /** Docker's timestamp, epoch milliseconds. Absent when logs were read without timestamps. */
-  timestamp?: number | undefined;
+  /**
+   * Docker's timestamp, epoch milliseconds.
+   *
+   * `null` is accepted alongside `undefined` because callers that hydrate a log window from
+   * SQLite get `null` back for a missing column, and making every one of them normalise before
+   * calling in would be a needless trap.
+   */
+  timestamp?: number | null | undefined;
   text: string;
 }
 
@@ -211,7 +217,13 @@ export interface Match {
 
 export type HealthStatus = 'healthy' | 'unhealthy' | 'starting' | 'none';
 
-/** What Platter knows about the server independently of its logs. */
+/**
+ * What Platter knows about the server independently of its logs.
+ *
+ * `exitCode` and `health` are accepted here as well as at the top level of `DiagnoseInput`,
+ * because both readings are defensible — they are facts about the container, which is a fact
+ * about the server — and callers split on it. `diagnose()` takes whichever is present.
+ */
 export interface ServerFacts {
   readonly loader?: MinecraftLoader;
   readonly gameVersion?: string;
@@ -221,14 +233,32 @@ export interface ServerFacts {
   readonly memoryMiB?: number;
   /** Whether `ENABLE_AUTOPAUSE` is on. Changes what a watchdog timeout means. */
   readonly autopauseEnabled?: boolean;
+  /** Platter's lifecycle status, e.g. `crashed`. Free-form here to avoid a cycle on core. */
+  readonly status?: string;
+  readonly exitCode?: number | null;
+  readonly health?: HealthStatus;
 }
 
+/**
+ * A mod or plugin Platter believes is installed.
+ *
+ * Every field is optional because callers hold different subsets: the mod service knows the
+ * Modrinth slug, a directory scan knows only a filename, and a modpack install knows the
+ * display name. `modIdentity()` picks the most specific one available rather than forcing the
+ * caller to invent an id it does not have.
+ */
 export interface InstalledMod {
-  readonly id: string;
+  readonly id?: string;
+  readonly slug?: string;
   readonly name?: string;
   readonly version?: string;
   readonly fileName?: string;
   readonly provider?: 'modrinth' | 'curseforge' | 'manual';
+}
+
+/** The best available name for a mod, for matching against ids the loader printed. */
+export function modIdentity(mod: InstalledMod): string {
+  return mod.id ?? mod.slug ?? mod.name ?? mod.fileName ?? '';
 }
 
 export interface MatchContext {
@@ -305,9 +335,17 @@ export interface Diagnosis {
 export interface DiagnoseInput {
   readonly lines: readonly RawLogLine[];
   readonly server?: ServerFacts;
-  readonly exitCode?: number;
+  /** Overridden by `server.exitCode` when both are given. `null` means "has not exited". */
+  readonly exitCode?: number | null;
   readonly health?: HealthStatus;
+  /**
+   * `docker inspect -f '{{.State.OOMKilled}}'`. Optional, but supplying it is what lets the
+   * engine tell a kernel OOM kill apart from a shutdown that outran its grace period.
+   */
   readonly oomKilled?: boolean;
+  /** Whether `/data/.paused` exists. */
   readonly paused?: boolean;
   readonly mods?: readonly InstalledMod[];
+  /** Alias for `mods`. Both names are in use across Platter; either is accepted. */
+  readonly installed?: readonly InstalledMod[];
 }

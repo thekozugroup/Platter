@@ -91,7 +91,7 @@ function toLevel(raw: string | undefined): LogLevel | undefined {
 function build(
   base: Pick<ParsedLine, 'raw' | 'seq' | 'stream' | 'message' | 'source'>,
   extra: {
-    timestamp?: number | undefined;
+    timestamp?: number | null | undefined;
     time?: string | undefined;
     thread?: string | undefined;
     level?: LogLevel | undefined;
@@ -100,7 +100,7 @@ function build(
   }
 ): ParsedLine {
   const line: ParsedLine = { ...base };
-  if (extra.timestamp !== undefined) {
+  if (extra.timestamp !== undefined && extra.timestamp !== null) {
     line.timestamp = extra.timestamp;
   }
   if (extra.time !== undefined && extra.time !== '') {

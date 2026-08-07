@@ -333,22 +333,42 @@ describe('HttpClient', () => {
     expect(timer.waits[2]).toBeLessThanOrEqual(4000);
   });
 
-  it('waits for a rate-limit token before sending', async () => {
-    let now = 0;
+  it('waits for a rate-limit token before sending the next request', async () => {
+    // The fake sleep advances the same virtual clock the bucket refills against, so the wait is
+    // real from the limiter's point of view without costing the suite a second.
     const timer = recordingSleep();
     const fake = fakeFetch(() => ({ body: { hello: 'world' } }));
     const http = client({
       fetchImpl: fake.fetch,
       sleep: timer.sleep,
-      now: () => now,
+      now: timer.now,
       rateLimit: { capacity: 1, refillPerSecond: 1 },
     });
 
     await http.getJson('/a', schema);
-    await http.getJson('/b', schema);
+    expect(timer.waits).toEqual([]);
 
+    await http.getJson('/b', schema);
     expect(fake.calls).toHaveLength(2);
-    expect(timer.waits.length).toBeGreaterThan(0);
+    // One token per second and the bucket was empty, so it had to wait about a full second.
+    expect(timer.waits.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(1000);
+  });
+
+  it('gives up rather than spinning when the limiter can never release a token', async () => {
+    const fake = fakeFetch(() => ({ body: { hello: 'world' } }));
+    const http = client({
+      fetchImpl: fake.fetch,
+      // A frozen clock means no refill, ever. This must terminate, not hang.
+      now: () => 0,
+      rateLimit: { capacity: 1, refillPerSecond: 1 },
+    });
+
+    expect((await http.getJson('/a', schema)).ok).toBe(true);
+    const second = await http.getJson('/b', schema);
+    expect(second.ok).toBe(false);
+    if (!second.ok) {
+      expect(second.error.code).toBe('rate_limited');
+    }
   });
 
   it('surfaces a body that is not JSON rather than throwing', async () => {
