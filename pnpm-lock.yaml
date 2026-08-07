@@ -11,6 +11,21 @@ importers:
       '@biomejs/biome':
         specifier: 2.5.7
         version: 2.5.7
+      '@platter/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@platter/db':
+        specifier: workspace:*
+        version: link:packages/db
+      '@platter/diagnostics':
+        specifier: workspace:*
+        version: link:packages/diagnostics
+      '@platter/mods':
+        specifier: workspace:*
+        version: link:packages/mods
+      '@platter/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       '@types/node':
         specifier: ^24.10.1
         version: 24.13.3

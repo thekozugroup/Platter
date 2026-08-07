@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { VersionIndex } from '@platter/shared';
+import { type Logger, VersionIndex, createLogger } from '@platter/shared';
 import type { ModProject, ModVersion } from '../types';
 
 /**
@@ -139,13 +139,30 @@ export function fakeFetch(
   return { fetch: impl as unknown as typeof fetch, calls };
 }
 
-/** Never sleeps. Records what the client *would* have waited, which is what we assert on. */
-export function recordingSleep(): { sleep: (ms: number) => Promise<void>; waits: number[] } {
+/**
+ * Never sleeps. Records what the client *would* have waited, which is what we assert on.
+ *
+ * `clock` lets a test hand the same virtual time to the client's `now`, so a rate limiter that
+ * refills over time actually refills instead of deadlocking against a frozen clock.
+ */
+export function recordingSleep(): {
+  sleep: (ms: number) => Promise<void>;
+  waits: number[];
+  now: () => number;
+} {
   const waits: number[] = [];
+  let clock = 0;
   return {
     waits,
+    now: () => clock,
     sleep: async (ms: number) => {
       waits.push(ms);
+      clock += ms;
     },
   };
+}
+
+/** Swallows log output so a test run's stderr stays readable. */
+export function silentLogger(): Logger {
+  return createLogger({ level: 'debug', json: true, write: () => {} });
 }

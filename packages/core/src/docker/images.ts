@@ -36,14 +36,18 @@ interface PullEvent {
  * primitive wearing a friendly hat: `-v /:/host` in a custom image spec owns the machine. The
  * allowlist is the difference between "Platter runs game servers" and "Platter runs anything".
  */
-const ALLOWED_IMAGE_REPOS: ReadonlySet<string> = new Set([MINECRAFT_IMAGE, BACKUP_IMAGE]);
+const DEFAULT_ALLOWED_REPOS: readonly string[] = [MINECRAFT_IMAGE, BACKUP_IMAGE];
 
-export function isAllowedImage(image: string, allowCustom: boolean): boolean {
+export function isAllowedImage(
+  image: string,
+  allowCustom: boolean,
+  extraRepos: readonly string[] = []
+): boolean {
   if (allowCustom) {
     return true;
   }
   const repo = image.split('@')[0]?.split(':')[0] ?? '';
-  return ALLOWED_IMAGE_REPOS.has(repo);
+  return DEFAULT_ALLOWED_REPOS.includes(repo) || extraRepos.includes(repo);
 }
 
 export async function imageExists(docker: Docker, image: string): Promise<boolean> {
@@ -62,9 +66,11 @@ export async function pullImage(
     onProgress?: (progress: PullProgress) => void;
     signal?: AbortSignal;
     allowCustom?: boolean;
+    /** Repositories configured as trusted mirrors, from the environment. */
+    allowedRepos?: readonly string[];
   } = {}
 ): Promise<Result<void>> {
-  if (!isAllowedImage(image, options.allowCustom ?? false)) {
+  if (!isAllowedImage(image, options.allowCustom ?? false, options.allowedRepos ?? [])) {
     return fail(
       'not_supported',
       `Image "${image}" is not in Platter's allowlist. ` +

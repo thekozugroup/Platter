@@ -53,11 +53,15 @@ function javaForLoader(
   };
 }
 
-export function selectImage(loader: MinecraftLoader, gameVersion: string): ImageSelection {
+export function selectImage(
+  loader: MinecraftLoader,
+  gameVersion: string,
+  repository: string = MINECRAFT_IMAGE
+): ImageSelection {
   const baseline = requiredJavaVersion(gameVersion);
   const { java, reason } = javaForLoader(loader, gameVersion, baseline);
   const tag = JAVA_IMAGE_TAGS[java] ?? JAVA_IMAGE_TAGS[DEFAULT_JAVA_VERSION] ?? 'java21';
-  return { image: `${MINECRAFT_IMAGE}:${tag}`, javaVersion: java, reason };
+  return { image: `${repository}:${tag}`, javaVersion: java, reason };
 }
 
 /* -------------------------------------------------------------------------- */

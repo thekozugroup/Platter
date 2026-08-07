@@ -12,6 +12,7 @@ export * from './docker/images';
 export * from './docker/logs';
 export * from './docker/stats';
 
+export * from './minecraft/catalog';
 export * from './minecraft/env';
 export * from './minecraft/manifest';
 

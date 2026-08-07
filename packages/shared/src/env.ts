@@ -55,6 +55,14 @@ export const envSchema = z
     PLATTER_DOCKER_NETWORK: z.string().default('platter'),
     /** Allow images outside the curated manifest set. Off by default; see SECURITY.md. */
     PLATTER_ALLOW_CUSTOM_IMAGES: booleanish.default(false),
+    /**
+     * Repository to pull Minecraft server images from. Override to point at a private mirror,
+     * an air-gapped registry, or a locally built variant. The tag is still chosen by Platter
+     * from the Minecraft version, so a mirror must publish the same java* tags.
+     */
+    PLATTER_MINECRAFT_IMAGE_REPO: z.string().default('itzg/minecraft-server'),
+    /** Repository for the backup helper image. Same rationale as above. */
+    PLATTER_BACKUP_IMAGE_REPO: z.string().default('itzg/mc-backup'),
 
     /* --- Port allocation --------------------------------------------------- */
     /** Inclusive range Platter hands out host ports from, for game and query ports alike. */

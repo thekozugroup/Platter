@@ -36,7 +36,7 @@ import { ensureImage, type PullProgress } from '../docker/images';
 import { EVENT, emitEvent } from '../events';
 import { buildContainerEnv } from '../minecraft/env';
 import { selectImage } from '../minecraft/manifest';
-import { allocatePort, releaseServerPorts } from '../ports';
+import { findFreePorts, isPortConflict, releaseServerPorts, reservePorts } from '../ports';
 import { closeRcon, rconCommand } from '../rcon';
 import { getServer, hydrate, setStatus, type Server, updateServer } from './repository';
 
@@ -97,50 +97,91 @@ export async function createServer(
     return error;
   };
 
-  /* --- Ports ------------------------------------------------------------- */
+  /* --- Ports and row ----------------------------------------------------- */
+  //
+  // These commit together. `port_allocations.server_id` has a foreign key to `servers.id`, so
+  // the ledger rows cannot exist before the server row — and the server row cannot exist before
+  // the ports, because it stores them. One transaction resolves the circularity, and it also
+  // makes the whole reservation atomic: a crash mid-create leaves neither a phantom server nor
+  // a leaked port.
+  //
+  // Probing is async and better-sqlite3 transactions must be synchronous, so candidates are
+  // found first and only then committed. If another process wins a port in that window the
+  // UNIQUE constraint rejects the commit and we retry with fresh candidates.
   const range = {
     start: ctx.env.PLATTER_PORT_RANGE_START,
     end: ctx.env.PLATTER_PORT_RANGE_END,
   };
-  const gamePort = await allocatePort(ctx.db, { serverId: id, purpose: 'game', range });
-  if (!gamePort.ok) {
-    return gamePort;
-  }
-  rollback.push(() => releaseServerPorts(ctx.db, id));
-
-  const rconPort = await allocatePort(ctx.db, { serverId: id, purpose: 'rcon', range });
-  if (!rconPort.ok) {
-    return abort(rconPort);
-  }
-
-  /* --- Row --------------------------------------------------------------- */
-  const image = selectImage(input.loader, input.gameVersion);
+  const image = selectImage(input.loader, input.gameVersion, ctx.env.PLATTER_MINECRAFT_IMAGE_REPO);
   const password = generateRconPassword();
 
-  ctx.db
-    .insert(servers)
-    .values({
-      id,
-      name: input.name.trim(),
-      slug,
-      game: 'minecraft',
-      loader: input.loader,
-      gameVersion: input.gameVersion,
-      loaderVersion: input.loaderVersion ?? null,
-      image: image.image,
-      status: 'creating',
-      port: gamePort.value,
-      rconPort: rconPort.value,
-      rconPassword: password,
-      memoryMiB,
-      cpus: Math.round(cpus * 1000),
-      pidsLimit,
-      restartPolicy: input.restartPolicy ?? 'unless-stopped',
-      settings,
-      dataDir,
-    })
-    .run();
+  let gamePort = 0;
+  let rconPort = 0;
+  let committed = false;
+  const attempted = new Set<number>();
+
+  for (let attempt = 0; attempt < 3 && !committed; attempt++) {
+    const ports = await findFreePorts(ctx.db, {
+      range,
+      count: 2,
+      exclude: [...attempted],
+    });
+    if (!ports.ok) {
+      return ports;
+    }
+    [gamePort = 0, rconPort = 0] = ports.value;
+
+    try {
+      ctx.db.$sqlite.transaction(() => {
+        ctx.db
+          .insert(servers)
+          .values({
+            id,
+            name: input.name.trim(),
+            slug,
+            game: 'minecraft',
+            loader: input.loader,
+            gameVersion: input.gameVersion,
+            loaderVersion: input.loaderVersion ?? null,
+            image: image.image,
+            status: 'creating',
+            port: gamePort,
+            rconPort,
+            rconPassword: password,
+            memoryMiB,
+            cpus: Math.round(cpus * 1000),
+            pidsLimit,
+            restartPolicy: input.restartPolicy ?? 'unless-stopped',
+            settings,
+            dataDir,
+          })
+          .run();
+
+        reservePorts(ctx.db, id, [
+          { port: gamePort, purpose: 'game' },
+          { port: rconPort, purpose: 'rcon' },
+        ]);
+      })();
+      committed = true;
+    } catch (cause) {
+      if (!isPortConflict(cause)) {
+        return fail('internal', `Could not create the server record: ${String(cause)}`, { cause });
+      }
+      log.debug('lost a port race, retrying', { gamePort, rconPort });
+      attempted.add(gamePort);
+      attempted.add(rconPort);
+    }
+  }
+
+  if (!committed) {
+    return fail(
+      'port_unavailable',
+      'Could not reserve ports — another process kept taking them. Try again.'
+    );
+  }
+
   rollback.push(() => {
+    // Deleting the server cascades to its port allocations.
     ctx.db.delete(servers).where(eq(servers.id, id)).run();
   });
 
@@ -163,6 +204,7 @@ export async function createServer(
 
   const pulled = await ensureImage(ctx.docker, image.image, {
     allowCustom: ctx.env.PLATTER_ALLOW_CUSTOM_IMAGES,
+    allowedRepos: [ctx.env.PLATTER_MINECRAFT_IMAGE_REPO, ctx.env.PLATTER_BACKUP_IMAGE_REPO],
     ...(input.onProgress
       ? { onProgress: (pull: PullProgress) => input.onProgress?.({ phase: 'pulling', pull }) }
       : {}),
@@ -199,8 +241,8 @@ export async function createServer(
     },
     dataDir,
     network: ctx.env.PLATTER_DOCKER_NETWORK,
-    gamePort: gamePort.value,
-    rconPort: rconPort.value,
+    gamePort,
+    rconPort,
     bindAddress: ctx.env.PLATTER_BIND_ADDRESS,
     memoryMiB,
     cpus,
@@ -642,9 +684,10 @@ export async function recreateContainer(
     }
   }
 
-  const image = selectImage(server.loader, server.gameVersion);
+  const image = selectImage(server.loader, server.gameVersion, ctx.env.PLATTER_MINECRAFT_IMAGE_REPO);
   const pulled = await ensureImage(ctx.docker, image.image, {
     allowCustom: ctx.env.PLATTER_ALLOW_CUSTOM_IMAGES,
+    allowedRepos: [ctx.env.PLATTER_MINECRAFT_IMAGE_REPO, ctx.env.PLATTER_BACKUP_IMAGE_REPO],
   });
   if (!pulled.ok) {
     return pulled;
