@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { gameVersionIndex, makeProject, makeVersion } from './__fixtures__/helpers';
 import {
   type CompatReport,
+  checkCompatibility,
+  compareGameVersions,
   type InstalledMod,
   NEOFORGE_FORGE_BRIDGE_VERSION,
   type TargetServer,
-  checkCompatibility,
-  compareGameVersions,
 } from './compat';
 import type { DependencyRef } from './types';
 
@@ -357,7 +357,13 @@ describe('client-only content', () => {
     const report = checkCompatibility({
       server: server(),
       // CurseForge publishes no side metadata at all — this is the only signal available.
-      project: makeProject({ provider: 'curseforge', title, clientSide: 'unknown', serverSide: 'unknown', environment: 'unknown' }),
+      project: makeProject({
+        provider: 'curseforge',
+        title,
+        clientSide: 'unknown',
+        serverSide: 'unknown',
+        environment: 'unknown',
+      }),
       version: makeVersion({ provider: 'curseforge' }),
       versionIndex: index,
     });
@@ -642,9 +648,9 @@ describe('what is already installed', () => {
     const finding = report.warnings.find((f) => f.code === 'singleton_role_conflict');
     expect(finding).toBeDefined();
     expect(finding?.heuristic).toBe(true);
-    expect(report.conflicts.some((c) => c.reason === 'singleton_role' && c.role === 'renderer')).toBe(
-      true
-    );
+    expect(
+      report.conflicts.some((c) => c.reason === 'singleton_role' && c.role === 'renderer')
+    ).toBe(true);
   });
 
   it('does not invent a singleton conflict between unrelated mods', () => {
@@ -746,7 +752,11 @@ describe('scoring and verdict derivation', () => {
   it('is a pure function — the same input twice gives the same report', () => {
     const input = {
       server: server(),
-      project: makeProject({ title: 'Shaders Plus', provider: 'curseforge' as const, environment: 'unknown' as const }),
+      project: makeProject({
+        title: 'Shaders Plus',
+        provider: 'curseforge' as const,
+        environment: 'unknown' as const,
+      }),
       version: makeVersion({ channel: 'beta' as const }),
       versionIndex: index,
     };

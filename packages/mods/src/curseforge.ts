@@ -1,28 +1,28 @@
 import {
   type DependencyKind,
+  fail,
   type Logger,
   type ModKind,
   type ModProvider,
-  type Result,
-  fail,
-  logger as rootLogger,
   ok,
+  type Result,
+  logger as rootLogger,
 } from '@platter/shared';
 import { z } from 'zod';
 import { HttpClient, type HttpClientOptions } from './http';
 import {
   type DependencyRef,
+  deriveEnvironment,
   type ModProject,
   type ModSearchResult,
   type ModVersion,
+  normaliseLoaderName,
   type ProviderAvailability,
   type ProviderClient,
+  qualifiedId,
   type ReleaseChannel,
   type ResolvedModSearchQuery,
   type VersionFilter,
-  deriveEnvironment,
-  normaliseLoaderName,
-  qualifiedId,
 } from './types';
 
 /**
@@ -144,7 +144,10 @@ const REJECTED_FILE_STATUS = new Set([5, 6, 7]);
 export const CURSEFORGE_MAX_PAGE_SIZE = 50;
 export const CURSEFORGE_MAX_RESULT_WINDOW = 10_000;
 
-export function checkPageBounds(index: number, pageSize: number): Result<{ index: number; pageSize: number }> {
+export function checkPageBounds(
+  index: number,
+  pageSize: number
+): Result<{ index: number; pageSize: number }> {
   const clamped = Math.min(Math.max(1, pageSize), CURSEFORGE_MAX_PAGE_SIZE);
   if (index < 0) {
     return fail('invalid_input', 'CurseForge pagination index cannot be negative');
@@ -210,9 +213,7 @@ const fileSchema = z.object({
   downloadUrl: z.string().nullish(),
   gameVersions: z.array(z.string()).default([]),
   sortableGameVersions: z.array(sortableGameVersionSchema).default([]),
-  dependencies: z
-    .array(z.object({ modId: z.number(), relationType: z.number() }))
-    .default([]),
+  dependencies: z.array(z.object({ modId: z.number(), relationType: z.number() })).default([]),
 });
 
 const modSchema = z.object({
@@ -319,10 +320,16 @@ export function downloadState(
   mod?: Pick<CurseForgeModWire, 'allowModDistribution' | 'links'> | undefined
 ): { downloadable: boolean; reason: string | null } {
   if (REJECTED_FILE_STATUS.has(file.fileStatus)) {
-    return { downloadable: false, reason: `CurseForge marked this file unusable (status ${file.fileStatus})` };
+    return {
+      downloadable: false,
+      reason: `CurseForge marked this file unusable (status ${file.fileStatus})`,
+    };
   }
   if (!INSTALLABLE_FILE_STATUS.has(file.fileStatus)) {
-    return { downloadable: false, reason: `This file is not published yet (status ${file.fileStatus})` };
+    return {
+      downloadable: false,
+      reason: `This file is not published yet (status ${file.fileStatus})`,
+    };
   }
   if (file.isAvailable === false) {
     return { downloadable: false, reason: 'CurseForge reports this file as unavailable' };
@@ -464,7 +471,12 @@ export interface CurseForgeClientOptions extends Partial<Omit<HttpClientOptions,
  * conservative reading of that; a durable index of their catalogue is not, and would also put
  * Platter on the wrong side of the "competes with the Platform" clause.
  */
-const TTL = { catalogue: 60 * 60 * 1000, mod: 2 * 60 * 1000, file: 2 * 60 * 1000, search: 30 * 1000 } as const;
+const TTL = {
+  catalogue: 60 * 60 * 1000,
+  mod: 2 * 60 * 1000,
+  file: 2 * 60 * 1000,
+  search: 30 * 1000,
+} as const;
 
 const SORT_FIELD: Readonly<Record<string, number | undefined>> = {
   relevance: undefined,
@@ -541,7 +553,9 @@ export class CurseForgeClient implements ProviderClient {
 
   async getCategories(
     classId: number = CLASS_ID.mods
-  ): Promise<Result<{ id: number; name: string; slug: string | null; parentCategoryId: number | null }[]>> {
+  ): Promise<
+    Result<{ id: number; name: string; slug: string | null; parentCategoryId: number | null }[]>
+  > {
     const off = this.unavailable();
     if (off) {
       return off;
@@ -608,9 +622,12 @@ export class CurseForgeClient implements ProviderClient {
     // returns unfiltered results. Sending it alone is the classic CurseForge integration bug,
     // so it is only sent as a pair.
     if (loader && !gameVersion) {
-      this.log.debug('dropping CurseForge loader filter: it requires a game version to take effect', {
-        loader,
-      });
+      this.log.debug(
+        'dropping CurseForge loader filter: it requires a game version to take effect',
+        {
+          loader,
+        }
+      );
     }
     if (query.gameVersions.length > 1 || query.loaders.length > 1) {
       // Search takes one of each; the plural forms exist but cap at 4/5 and override the

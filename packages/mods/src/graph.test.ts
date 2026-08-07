@@ -1,11 +1,11 @@
-import { type Result, fail, ok } from '@platter/shared';
+import { fail, ok, type Result } from '@platter/shared';
 import { describe, expect, it } from 'vitest';
 import { makeProject, makeVersion } from './__fixtures__/helpers';
 import {
   type DependencyResolution,
   type DependencyResolver,
-  type TargetServer,
   resolveDependencyGraph,
+  type TargetServer,
 } from './compat';
 import type { DependencyRef, ModVersion } from './types';
 
@@ -214,11 +214,7 @@ describe('resolveDependencyGraph', () => {
   it('walks only required edges', async () => {
     const resolver = graphResolver({ a: [], b: [], c: [] });
     const plan = await resolveDependencyGraph({
-      root: root([
-        need('a'),
-        optional('b'),
-        { ...need('c'), kind: 'incompatible' },
-      ]),
+      root: root([need('a'), optional('b'), { ...need('c'), kind: 'incompatible' }]),
       server,
       resolver,
     });

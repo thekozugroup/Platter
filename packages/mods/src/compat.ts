@@ -1,4 +1,5 @@
 import {
+  compareVersionsFallback,
   LOADER_ACCEPTS,
   LOADER_FAMILY,
   LOADER_LABELS,
@@ -6,7 +7,6 @@ import {
   type MinecraftLoader,
   type ModProvider,
   type VersionIndex,
-  compareVersionsFallback,
 } from '@platter/shared';
 import {
   type DependencyRef,
@@ -498,7 +498,8 @@ function loaderMismatch(
   // hit constantly ("why won't EssentialsX work on my Fabric server?").
   const declaredFamilies = declared.map((loader) => LOADER_KIND[loader]);
   const familyMatches = declaredFamilies.some(
-    (kind) => (kind === 'mod' && serverFamily === 'mod') || (kind === 'plugin' && serverFamily === 'plugin')
+    (kind) =>
+      (kind === 'mod' && serverFamily === 'mod') || (kind === 'plugin' && serverFamily === 'plugin')
   );
 
   if (!familyMatches) {
@@ -810,7 +811,10 @@ function checkInstalledSet(
             ? 'A different version of this project is already on the server. Two copies of the same mod in mods/ is a startup crash, not an upgrade.'
             : 'This exact version is already installed.',
         fix: 'Update the existing install instead of adding a second copy.',
-        evidence: { installedVersionId: mod.versionId ?? null, candidateVersionId: version.versionId },
+        evidence: {
+          installedVersionId: mod.versionId ?? null,
+          candidateVersionId: version.versionId,
+        },
       });
       conflicts.push({
         reason: 'already_installed',
@@ -850,8 +854,10 @@ function checkInstalledSet(
       if (dep.kind !== 'incompatible') {
         continue;
       }
-      const matchesProject = dep.provider === project.provider && dep.projectId === project.projectId;
-      const matchesVersion = dep.provider === project.provider && dep.versionId === version.versionId;
+      const matchesProject =
+        dep.provider === project.provider && dep.projectId === project.projectId;
+      const matchesVersion =
+        dep.provider === project.provider && dep.versionId === version.versionId;
       if (!matchesProject && !matchesVersion) {
         continue;
       }
@@ -883,7 +889,9 @@ function isProbablySameProject(project: ModProject, mod: InstalledMod): boolean 
   if (project.slug && mod.slug && project.slug.toLowerCase() === mod.slug.toLowerCase()) {
     return true;
   }
-  return Boolean(mod.title && mod.title.trim().toLowerCase() === project.title.trim().toLowerCase());
+  return Boolean(
+    mod.title && mod.title.trim().toLowerCase() === project.title.trim().toLowerCase()
+  );
 }
 
 function checkSingletonRoles(

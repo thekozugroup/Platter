@@ -1,8 +1,8 @@
-import { type Result, fail, ok } from '@platter/shared';
+import { fail, ok, type Result } from '@platter/shared';
 import { describe, expect, it } from 'vitest';
 import { gameVersionIndex, makeProject, makeVersion, silentLogger } from './__fixtures__/helpers';
-import { type TargetServer, resolveDependencyGraph } from './compat';
-import { ModRegistry, acceptedLoaders } from './registry';
+import { resolveDependencyGraph, type TargetServer } from './compat';
+import { acceptedLoaders, ModRegistry } from './registry';
 import type {
   ModProject,
   ModSearchResult,
@@ -191,7 +191,10 @@ describe('provider fan-out', () => {
 describe('cross-post dedupe', () => {
   it('drops the same slug published to both platforms, keeping the preferred provider', async () => {
     const reg = registry([
-      stub({ provider: 'modrinth', hits: [makeProject({ slug: 'jei', title: 'Just Enough Items' })] }),
+      stub({
+        provider: 'modrinth',
+        hits: [makeProject({ slug: 'jei', title: 'Just Enough Items' })],
+      }),
       stub({
         provider: 'curseforge',
         hits: [
@@ -241,7 +244,13 @@ describe('cross-post dedupe', () => {
   it('interleaves rather than concatenating, so neither ranking is buried', async () => {
     const mr = ['m1', 'm2', 'm3'].map((slug) => makeProject({ slug, title: slug }));
     const cf = ['c1', 'c2'].map((slug) =>
-      makeProject({ provider: 'curseforge', id: `curseforge:${slug}`, projectId: slug, slug, title: slug })
+      makeProject({
+        provider: 'curseforge',
+        id: `curseforge:${slug}`,
+        projectId: slug,
+        slug,
+        title: slug,
+      })
     );
     const reg = registry([
       stub({ provider: 'modrinth', hits: mr }),
@@ -283,7 +292,10 @@ describe('cross-post dedupe', () => {
 
 describe('acceptedLoaders', () => {
   it('expands static inheritance from LOADER_ACCEPTS', () => {
-    expect(acceptedLoaders({ loader: 'quilt', gameVersion: '1.21.1' })).toEqual(['quilt', 'fabric']);
+    expect(acceptedLoaders({ loader: 'quilt', gameVersion: '1.21.1' })).toEqual([
+      'quilt',
+      'fabric',
+    ]);
     expect(acceptedLoaders({ loader: 'purpur', gameVersion: '1.21.1' })).toEqual([
       'purpur',
       'paper',
@@ -328,7 +340,11 @@ describe('resolveForServer', () => {
       hits: [project],
       versions: [
         makeVersion({ versionId: 'beta', channel: 'beta', publishedAt: '2026-06-01T00:00:00Z' }),
-        makeVersion({ versionId: 'release', channel: 'release', publishedAt: '2026-05-01T00:00:00Z' }),
+        makeVersion({
+          versionId: 'release',
+          channel: 'release',
+          publishedAt: '2026-05-01T00:00:00Z',
+        }),
       ],
     });
     const result = await registry([client]).resolveForServer('test-mod', fabricServer);
@@ -382,7 +398,9 @@ describe('resolveForServer', () => {
       return;
     }
     expect(result.value.report.verdict).toBe('incompatible');
-    expect(result.value.report.blockers.map((f) => f.code)).toContain('loader_family_mismatch');
+    // Forge and Fabric are both mod loaders, so this is a same-family mismatch rather than the
+    // plugin-vs-mod one — the engine distinguishes them because the advice differs.
+    expect(result.value.report.blockers.map((f) => f.code)).toContain('loader_not_accepted');
   });
 
   it('passes the installed set into the compatibility check', async () => {
@@ -415,7 +433,9 @@ describe('resolveForServer', () => {
     const modrinth = stub({ provider: 'modrinth' });
     const cf = stub({
       provider: 'curseforge',
-      hits: [makeProject({ provider: 'curseforge', id: 'curseforge:5', projectId: '5', slug: 'x' })],
+      hits: [
+        makeProject({ provider: 'curseforge', id: 'curseforge:5', projectId: '5', slug: 'x' }),
+      ],
       versions: [makeVersion({ provider: 'curseforge' })],
     });
     const result = await registry([modrinth, cf]).resolveForServer('x', fabricServer);
@@ -438,21 +458,36 @@ describe('resolveForServer', () => {
 
 describe('the registry as a DependencyResolver', () => {
   it('walks a real dependency chain end to end', async () => {
-    const api = makeProject({ id: 'modrinth:api', projectId: 'api', slug: 'fabric-api', title: 'Fabric API' });
-    const root = makeProject({ id: 'modrinth:root', projectId: 'root', slug: 'root', title: 'Root' });
+    const api = makeProject({
+      id: 'modrinth:api',
+      projectId: 'api',
+      slug: 'fabric-api',
+      title: 'Fabric API',
+    });
+    const root = makeProject({
+      id: 'modrinth:root',
+      projectId: 'root',
+      slug: 'root',
+      title: 'Root',
+    });
     const rootVersion = makeVersion({
       projectId: 'root',
       versionId: 'root-1',
       dependencies: [
-        { provider: 'modrinth', projectId: 'api', versionId: null, fileName: null, kind: 'required' },
+        {
+          provider: 'modrinth',
+          projectId: 'api',
+          versionId: null,
+          fileName: null,
+          kind: 'required',
+        },
       ],
     });
     const apiVersion = makeVersion({ projectId: 'api', versionId: 'api-1' });
 
     const client = stub({ provider: 'modrinth', hits: [root, api], versions: [] });
     // Route getVersions per project so each resolves to its own build.
-    client.getVersions = async (id: string) =>
-      ok(id === 'api' ? [apiVersion] : [rootVersion]);
+    client.getVersions = async (id: string) => ok(id === 'api' ? [apiVersion] : [rootVersion]);
 
     const reg = registry([client]);
     const plan = await resolveDependencyGraph({

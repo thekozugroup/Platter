@@ -24,12 +24,7 @@
       "downloadCount": 0,
       "fileSizeOnDisk": 3910555,
       "downloadUrl": "https://edge.forgecdn.net/files/8576/376/jei-1.20.1-forge-15.48.0.179.jar",
-      "gameVersions": [
-        "Client",
-        "1.20.1",
-        "Forge",
-        "Server"
-      ],
+      "gameVersions": ["Client", "1.20.1", "Forge", "Server"],
       "sortableGameVersions": [
         {
           "gameVersionName": "Client",
@@ -117,12 +112,7 @@
       "downloadCount": 0,
       "fileSizeOnDisk": 3717799,
       "downloadUrl": "https://edge.forgecdn.net/files/8576/355/jei-1.20.1-forge-15.48.0.178.jar",
-      "gameVersions": [
-        "Client",
-        "1.20.1",
-        "Forge",
-        "Server"
-      ],
+      "gameVersions": ["Client", "1.20.1", "Forge", "Server"],
       "sortableGameVersions": [
         {
           "gameVersionName": "Client",

@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { fakeFetch, recordingSleep, silentLogger } from './__fixtures__/helpers';
+import { fakeFetch, headersOf, recordingSleep, silentLogger } from './__fixtures__/helpers';
 import { HttpClient, TokenBucket, TtlCache, USER_AGENT } from './http';
 
 const schema = z.object({ hello: z.string() });
 
-const client = (
-  overrides: Partial<ConstructorParameters<typeof HttpClient>[0]> = {}
-): HttpClient =>
+const client = (overrides: Partial<ConstructorParameters<typeof HttpClient>[0]> = {}): HttpClient =>
   new HttpClient({
     baseUrl: 'https://example.test',
     // No jitter surprises and no real waiting anywhere in this file.
@@ -91,7 +89,7 @@ describe('HttpClient', () => {
     const fake = fakeFetch(() => ({ body: { hello: 'world' } }));
     await client({ fetchImpl: fake.fetch }).getJson('/thing', schema);
 
-    const headers = fake.calls[0]?.init?.headers as Record<string, string>;
+    const headers = headersOf(fake.calls[0]);
     expect(headers['user-agent']).toBe(USER_AGENT);
     expect(headers['user-agent']).toMatch(/^thekozugroup\/platter\/\d+\.\d+\.\d+ \(\+https:/);
   });
@@ -102,7 +100,7 @@ describe('HttpClient', () => {
       '/thing',
       schema
     );
-    expect((fake.calls[0]?.init?.headers as Record<string, string>)['x-api-key']).toBe('secret');
+    expect(headersOf(fake.calls[0])['x-api-key']).toBe('secret');
   });
 
   it('builds query strings and skips undefined values', async () => {

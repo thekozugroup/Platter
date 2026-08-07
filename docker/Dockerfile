@@ -57,10 +57,10 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates tini \
   && rm -rf /var/lib/apt/lists/*
 
-# Next's standalone output carries its own minimal node_modules.
+# Next's standalone output carries its own minimal node_modules, and for a pnpm workspace it
+# preserves the workspace layout — so `server.js` lives at apps/web/server.js, not at the root.
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build /app/apps/web/public ./apps/web/public 2>/dev/null || true
 
 # The migrations are data, not code, and the runtime resolves them relative to the db package.
 COPY --from=build /app/packages/db/drizzle ./packages/db/drizzle

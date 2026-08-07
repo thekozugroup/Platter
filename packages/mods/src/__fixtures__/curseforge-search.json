@@ -98,12 +98,7 @@
           "downloadCount": 7,
           "fileSizeOnDisk": 77609,
           "downloadUrl": "https://edge.forgecdn.net/files/8266/592/recipegraph-1.0.0.jar",
-          "gameVersions": [
-            "Client",
-            "Fabric",
-            "1.21.1",
-            "Server"
-          ],
+          "gameVersions": ["Client", "Fabric", "1.21.1", "Server"],
           "sortableGameVersions": [
             {
               "gameVersionName": "Client",

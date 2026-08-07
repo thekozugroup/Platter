@@ -24,12 +24,7 @@
       "downloadCount": 0,
       "fileSizeOnDisk": 2065523,
       "downloadUrl": "https://edge.forgecdn.net/files/7808/443/modmenu-11.0.4.jar",
-      "gameVersions": [
-        "1.21",
-        "Fabric",
-        "1.21.1",
-        "Quilt"
-      ],
+      "gameVersions": ["1.21", "Fabric", "1.21.1", "Quilt"],
       "sortableGameVersions": [
         {
           "gameVersionName": "1.21",

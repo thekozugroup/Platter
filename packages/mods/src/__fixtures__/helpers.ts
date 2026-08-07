@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { type Logger, VersionIndex, createLogger } from '@platter/shared';
+import { createLogger, type Logger, VersionIndex } from '@platter/shared';
 import type { ModProject, ModVersion } from '../types';
 
 /**
@@ -160,6 +160,13 @@ export function recordingSleep(): {
       clock += ms;
     },
   };
+}
+
+/** Request headers for a recorded call, flattened so tests can index them safely. */
+export function headersOf(
+  call: { init: RequestInit | undefined } | undefined
+): Record<string, string> {
+  return (call?.init?.headers ?? {}) as Record<string, string>;
 }
 
 /** Swallows log output so a test run's stderr stays readable. */

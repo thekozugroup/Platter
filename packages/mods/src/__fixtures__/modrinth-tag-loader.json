@@ -1,220 +1,118 @@
 [
   {
     "name": "babric",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "bta-babric",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "bukkit",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "bungeecord",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "canvas",
-    "supported_project_types": [
-      "shader",
-      "project"
-    ]
+    "supported_project_types": ["shader", "project"]
   },
   {
     "name": "datapack",
-    "supported_project_types": [
-      "datapack",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["datapack", "project", "mod"]
   },
   {
     "name": "fabric",
-    "supported_project_types": [
-      "mod",
-      "project",
-      "modpack"
-    ]
+    "supported_project_types": ["mod", "project", "modpack"]
   },
   {
     "name": "folia",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "forge",
-    "supported_project_types": [
-      "mod",
-      "project",
-      "modpack"
-    ]
+    "supported_project_types": ["mod", "project", "modpack"]
   },
   {
     "name": "geyser",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "iris",
-    "supported_project_types": [
-      "shader",
-      "project"
-    ]
+    "supported_project_types": ["shader", "project"]
   },
   {
     "name": "java-agent",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "legacy-fabric",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "liteloader",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "minecraft",
-    "supported_project_types": [
-      "resourcepack",
-      "project"
-    ]
+    "supported_project_types": ["resourcepack", "project"]
   },
   {
     "name": "modloader",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "neoforge",
-    "supported_project_types": [
-      "mod",
-      "project",
-      "modpack"
-    ]
+    "supported_project_types": ["mod", "project", "modpack"]
   },
   {
     "name": "nilloader",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "optifine",
-    "supported_project_types": [
-      "shader",
-      "project"
-    ]
+    "supported_project_types": ["shader", "project"]
   },
   {
     "name": "ornithe",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "paper",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "purpur",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "quilt",
-    "supported_project_types": [
-      "mod",
-      "project",
-      "modpack"
-    ]
+    "supported_project_types": ["mod", "project", "modpack"]
   },
   {
     "name": "rift",
-    "supported_project_types": [
-      "mod",
-      "project"
-    ]
+    "supported_project_types": ["mod", "project"]
   },
   {
     "name": "spigot",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "sponge",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "vanilla",
-    "supported_project_types": [
-      "shader",
-      "project"
-    ]
+    "supported_project_types": ["shader", "project"]
   },
   {
     "name": "velocity",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   },
   {
     "name": "waterfall",
-    "supported_project_types": [
-      "plugin",
-      "project",
-      "mod"
-    ]
+    "supported_project_types": ["plugin", "project", "mod"]
   }
 ]

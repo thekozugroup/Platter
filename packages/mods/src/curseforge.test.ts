@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { fakeFetch, fixture, silentLogger } from './__fixtures__/helpers';
+import { fakeFetch, fixture, headersOf, silentLogger } from './__fixtures__/helpers';
 import {
   CLASS_ID,
   CURSEFORGE_MAX_RESULT_WINDOW,
   CurseForgeClient,
   type CurseForgeFileWire,
   type CurseForgeModWire,
-  MOD_LOADER_TYPE,
-  RELATION_TYPE_TO_KIND,
   checkPageBounds,
   downloadState,
   environmentTagsOf,
   gameVersionsOf,
   loadersOf,
+  MOD_LOADER_TYPE,
   modLoaderTypeFor,
   normaliseFile,
   normaliseMod,
+  RELATION_TYPE_TO_KIND,
 } from './curseforge';
 import { modProjectSchema, modSearchQuerySchema, modVersionSchema } from './types';
 
@@ -89,7 +89,7 @@ describe('availability', () => {
   it('sends x-api-key when configured', async () => {
     const { fake, client } = routedClient({ '/v1/mods/238222': jeiMod });
     await client.getMod(238222);
-    expect((fake.calls[0]?.init?.headers as Record<string, string>)['x-api-key']).toBe('test-key');
+    expect(headersOf(fake.calls[0])['x-api-key']).toBe('test-key');
   });
 });
 

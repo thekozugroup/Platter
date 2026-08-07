@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { fakeFetch, fixture, silentLogger } from './__fixtures__/helpers';
 import {
+  buildFacets,
+  encodeArrayParam,
   FALLBACK_LOADER_NAMES,
   MODRINTH_MAX_LIMIT,
   ModrinthClient,
   type ModrinthProjectWire,
   type ModrinthSearchHitWire,
   type ModrinthVersionWire,
-  buildFacets,
-  encodeArrayParam,
   normaliseProject,
   normaliseSearchHit,
   normaliseVersion,
@@ -199,13 +199,34 @@ describe('search', () => {
     expect(FALLBACK_LOADER_NAMES).toContain('neoforge');
   });
 
-  it('refuses to send an invalid facet', async () => {
-    const { fake, client } = routedClient({ '/v2/search': searchPayload });
-    // `kind` is the only facet field a caller can influence, and the schema constrains it — so
-    // drive the guard directly through buildFacets and assert nothing was sent.
-    const facets = buildFacets({ categories: ['fine'] });
-    expect(facets.ok).toBe(true);
-    expect(fake.calls).toHaveLength(0);
+  it('puts the built facets on the wire, not a hand-rolled string', async () => {
+    const { fake, client } = routedClient({
+      '/v2/search': searchPayload,
+      '/v2/tag/loader': loaderTags,
+    });
+    await client.search(
+      query({
+        kind: 'mod',
+        loaders: ['fabric'],
+        gameVersions: ['1.21.1'],
+        serverCompatibleOnly: true,
+      })
+    );
+
+    const sent = new URL(fake.calls[0]?.url ?? '').searchParams.get('facets');
+    const built = buildFacets({
+      kind: 'mod',
+      loaders: ['fabric'],
+      gameVersions: ['1.21.1'],
+      serverCompatibleOnly: true,
+    });
+    expect(built.ok && sent).toBe(built.ok ? built.value : undefined);
+    expect(JSON.parse(sent ?? '')).toEqual([
+      ['project_type:mod'],
+      ['categories:fabric'],
+      ['versions:1.21.1'],
+      ['server_side!=unsupported'],
+    ]);
   });
 });
 
@@ -329,7 +350,10 @@ describe('normalisation: versions', () => {
     }
     const withSources: ModrinthVersionWire = {
       ...base,
-      files: [{ ...primary, filename: 'sources.jar', primary: false }, { ...primary, primary: true }],
+      files: [
+        { ...primary, filename: 'sources.jar', primary: false },
+        { ...primary, primary: true },
+      ],
     };
     expect(normaliseVersion(withSources).file.name).not.toBe('sources.jar');
   });

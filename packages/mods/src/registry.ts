@@ -1,23 +1,23 @@
 import {
+  fail,
   LOADER_ACCEPTS,
   LOADER_LABELS,
   type Logger,
   type ModProvider,
-  type Result,
-  type VersionIndex,
-  fail,
-  logger as rootLogger,
   ok,
+  type Result,
+  logger as rootLogger,
+  type VersionIndex,
 } from '@platter/shared';
 import {
   type CompatReport,
+  checkCompatibility,
   type DependencyResolution,
   type DependencyResolver,
   type InstalledMod,
   NEOFORGE_FORGE_BRIDGE_VERSION,
   type TargetServer,
   type Verdict,
-  checkCompatibility,
 } from './compat';
 import {
   type DependencyRef,
@@ -25,9 +25,9 @@ import {
   type ModSearchQuery,
   type ModSearchResult,
   type ModVersion,
+  modSearchQuerySchema,
   type ProviderAvailability,
   type ProviderClient,
-  modSearchQuerySchema,
   parseQualifiedId,
 } from './types';
 
@@ -161,7 +161,10 @@ export class ModRegistry implements DependencyResolver {
       return fail('upstream_error', 'Every mod provider failed', { details: { degraded } });
     }
 
-    const merged = this.dedupe(answered.map((entry) => entry.hits), resolved.sort);
+    const merged = this.dedupe(
+      answered.map((entry) => entry.hits),
+      resolved.sort
+    );
     return ok({
       hits: merged.slice(0, resolved.limit),
       offset: resolved.offset,
@@ -381,7 +384,9 @@ export class ModRegistry implements DependencyResolver {
     }
 
     const resolved = await this.resolveForServer(`${ref.provider}:${ref.projectId}`, server);
-    return resolved.ok ? ok({ project: resolved.value.project, version: resolved.value.version }) : resolved;
+    return resolved.ok
+      ? ok({ project: resolved.value.project, version: resolved.value.version })
+      : resolved;
   }
 }
 

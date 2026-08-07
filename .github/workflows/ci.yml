@@ -103,7 +103,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run integration tests
-        run: pnpm test:integration
+      - name: End-to-end smoke test
+        # Creates a real Minecraft server in Docker, boots it, takes a hot backup while it is
+        # running, restores it and tears everything down. This is the test that catches what
+        # unit tests structurally cannot.
+        run: pnpm smoke
         env:
-          PLATTER_INTEGRATION: '1'
+          PLATTER_DATA_DIR: /tmp/platter-ci

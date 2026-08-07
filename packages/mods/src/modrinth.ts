@@ -1,28 +1,28 @@
 import {
+  fail,
   type GameVersionEntry,
   type Logger,
   type ModKind,
   type ModProvider,
-  type Result,
-  VersionIndex,
-  fail,
-  logger as rootLogger,
   ok,
+  type Result,
+  logger as rootLogger,
+  VersionIndex,
 } from '@platter/shared';
 import { z } from 'zod';
 import { HttpClient, type HttpClientOptions } from './http';
 import {
   type DependencyRef,
+  deriveEnvironment,
   type ModProject,
   type ModSearchResult,
   type ModVersion,
+  normaliseLoaderName,
   type ProviderAvailability,
   type ProviderClient,
+  qualifiedId,
   type ResolvedModSearchQuery,
   type VersionFilter,
-  deriveEnvironment,
-  normaliseLoaderName,
-  qualifiedId,
 } from './types';
 
 /**
@@ -560,9 +560,13 @@ export class ModrinthClient implements ProviderClient {
    * mis-sorts the current release list. `VersionIndex` answers by position instead.
    */
   async getGameVersions(): Promise<Result<GameVersionEntry[]>> {
-    const response = await this.http.getJson('/v2/tag/game_version', z.array(gameVersionTagSchema), {
-      ttlMs: TTL.tag,
-    });
+    const response = await this.http.getJson(
+      '/v2/tag/game_version',
+      z.array(gameVersionTagSchema),
+      {
+        ttlMs: TTL.tag,
+      }
+    );
     if (!response.ok) {
       return response;
     }

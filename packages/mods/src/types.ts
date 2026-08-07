@@ -2,10 +2,10 @@ import {
   type DependencyKind,
   dependencyKindSchema,
   type ModKind,
-  modKindSchema,
   type ModProvider,
-  modProviderSchema,
   type ModSide,
+  modKindSchema,
+  modProviderSchema,
   modSideSchema,
 } from '@platter/shared';
 import { z } from 'zod';
@@ -149,9 +149,7 @@ export function qualifiedId(provider: ModProvider, id: string | number): string 
   return `${provider}:${id}`;
 }
 
-export function parseQualifiedId(
-  value: string
-): { provider: ModProvider; id: string } | undefined {
+export function parseQualifiedId(value: string): { provider: ModProvider; id: string } | undefined {
   const separator = value.indexOf(':');
   if (separator <= 0) {
     return undefined;
@@ -332,9 +330,7 @@ export const modSearchResultSchema = z.object({
   /** Providers that actually answered. A missing provider is a degraded result, not an error. */
   providers: z.array(modProviderSchema),
   /** Providers that were asked and failed, with the reason. Surfaced, never swallowed. */
-  degraded: z
-    .array(z.object({ provider: modProviderSchema, reason: z.string() }))
-    .default([]),
+  degraded: z.array(z.object({ provider: modProviderSchema, reason: z.string() })).default([]),
 });
 
 export type ModSearchResult = z.infer<typeof modSearchResultSchema>;

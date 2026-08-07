@@ -119,9 +119,7 @@
         "downloadCount": 29039447,
         "fileSizeOnDisk": null,
         "downloadUrl": "https://edge.forgecdn.net/files/3040/523/jei_1.12.2-4.16.1.301.jar",
-        "gameVersions": [
-          "1.12.2"
-        ],
+        "gameVersions": ["1.12.2"],
         "sortableGameVersions": [
           {
             "gameVersionName": "1.12.2",
@@ -187,9 +185,7 @@
         "downloadCount": 32375,
         "fileSizeOnDisk": null,
         "downloadUrl": "https://edge.forgecdn.net/files/3272/39/jei-1.13.2-5.0.0.31.jar",
-        "gameVersions": [
-          "1.13.2"
-        ],
+        "gameVersions": ["1.13.2"],
         "sortableGameVersions": [
           {
             "gameVersionName": "1.13.2",

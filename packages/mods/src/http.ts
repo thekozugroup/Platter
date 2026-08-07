@@ -1,4 +1,4 @@
-import { type Logger, logger as rootLogger, type Result, fail, ok } from '@platter/shared';
+import { fail, type Logger, ok, type Result, logger as rootLogger } from '@platter/shared';
 import type { z } from 'zod';
 
 /**
@@ -295,11 +295,7 @@ export class HttpClient {
     return body.ok ? this.parse(schema, body.value, url) : body;
   }
 
-  private parse<S extends z.ZodType>(
-    schema: S,
-    value: unknown,
-    url: string
-  ): Result<z.infer<S>> {
+  private parse<S extends z.ZodType>(schema: S, value: unknown, url: string): Result<z.infer<S>> {
     const result = schema.safeParse(value);
     if (result.success) {
       return ok(result.data as z.infer<S>);
@@ -402,7 +398,11 @@ export class HttpClient {
     try {
       const response = await this.fetchImpl(url, {
         ...init,
-        headers: { ...this.headers, ...(init.headers as Record<string, string>), ...options.headers },
+        headers: {
+          ...this.headers,
+          ...(init.headers as Record<string, string>),
+          ...options.headers,
+        },
         signal,
       });
       return ok(response);
@@ -426,9 +426,13 @@ export class HttpClient {
   private async decode(response: Response, url: string): Promise<Result<unknown>> {
     const text = await response.text();
     if (text.trim().length === 0) {
-      return fail('upstream_error', `${url} returned an empty body with status ${response.status}`, {
-        details: { url, status: response.status },
-      });
+      return fail(
+        'upstream_error',
+        `${url} returned an empty body with status ${response.status}`,
+        {
+          details: { url, status: response.status },
+        }
+      );
     }
     try {
       return ok(JSON.parse(text) as unknown);

@@ -1,11 +1,6 @@
 {
-  "game_versions": [
-    "1.20.1"
-  ],
-  "loaders": [
-    "forge",
-    "neoforge"
-  ],
+  "game_versions": ["1.20.1"],
+  "loaders": ["forge", "neoforge"],
   "id": "UTbfe5d1",
   "project_id": "sk9rgfiA",
   "author_id": "6bGskxLV",
