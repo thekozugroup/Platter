@@ -1,0 +1,33 @@
+{
+  "name": "@platter/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "astryx": "node node_modules/@astryxdesign/cli/clients/cli/bin/astryx.mjs"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "^0.3.0",
+    "@astryxdesign/theme-neutral": "^0.3.0",
+    "@platter/core": "workspace:*",
+    "@platter/db": "workspace:*",
+    "@platter/diagnostics": "workspace:*",
+    "@platter/mods": "workspace:*",
+    "@platter/shared": "workspace:*",
+    "@stylexjs/stylex": "^0.19.0",
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "^0.3.0",
+    "@stylexjs/postcss-plugin": "^0.19.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^7.0.2"
+  }
+}

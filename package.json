@@ -1,0 +1,43 @@
+{
+  "name": "platter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Simple, clean, easily deployable game servers driven by AI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thekozugroup/Platter.git"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @platter/web dev",
+    "build": "pnpm -r --filter=!@platter/web build && pnpm --filter @platter/web build",
+    "start": "pnpm --filter @platter/web start",
+    "mcp": "pnpm --filter @platter/mcp start",
+    "db:generate": "pnpm --filter @platter/db generate",
+    "db:migrate": "pnpm --filter @platter/db migrate",
+    "db:studio": "pnpm --filter @platter/db studio",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run --project e2e",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/.next packages/*/dist"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.7",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.23.11",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
