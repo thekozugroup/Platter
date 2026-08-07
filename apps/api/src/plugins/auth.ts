@@ -3,6 +3,7 @@ import fastifyJwt from '@fastify/jwt';
 import type { Server as ServerRecord } from '@prisma/client';
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, preHandlerHookHandler } from 'fastify';
 import {
+  API_PREFIX,
   SERVER_PERMISSIONS,
   roleAtLeast,
   type ServerPermission,
@@ -131,7 +132,7 @@ export function toAuthenticatedUser(row: UserRow): AuthenticatedUser {
 export const REFRESH_COOKIE_NAME = 'platter_refresh';
 
 /** Scoped to the auth routes: no other endpoint has any use for the refresh token. */
-export const REFRESH_COOKIE_PATH = '/api/v1/auth';
+export const REFRESH_COOKIE_PATH = `${API_PREFIX}/auth`;
 
 const API_KEY_HEADER = 'x-api-key';
 const BEARER_PREFIX = 'Bearer ';
@@ -468,6 +469,19 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     return resolveJwt(token);
   });
 };
+
+/**
+ * The server `requireServerAccess` loaded, for handlers that ran behind it.
+ *
+ * It throws rather than returning null so a route that forgot the preHandler fails loudly
+ * instead of quietly serving an unauthorised request.
+ */
+export function requireServer(request: FastifyRequest): ServerRecord {
+  if (!request.gameServer) {
+    throw internal('requireServerAccess did not run for this route');
+  }
+  return request.gameServer;
+}
 
 /**
  * Standalone form for callers that hold an instance but not a request — the console socket

@@ -159,6 +159,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         await recordAudit({
           action: 'auth.login_failed',
           targetType: 'user',
+          // The claimed identity is the actor here, even though it authenticated nothing —
+          // an operator reading the feed wants to see which account was targeted.
+          actorName: email,
           targetName: email,
           metadata: { reason: 'unknown_email' },
           ...requestMeta(request),
@@ -172,6 +175,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         await recordAudit({
           action: 'auth.login_failed',
           targetType: 'user',
+          actorId: user.id,
+          actorName: user.displayName,
           targetId: user.id,
           targetName: user.email,
           metadata: { reason: 'bad_password' },
@@ -185,6 +190,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         await recordAudit({
           action: 'auth.login_failed',
           targetType: 'user',
+          actorId: user.id,
+          actorName: user.displayName,
           targetId: user.id,
           targetName: user.email,
           metadata: { reason: 'suspended' },
@@ -207,6 +214,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           await recordAudit({
             action: 'auth.login_failed',
             targetType: 'user',
+            actorId: user.id,
+            actorName: user.displayName,
             targetId: user.id,
             targetName: user.email,
             metadata: { reason: 'bad_totp' },
@@ -343,6 +352,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.post(
     '/logout',
     {
+      // Optional: signing out works without a valid access token, but resolving one lets
+      // the audit entry name who did it.
+      preHandler: app.tryAuthenticate,
       schema: {
         tags: ['auth'],
         summary: 'Revoke the current refresh token',
@@ -639,6 +651,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         await recordAudit({
           action: 'auth.login_failed',
           targetType: 'user',
+          actorId: user.id,
+          actorName: user.displayName,
           targetId: user.id,
           targetName: user.email,
           metadata: { reason: 'bad_recovery_code' },
