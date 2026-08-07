@@ -60,6 +60,9 @@ export async function retry<T>(
   throw lastError;
 }
 
+/** A sentinel the caller's value can never collide with, unlike a string or null. */
+const TIMED_OUT = Symbol('platter.timeout');
+
 /**
  * Caps how long a promise may take.
  *
@@ -70,17 +73,20 @@ export async function retry<T>(
  */
 export async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   const controller = new AbortController();
-  const timeout = delay(ms, 'timeout' as const, { signal: controller.signal });
+  const expired: Promise<typeof TIMED_OUT> = delay(ms, TIMED_OUT, { signal: controller.signal });
+  // Aborting the timer below rejects this promise. The race has already settled by then,
+  // so nothing else is listening — swallow it here or Node reports an unhandled rejection.
+  expired.catch(() => undefined);
 
   try {
-    const result = await Promise.race([promise, timeout]);
-    if (result === 'timeout') {
+    const result = await Promise.race([promise, expired]);
+    if (result === TIMED_OUT) {
       throw new PlatterError('service_unavailable', message, { retryable: true });
     }
-    return result as T;
+    return result;
   } finally {
-    // Aborting the sleep both clears the timer and settles its promise, so a slow
-    // operation that eventually resolves does not leave the event loop pinned open.
+    // Clears the pending timer so a fast success does not hold the event loop open for
+    // the full timeout.
     controller.abort();
   }
 }
