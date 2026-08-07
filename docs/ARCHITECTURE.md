@@ -39,65 +39,67 @@ belongs upstream in the image, not in Platter.
 
 ---
 
-## 2. Why Rust, and where it actually helps
+## 2. Language choice: TypeScript, and the Rust detour we backed out of
 
-Rust is used for the control plane. The honest case for it here is **not** "games run faster" —
-the game server's performance is entirely determined by its own image and the host's CPU, and
-Platter cannot influence it. Nothing in this codebase makes Minecraft tick faster.
+The backend is **TypeScript on Node 22** (Fastify, Prisma, dockerode).
 
-The real, measurable benefits, in the order they matter:
+We spent part of a build cycle moving it to Rust and then reverted. That is worth recording
+honestly, because the reasoning applies to anyone tempted to try it again.
 
-1. **Deployment simplicity.** A statically linked binary means the runtime image is a base
-   layer plus one file — no language runtime, no dependency tree shipped to production. "Easily
-   deployable" is the product's core promise, and this is the largest single contribution to it.
-2. **Memory footprint.** A control panel is meant to be the *cheap* process on the box; every
-   megabyte it holds is a megabyte a game server does not get. A Rust daemon idles in tens of
-   megabytes, where a managed-runtime equivalent idles in the low hundreds. On a 4 GB VPS
-   running two Minecraft servers, that difference is real.
-3. **No GC pauses on streaming paths.** The daemon continuously demultiplexes container log
-   streams, fans them out to WebSocket subscribers, and samples resource stats. This is
-   sustained, allocation-heavy, latency-sensitive I/O — exactly where a collector pause shows
-   up as a stuttering console.
-4. **Memory safety in a network-facing daemon** that parses untrusted input: container log
-   frames, uploaded archives, mod metadata from third-party APIs, and RCON responses. This is
-   the code most likely to be attacked, and the class of bug most expensive to get wrong.
+**The case for Rust was real but narrow.** A statically linked binary makes the runtime image a
+base layer plus one file, which serves the "easily deployable" promise; the daemon idles in tens
+of megabytes instead of low hundreds; there are no collector pauses on the log-streaming path;
+and memory safety matters in code that parses untrusted input. None of that was wrong.
 
-Where Rust is **not** claimed to help: request throughput (the API is nowhere near a
-bottleneck at self-hosting scale), and developer iteration speed (it is worse — builds are
-slower and the contributor pool is smaller). Those are accepted costs, not hidden ones.
+**The case against it was decisive:**
 
-The web client stays TypeScript/React. There is no benefit to Rust in the browser here, and a
-WASM UI would cost accessibility and bundle size for nothing.
+- **It does not make games faster.** A game server's performance is entirely its own image and
+  the host CPU. Nothing in a control plane can influence it. The performance argument for Rust
+  here was always about the panel's own footprint, never about Minecraft, and the panel is not
+  the bottleneck on any realistic box.
+- **One language beats two.** The web client is TypeScript. A TypeScript backend shares the
+  domain types, the zod schemas, the validation rules, the tooling and the mental model with it.
+  For a small team, that is a larger and more durable win than a smaller container image.
+- **Maintainability and iteration speed are features.** Slower builds, a stricter compiler and a
+  smaller contributor pool are real costs paid on every future change, not once.
+- **The ecosystem is here.** dockerode, Prisma, the Modrinth clients, RCON libraries and the
+  Fastify plugin surface are mature and well-trodden for exactly this use case.
+
+The deployment gap is smaller than it looks: a multi-stage build with production-only
+dependencies lands in the low hundreds of megabytes, which is unremarkable for a self-hosted
+service that is already pulling multi-gigabyte game images.
+
+**What it cost:** the reversal was cheap because everything was in git. The API was restored
+from history intact. The design system, the web foundation and the documentation were never
+language-specific and were untouched throughout.
+
+**If Rust ever returns**, it should be for a specific measured bottleneck — and there is not one
+today.
 
 ---
 
-## 3. Crate layout
+## 3. Package layout
 
 ```
-crates/
-  platter-core      Domain types, the lifecycle state machine, errors, traits.
-                    Generates the client's TypeScript types via ts-rs, so the wire
-                    format has exactly one source of truth.
-  platter-db        sqlx + SQLite (Postgres-portable). Migrations and repositories.
-  platter-runtime   ContainerRuntime trait; Docker (bollard) and Mock implementations.
-                    Log fan-out, stats sampling, lifecycle, crash supervision.
-  platter-net       Port allocation, mDNS/Bonjour advertisement, SRV records,
-                    reachability probing, optional UPnP.
-  platter-games     Blueprint catalogue and the Minecraft administration layer
-                    (RCON, query, server.properties, players, health).
-  platter-mods      Modrinth and CurseForge clients, dependency resolution,
-                    verified downloads, and the human-approval proposal workflow.
-  platter-api       axum HTTP + WebSocket surface. Auth, routes, OpenAPI.
-                    Serves the built SPA, so the product is one origin.
-  platter-mcp       MCP server (stdio + streamable HTTP) exposing Platter to AI agents.
-  platter-cli       The `platter` binary: serve, mcp, migrate, seed, admin, doctor.
+packages/shared     Domain vocabulary, the lifecycle state machine, error codes, and the
+                    zod schemas for every request and response. Imported by BOTH the API
+                    and the web client, so the wire format has one source of truth and a
+                    contract change is a type error rather than a runtime surprise.
+apps/api            Fastify server. Auth, routes, WebSocket console, orchestration,
+                    scheduler, mods, MCP endpoint. Serves the built SPA, so the whole
+                    product is one origin and one container.
+  src/orchestration   OrchestrationDriver interface; Docker (dockerode) and Mock
+                      implementations, log fan-out, stats sampling.
+  src/services        Lifecycle, allocations, files, backups, scheduler, players, mods.
+  src/blueprints      The game catalogue, Minecraft first.
+  src/mcp             MCP server exposing Platter to AI agents.
+  src/routes          The HTTP surface.
 apps/web            React SPA — Shark UI components on the Ghost design system.
 ```
 
-Dependencies flow one way: `core` knows nothing about the others; `api` and `mcp` depend on the
-subsystems; nothing depends on `api` or `mcp`. The `ContainerRuntime` and `ModRegistry` traits
-live in `core` precisely so that the Mock runtime is a complete stand-in — CI and the entire
-test suite run with no Docker daemon and no network.
+Dependencies flow one way: `packages/shared` knows nothing about either app. The
+`OrchestrationDriver` interface exists so the Mock driver is a complete stand-in — CI and the
+entire test suite run with no Docker daemon and no network.
 
 ---
 

@@ -1,0 +1,355 @@
+// Platter's persistence layer.
+//
+// SQLite is the default so `docker run` needs no external database, but every column
+// type here is deliberately Postgres-portable: no SQLite-only expressions, no native
+// type attributes. Swapping the provider plus `DATABASE_URL` is the documented path to
+// Postgres, and nothing in this file blocks it.
+//
+// SQLite has no enum type, so every closed set (status, role, driver, …) is stored as
+// `String` and validated against the shared union in `@platter/shared` before it is
+// written. That keeps one source of truth for the vocabulary instead of two.
+//
+// JSON-shaped columns are `String` for the same reason — Prisma's `Json` type is not
+// supported on SQLite. Each one is documented with the shape it holds and is parsed
+// through a zod schema on read.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id
+  email        String    @unique
+  username     String    @unique
+  displayName  String
+  passwordHash String
+  /// One of `USER_ROLES`.
+  role         String    @default("member")
+  /// `#rrggbb`, chosen at signup so the UI needs no avatar assets.
+  avatarColor  String    @default("#5b8def")
+  /// Base32 TOTP secret. Present from `totp/setup`, but 2FA is only enforced once
+  /// `totpEnabled` flips — an unconfirmed setup must not lock anyone out.
+  totpSecret   String?
+  totpEnabled  Boolean   @default(false)
+  /// JSON `string[]` of SHA-256 hashes; a code is removed from the array when redeemed.
+  recoveryCodes String   @default("[]")
+  suspended    Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions      Session[]
+  apiKeys       ApiKey[]
+  servers       Server[]
+  subuserGrants ServerSubuser[]
+  backups       Backup[]
+  conversations Conversation[]
+
+  @@index([role])
+}
+
+/// One row per live refresh token. Tokens are stored as SHA-256 hashes so a database
+/// leak cannot be replayed, and rows are revoked rather than deleted so that reuse of a
+/// rotated token is detectable.
+model Session {
+  id        String    @id
+  userId    String
+  /// Hex SHA-256 of the opaque refresh token. Unique so rotation can look it up directly.
+  tokenHash String    @unique
+  /// Every token minted from one login shares a family id. Detecting a replayed token
+  /// lets us revoke the whole family instead of just the one row.
+  familyId  String
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model ApiKey {
+  id         String    @id
+  userId     String
+  name       String
+  /// Public half of the token (`plt_xxxxxxxx`). Indexed so a presented key is one lookup,
+  /// after which the secret half is compared in constant time.
+  prefix     String    @unique
+  tokenHash  String
+  /// JSON `string[]`; empty means "everything the owning user can do".
+  scopes     String    @default("[]")
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Infrastructure
+// ---------------------------------------------------------------------------
+
+model Node {
+  id              String    @id
+  name            String    @unique
+  description     String    @default("")
+  /// One of `NODE_DRIVERS`.
+  driver          String    @default("docker")
+  /// Unix socket path or `tcp://` URL.
+  endpoint        String
+  /// Address players connect to; the API renders it into server addresses.
+  publicHost      String
+  portRangeStart  Int
+  portRangeEnd    Int
+  memoryTotalMb   Int
+  diskTotalMb     Int
+  cpuCores        Float
+  overcommitRatio Float     @default(1)
+  /// One of `NODE_STATUSES`.
+  status          String    @default("unknown")
+  driverVersion   String?
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  servers     Server[]
+  allocations Allocation[]
+}
+
+model Server {
+  id           String    @id
+  name         String
+  description  String    @default("")
+  /// Blueprint slug. Blueprints are files on disk, not rows, so this is a loose join.
+  blueprintKey String
+  nodeId       String
+  ownerId      String
+  /// One of `SERVER_STATUSES`.
+  status       String    @default("provisioning")
+  containerId  String?
+  memoryMb     Int
+  diskMb       Int
+  cpuCores     Float
+  swapMb       Int       @default(0)
+  ioWeight     Int       @default(500)
+  /// JSON `Record<string, string>` of blueprint variable values.
+  variables    String    @default("{}")
+  autoStart    Boolean   @default(true)
+  autoRestart  Boolean   @default(true)
+  lastExitCode Int?
+  lastCrashAt  DateTime?
+  installedAt  DateTime?
+  startedAt    DateTime?
+  suspended    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Restrict, not Cascade: deleting a user or a node must never silently destroy running
+  // game servers. The API refuses the delete and tells the operator to reassign first.
+  node  Node @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  allocations   Allocation[]
+  subusers      ServerSubuser[]
+  backups       Backup[]
+  schedules     Schedule[]
+  conversations Conversation[]
+
+  @@index([ownerId])
+  @@index([nodeId])
+  @@index([status])
+}
+
+/// A reserved host port on a node. Allocations outlive the servers that used them: on
+/// delete the row is detached (`serverId` set to null) and returns to the free pool,
+/// which keeps historical port assignments stable and makes reuse explicit.
+model Allocation {
+  id        String  @id
+  nodeId    String
+  hostIp    String  @default("0.0.0.0")
+  hostPort  Int
+  protocol  String  @default("tcp")
+  serverId  String?
+  /// Blueprint port name this allocation satisfies (`game`, `query`, `rcon`, …).
+  portName  String?
+  /// The address shown as "the server address" and used for connectivity checks.
+  primary   Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  node   Node    @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  server Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+
+  // The allocator relies on this constraint rather than a read-then-write: two concurrent
+  // provisions racing for the same port produce a unique violation, not a double booking.
+  @@unique([nodeId, hostIp, hostPort, protocol])
+  @@index([serverId])
+  @@index([nodeId, serverId])
+}
+
+model ServerSubuser {
+  id          String   @id
+  serverId    String
+  userId      String
+  /// JSON `ServerPermission[]`.
+  permissions String   @default("[]")
+  createdAt   DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Backups & schedules
+// ---------------------------------------------------------------------------
+
+model Backup {
+  id          String    @id
+  serverId    String
+  name        String
+  /// One of `BACKUP_STATUSES`.
+  status      String    @default("pending")
+  /// BigInt, not Int: a game server archive routinely exceeds the 2 GiB that a signed
+  /// 32-bit column tops out at. Converted with `Number()` at the API boundary.
+  sizeBytes   BigInt?
+  /// Hex SHA-256 of the archive, verified before any restore.
+  checksum    String?
+  automatic   Boolean   @default(false)
+  /// Locked backups are exempt from rotation and refuse deletion until unlocked.
+  locked      Boolean   @default(false)
+  error       String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  server    Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([serverId, createdAt])
+  @@index([status])
+}
+
+model Schedule {
+  id             String    @id
+  serverId       String
+  name           String
+  /// Five-field cron, parsed with cron-parser against `timezone`.
+  cron           String
+  timezone       String    @default("UTC")
+  /// One of `SCHEDULE_ACTIONS`.
+  action         String
+  /// Console command for the `command` action; null otherwise.
+  payload        String?
+  enabled        Boolean   @default(true)
+  onlyWhenOnline Boolean   @default(true)
+  lastRunAt      DateTime?
+  /// `success` | `failed` | `skipped`.
+  lastRunStatus  String?
+  lastRunError   String?
+  /// Denormalised so the dispatcher can select due schedules with one indexed query
+  /// instead of re-parsing every cron expression on each tick.
+  nextRunAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId])
+  @@index([enabled, nextRunAt])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Deliberately holds no foreign keys. An audit trail that cascades away with the user
+/// it indicts is not an audit trail, so the actor is captured by id *and* by name at
+/// write time and the row survives the actor.
+model AuditLog {
+  id         String   @id
+  /// One of `AUDIT_ACTIONS`.
+  action     String
+  actorId    String?
+  actorName  String?
+  /// `server` | `user` | `node` | `backup` | `schedule` | `apikey` | `system`.
+  targetType String
+  targetId   String?
+  targetName String?
+  /// JSON `Record<string, unknown>` of action-specific context.
+  metadata   String   @default("{}")
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([targetId])
+  @@index([action])
+}
+
+// ---------------------------------------------------------------------------
+// AI assistant
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id        String   @id
+  /// Null for the global assistant (e.g. "help me pick a game"); set for server chats.
+  serverId  String?
+  userId    String
+  title     String   @default("New conversation")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The transcript is worth keeping after the server is gone — it is often the record of
+  // why the server was configured the way it was.
+  server   Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId, updatedAt])
+  @@index([serverId])
+}
+
+model Message {
+  id             String   @id
+  conversationId String
+  /// `user` | `assistant`.
+  role           String
+  content        String
+  /// JSON `ProvisionProposal`; null unless the turn produced one.
+  proposal       String?
+  /// JSON `Diagnosis`; null unless the turn produced one.
+  diagnosis      String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Runtime settings
+// ---------------------------------------------------------------------------
+
+/// Settings an operator can change without restarting the process. Environment variables
+/// stay the source of truth for anything needed before the database is reachable.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
