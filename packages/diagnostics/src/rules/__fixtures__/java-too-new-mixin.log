@@ -1,0 +1,4 @@
+[12:04:11] [main/ERROR] [ne.mi.fm.lo.mo.ModValidator/]: Failed to load mods
+Caused by: org.spongepowered.asm.mixin.throwables.ClassMetadataNotFoundException: java.util.List
+	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinPreProcessorStandard.transformMethod(MixinPreProcessorStandard.java:754)
+	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinPreProcessorStandard.transform(MixinPreProcessorStandard.java:414)

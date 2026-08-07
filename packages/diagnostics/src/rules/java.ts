@@ -34,7 +34,11 @@ export function javaVersionForClassFile(classFileMajor: number): number | undefi
 
 /** The smallest published image that can run the required version. */
 export function snapToAvailableJava(required: number): number {
-  return AVAILABLE_JAVA_VERSIONS.find((v) => v >= required) ?? AVAILABLE_JAVA_VERSIONS[AVAILABLE_JAVA_VERSIONS.length - 1] ?? 21;
+  return (
+    AVAILABLE_JAVA_VERSIONS.find((v) => v >= required) ??
+    AVAILABLE_JAVA_VERSIONS[AVAILABLE_JAVA_VERSIONS.length - 1] ??
+    21
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -45,7 +49,8 @@ const CLASS_VERSION_RE =
   /UnsupportedClassVersionError[\s\S]{0,400}?class file version (?<needed>\d{2,3})\.\d+[\s\S]{0,200}?up to (?<current>\d{2,3})\.\d+/;
 
 /** The same error without the "recognizes up to" half, which some JVMs omit. */
-const CLASS_VERSION_SHORT_RE = /UnsupportedClassVersionError[\s\S]{0,400}?class file version (?<needed>\d{2,3})\.\d+/;
+const CLASS_VERSION_SHORT_RE =
+  /UnsupportedClassVersionError[\s\S]{0,400}?class file version (?<needed>\d{2,3})\.\d+/;
 
 export const javaTooOld: Rule = {
   id: 'java.version-too-old',
@@ -75,7 +80,9 @@ export const javaTooOld: Rule = {
         if (needed !== undefined) {
           return match([block], 'medium', {
             neededJava: needed,
-            ...(ctx.server.javaVersion === undefined ? {} : { currentJava: ctx.server.javaVersion }),
+            ...(ctx.server.javaVersion === undefined
+              ? {}
+              : { currentJava: ctx.server.javaVersion }),
           });
         }
       }

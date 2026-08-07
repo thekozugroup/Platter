@@ -1,0 +1,4 @@
+[12:04:11] [main/ERROR] [mixin/]: Mixin apply failed create.mixins.json:MixinChunkMap -> net.minecraft.server.level.ChunkMap: org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException Critical injection failure: @Inject annotation on setViewDistance could not find any targets matching 'setViewDistance' in net.minecraft.server.level.ChunkMap
+org.spongepowered.asm.mixin.transformer.throwables.MixinApplyError: Mixin [create.mixins.json:MixinChunkMap] from phase [DEFAULT] in config [create.mixins.json] FAILED during APPLY
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.handleMixinError(MixinProcessor.java:636)
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.applyMixins(MixinProcessor.java:379)

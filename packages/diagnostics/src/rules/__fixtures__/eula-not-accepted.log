@@ -1,0 +1,8 @@
+[init] Running as uid=1000 gid=1000 with /data as 'drwxrwxr-x 3 1000 1000 4096 Aug  7 12:01 /data'
+[init] Resolving type given VANILLA
+[init]
+[init] [ERROR] Please accept the Minecraft EULA at
+[init] [ERROR]   https://account.mojang.com/documents/minecraft_eula
+[init] [ERROR] by adding the following immediately after 'docker run':
+[init] [ERROR]   -e EULA=TRUE
+[init]

@@ -43,15 +43,27 @@ export function GET(request: NextRequest) {
         }
       };
 
-      // Replay anything the client missed while reconnecting, oldest first so the ordering
-      // matches a continuous stream. ULIDs sort chronologically, which is what makes this work.
+      /*
+       * Replay what the client missed, oldest first, bounded by *its* position rather than by
+       * "the newest N". A laptop that slept for two hours through a crash loop can be hundreds
+       * of events behind; handing it the newest hundred would leave a permanent hole in the
+       * activity feed that nothing ever reconciles.
+       *
+       * The replay is still capped — an unbounded catch-up would block the stream — but when it
+       * truncates it says so, so the client can refetch rather than quietly showing a gap.
+       */
       if (lastEventId) {
+        const CAP = 500;
         const missed = listEvents(ctx.db, {
           ...(serverId ? { serverId } : {}),
-          limit: 100,
-        }).filter((event) => event.id > lastEventId);
-        for (const event of missed.reverse()) {
+          after: lastEventId,
+          limit: CAP,
+        });
+        for (const event of missed) {
           send('platter-event', event, event.id);
+        }
+        if (missed.length === CAP) {
+          send('truncated', { after: lastEventId, replayed: CAP });
         }
       }
 

@@ -1,0 +1,3 @@
+[12:04:11] [main/ERROR] [FabricLoader/]: Mod resolution failed
+net.fabricmc.loader.impl.discovery.ModResolutionException: duplicate mod sodium
+	at net.fabricmc.loader.impl.discovery.ModResolver.selectMod(ModResolver.java:212)

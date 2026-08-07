@@ -10,7 +10,7 @@ import { READY_PATTERN } from './minecraft/manifest';
 import { reapIdleRcon } from './rcon';
 import { getServer, listServers, setStatus, updateServer } from './servers/repository';
 import { restartServer, startServer, stopServer } from './servers/service';
-import { createBackup, pruneBackups } from './backups/create';
+import { createBackup, pruneBackups, sweepInterruptedBackups } from './backups/create';
 
 const log = logger.child('supervisor');
 
@@ -39,6 +39,8 @@ interface SupervisorState {
   running: boolean;
   /** Servers seen in `starting`, with the time we first saw them, for the startup budget. */
   startingSince: Map<string, number>;
+  /** Orphan container ids already reported, so the warning does not repeat every tick. */
+  reportedOrphans: Set<string>;
 }
 
 interface GlobalWithSupervisor {
@@ -52,6 +54,7 @@ function state(): SupervisorState {
     jobs: new Map(),
     running: false,
     startingSince: new Map(),
+    reportedOrphans: new Set(),
   };
   return container[GLOBAL_KEY];
 }
@@ -64,6 +67,11 @@ export function startSupervisor(ctx: Context): void {
   supervisor.running = true;
 
   const intervalMs = ctx.env.PLATTER_POLL_INTERVAL_SECONDS * 1000;
+
+  // Resolve anything a previous run left mid-flight before touching live state.
+  void sweepInterruptedBackups(ctx).catch((error) =>
+    log.error('could not sweep interrupted backups', { error: String(error) })
+  );
 
   // One immediate pass so a restarted Platter shows accurate state straight away rather than
   // after the first interval.
@@ -96,6 +104,8 @@ export function stopSupervisor(): void {
     job.stop();
   }
   supervisor.jobs.clear();
+  supervisor.startingSince.clear();
+  supervisor.reportedOrphans.clear();
   supervisor.running = false;
 }
 
@@ -107,6 +117,17 @@ export async function reconcileAll(ctx: Context): Promise<void> {
   const servers = listServers(ctx.db);
   await Promise.all(servers.map((server) => reconcileServer(ctx, server.id)));
   await adoptOrphans(ctx);
+
+  // Forget startup timers for servers that no longer exist. Small, but it is a map that only
+  // ever grew — a long-lived Platter that creates and deletes servers would accumulate an entry
+  // per deletion forever.
+  const live = new Set(servers.map((server) => server.id));
+  const supervisor = state();
+  for (const serverId of supervisor.startingSince.keys()) {
+    if (!live.has(serverId)) {
+      supervisor.startingSince.delete(serverId);
+    }
+  }
 }
 
 /**
@@ -155,22 +176,24 @@ export async function reconcileServer(ctx: Context, serverId: string): Promise<v
   const next = deriveStatus(container.state, container.health, server.status);
 
   if (next === server.status) {
-    // Even without a status change, a server stuck in `starting` past its budget needs saying.
-    if (next === 'starting') {
+    if (next === 'starting' && container.state === 'running') {
+      /*
+       * The health-check-independent promotion path.
+       *
+       * Two reasons it lives here rather than on a status *change*. First, the health check runs
+       * on a 30-second interval, so a server that is genuinely accepting players sits in
+       * "Starting" for up to half a minute after it is ready — and the first thing anyone does
+       * with that status is try to connect and fail. Second, an image with no HEALTHCHECK at all
+       * (possible via PLATTER_ALLOW_CUSTOM_IMAGES) reports health `none` forever, so without
+       * this the server would *never* leave `starting` until the budget flipped it to unhealthy.
+       */
+      if (await sawReadyLine(ctx, server.containerId)) {
+        promote(ctx, serverId, server.name, 'running');
+        return;
+      }
+      // Still genuinely starting; a server stuck past its budget needs saying.
       await checkStartupBudget(ctx, serverId, server.name);
     }
-    return;
-  }
-
-  // `starting` → `running` is confirmed by the log line as well as the health check, because
-  // the health check runs on a 30s interval and users notice the lag.
-  if (server.status === 'starting' && next !== 'running' && container.state === 'running') {
-    const ready = await sawReadyLine(ctx, server.containerId);
-    if (ready) {
-      promote(ctx, serverId, server.name, 'running');
-      return;
-    }
-    await checkStartupBudget(ctx, serverId, server.name);
     return;
   }
 
@@ -213,6 +236,18 @@ function applyTransition(
   next: ServerStatus,
   exitCode: number | undefined
 ): void {
+  /*
+   * Forget the startup timer on any move out of `starting`.
+   *
+   * Leaving it behind is worse than a leak: a server that failed to start at 14:00 and is
+   * restarted at 14:40 would be measured against the *old* timestamp, and the very first
+   * reconcile tick would declare it "still starting after 40 minutes" ten seconds after the
+   * user pressed Start.
+   */
+  if (next !== 'starting') {
+    state().startingSince.delete(serverId);
+  }
+
   switch (next) {
     case 'running':
       promote(ctx, serverId, name, 'running');
@@ -332,12 +367,25 @@ async function adoptOrphans(ctx: Context): Promise<void> {
     return;
   }
   const known = new Set(listServers(ctx.db, { includeDeleted: true }).map((server) => server.id));
+  const reported = state().reportedOrphans;
+
   for (const container of containers.value) {
-    if (container.serverId && !known.has(container.serverId)) {
+    if (container.serverId && !known.has(container.serverId) && !reported.has(container.id)) {
+      // Once per container, not once per tick — this runs every few seconds and the situation
+      // does not resolve itself, so repeating would bury everything else in the log.
+      reported.add(container.id);
       log.warn('found a Platter container with no matching server row', {
         container: container.name,
         serverId: container.serverId,
       });
+    }
+  }
+
+  // Let a container be reported again if it comes back after being cleaned up.
+  const present = new Set(containers.value.map((container) => container.id));
+  for (const id of reported) {
+    if (!present.has(id)) {
+      reported.delete(id);
     }
   }
 }

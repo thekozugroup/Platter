@@ -1,0 +1,4 @@
+[12:04:11] [main/ERROR]: Failed to start the minecraft server
+java.lang.ClassNotFoundException: net.minecraft.server.MinecraftServer
+	at java.base/java.net.URLClassLoader.findClass(URLClassLoader.java:445)
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:592)

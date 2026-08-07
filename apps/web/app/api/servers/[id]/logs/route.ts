@@ -19,6 +19,17 @@ export async function GET(
 ) {
   const { id } = await params;
   const tail = Number(request.nextUrl.searchParams.get('tail') ?? '400');
+  /*
+   * Resume point, in epoch milliseconds, sent by a console that is reconnecting.
+   *
+   * Without it every reconnect replays `tail` lines the client already has, so a server that
+   * flaps for a minute fills the console with the same 400 lines over and over. Docker's `since`
+   * only has second granularity, so this narrows the replay rather than eliminating it — the
+   * client does the exact de-duplication at the boundary second.
+   */
+  const sinceRaw = request.nextUrl.searchParams.get('since');
+  const sinceMs = sinceRaw === null ? Number.NaN : Number(sinceRaw);
+  const since = Number.isFinite(sinceMs) && sinceMs > 0 ? Math.floor(sinceMs / 1000) : undefined;
 
   const ctx = await getContext();
   const server = getServer(ctx.db, id);
@@ -39,6 +50,7 @@ export async function GET(
     follow: true,
     tail: Number.isFinite(tail) ? Math.min(Math.max(tail, 1), 5000) : 400,
     withTimestamps: true,
+    ...(since === undefined ? {} : { since }),
     signal: controllerAbort.signal,
   });
 

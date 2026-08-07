@@ -22,7 +22,8 @@ import type { LogBlock, LogLevel, LogSource, ParsedLine, RawLogLine } from './ty
  * Docker gives the container a TTY often enough that this is the normal case, not the edge one.
  * Colour codes land in the middle of the strings the rules match, so they come off first.
  */
-const ANSI_RE = /\u001B\[[0-9;?]*[ -\/]*[@-~]/g;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matching the escape byte is the point.
+const ANSI_RE = /\u001B\[[0-9;?]*[ -/]*[@-~]/g;
 
 /**
  * Docker prepends an RFC3339 timestamp when logs are read with `timestamps: true`.
@@ -247,7 +248,27 @@ const MAX_BLOCK_LINES = 400;
 /** Bounds the string every rule regex runs over, per block. */
 const MAX_BLOCK_CHARS = 64_000;
 
-function isContinuation(line: ParsedLine): boolean {
+/**
+ * A fully-qualified exception class at the start of a line.
+ *
+ * This is how log4j renders a throwable attached to a message: the message on one line, then the
+ * exception's own class and message at column zero, then the frames. Without recognising it, the
+ * cause of a failure ends up in a different block from the message that introduced it — which is
+ * precisely the pair a rule needs to see together.
+ */
+const EXCEPTION_HEADER_RE =
+  /^(?:[a-zA-Z_$][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error|Throwable)[\w$]*(?::\s|\s*$)/;
+
+function isTraceStart(line: ParsedLine): boolean {
+  return (
+    TRACE_FRAME_RE.test(line.raw) ||
+    CAUSED_BY_RE.test(line.raw) ||
+    JVM_HEAD_RE.test(line.raw) ||
+    EXCEPTION_HEADER_RE.test(line.raw)
+  );
+}
+
+function isContinuation(line: ParsedLine, inTrace: boolean): boolean {
   // A recognised log record always starts its own block, whatever it looks like inside.
   if (line.source === 'entrypoint' || line.source === 'minecraft') {
     return false;
@@ -255,12 +276,26 @@ function isContinuation(line: ParsedLine): boolean {
   if (line.raw === '') {
     return false;
   }
-  return (
+  if (
     /^\s/.test(line.raw) ||
     CAUSED_BY_RE.test(line.raw) ||
     SUPPRESSED_RE.test(line.raw) ||
     ELLIPSIS_RE.test(line.raw)
-  );
+  ) {
+    return true;
+  }
+  // A throwable rendered beneath its own log message.
+  if (EXCEPTION_HEADER_RE.test(line.raw)) {
+    return true;
+  }
+  /**
+   * Once inside a stack trace, unindented lines still belong to it. Loaders put their whole
+   * report in the exception *message*, and an exception message's own newlines are printed flush
+   * left — so Fabric's "A potential solution has been determined" and the dependency list under
+   * it are, structurally, part of the line above. Bounded by `MAX_BLOCK_LINES`, so a server that
+   * never logs anything recognisable again cannot grow one block without limit.
+   */
+  return inTrace;
 }
 
 /**
@@ -283,6 +318,7 @@ export function groupTraces(lines: readonly ParsedLine[]): LogBlock[] {
   const blocks: LogBlock[] = [];
   let current: ParsedLine[] = [];
   let truncated = false;
+  let inTrace = false;
 
   const flush = (): void => {
     if (current.length === 0) {
@@ -291,6 +327,7 @@ export function groupTraces(lines: readonly ParsedLine[]): LogBlock[] {
     blocks.push(toBlock(current, truncated));
     current = [];
     truncated = false;
+    inTrace = false;
   };
 
   for (const line of lines) {
@@ -299,13 +336,15 @@ export function groupTraces(lines: readonly ParsedLine[]): LogBlock[] {
 
     if (head === undefined || previous === undefined) {
       current = [line];
+      inTrace = isTraceStart(line);
       continue;
     }
 
-    const joins = isContinuation(line) || continuesEntrypointRun(line, head, previous);
+    const joins = isContinuation(line, inTrace) || continuesEntrypointRun(line, head, previous);
     if (!joins) {
       flush();
       current = [line];
+      inTrace = isTraceStart(line);
       continue;
     }
 
@@ -314,6 +353,7 @@ export function groupTraces(lines: readonly ParsedLine[]): LogBlock[] {
       continue;
     }
     current.push(line);
+    inTrace = inTrace || isTraceStart(line);
   }
   flush();
 

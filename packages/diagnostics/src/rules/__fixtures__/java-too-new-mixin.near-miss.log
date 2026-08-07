@@ -1,0 +1,3 @@
+[12:04:11] [main/ERROR]: Mod failed to load
+java.lang.NoClassDefFoundError: com/example/some/Helper
+	at com.example.ExampleMod.init(ExampleMod.java:22)

@@ -1,0 +1,16 @@
+[init] Running as uid=1000 gid=1000 with /data as 'drwxrwxr-x 3 1000 1000 4096 Aug  7 12:01 /data'
+[init] Resolving type given PAPER
+[init] Using Paper build 497 for Minecraft 1.21.4
+[init] Setting initial memory to 4G and max to 4G
+[init] Starting the Minecraft server...
+[12:04:05] [ServerMain/INFO]: Loading Paper 1.21.4-497
+[12:04:07] [Server thread/INFO]: Starting minecraft server version 1.21.4
+[12:04:07] [Server thread/INFO]: Loading properties
+[12:04:07] [Server thread/INFO]: Default game type: SURVIVAL
+[12:04:07] [Server thread/INFO]: Starting Minecraft server on *:25565
+[12:04:08] [Server thread/INFO]: Preparing level "world"
+[12:04:12] [Server thread/INFO]: Preparing spawn area: 92%
+[12:04:13] [Server thread/INFO]: Time elapsed: 5122 ms
+[12:04:13] [Server thread/INFO]: Done (21.442s)! For help, type "help"
+[12:05:01] [Server thread/INFO]: Steve joined the game
+[12:05:44] [Server thread/INFO]: <Steve> hello

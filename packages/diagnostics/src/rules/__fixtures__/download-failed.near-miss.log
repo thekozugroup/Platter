@@ -1,0 +1,4 @@
+[mc-image-helper] 01:52:04.511 DEBUG : JSON FETCH: uri=https://meta.fabricmc.net/v2/versions/loader/1.21.4
+[init] Downloading Fabric launcher 1.0.1
+[init] Using Fabric loader 0.16.9 for Minecraft 1.21.4
+[12:04:13] [Server thread/INFO]: Done (21.442s)! For help, type "help"

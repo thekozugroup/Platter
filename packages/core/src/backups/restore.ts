@@ -6,13 +6,14 @@ import { createGunzip } from 'node:zlib';
 import { eq } from 'drizzle-orm';
 import * as tar from 'tar-fs';
 import { backups } from '@platter/db';
-import { type Result, fail, logger, ok, paths, ulid } from '@platter/shared';
+import { LIVE_STATUSES, type Result, fail, logger, ok, paths, ulid } from '@platter/shared';
 import type { Context } from '../context';
 import { EVENT, emitEvent } from '../events';
 import { isWithin } from '../paths';
 import { getServer } from '../servers/repository';
 import { startServer, stopServer } from '../servers/service';
-import { createBackup } from './create';
+import { lockKey, withLock } from '../locks';
+import { runBackup } from './create';
 
 const log = logger.child('backups');
 
@@ -45,6 +46,21 @@ export async function restoreBackup(
   if (!backup) {
     return fail('not_found', `No backup with id ${backupId}.`);
   }
+  // Same lock as backups: a restore that swaps the data directory while a backup is reading it
+  // would archive a half-swapped tree. The safety backup taken inside runs on this same chain,
+  // which is why the lock is re-entrant by queuing rather than by flag.
+  return withLock(lockKey.backup(backup.serverId), () => runRestore(ctx, backupId, options));
+}
+
+async function runRestore(
+  ctx: Context,
+  backupId: string,
+  options: RestoreOptions
+): Promise<Result<void>> {
+  const backup = ctx.db.select().from(backups).where(eq(backups.id, backupId)).get();
+  if (!backup) {
+    return fail('not_found', `No backup with id ${backupId}.`);
+  }
   if (backup.status !== 'complete') {
     return fail('invalid_state', `Backup ${backupId} is ${backup.status} and cannot be restored.`);
   }
@@ -54,12 +70,22 @@ export async function restoreBackup(
     return fail('not_found', `Backup ${backupId} belongs to a server that no longer exists.`);
   }
 
-  const wasRunning = server.status === 'running';
+  /*
+   * "Running" is not the only state in which the JVM is alive.
+   *
+   * `unhealthy`, `starting` and `installing` all mean the container is up and holding open file
+   * descriptors on region files. Restoring under any of them renames the data directory out from
+   * under a live process — which on Linux succeeds silently, leaves the JVM writing into the
+   * directory about to be deleted, and destroys the world. `unhealthy` in particular is a state
+   * ordinary servers reach on their own, so this is a reachable path, not a corner case.
+   */
+  const wasLive = LIVE_STATUSES.has(server.status);
 
   /* --- Safety net -------------------------------------------------------- */
   if (options.safetyBackup !== false) {
     options.onProgress?.({ phase: 'backing up current state' });
-    const safety = await createBackup(ctx, {
+    // `runBackup`, not `createBackup`: this already holds the per-server backup lock.
+    const safety = await runBackup(ctx, {
       serverId: server.id,
       label: `Before restoring ${new Date(backup.createdAt).toISOString()}`,
       trigger: 'pre-restore',
@@ -78,7 +104,7 @@ export async function restoreBackup(
   /* --- Stop -------------------------------------------------------------- */
   // Restoring into a running server means the JVM holds open file handles on region files it is
   // about to have replaced underneath it. There is no safe version of that.
-  if (wasRunning) {
+  if (wasLive) {
     options.onProgress?.({ phase: 'stopping server' });
     const stopped = await stopServer(ctx, server.id, { actor: options.actor ?? 'user' });
     if (!stopped.ok) {
@@ -118,7 +144,7 @@ export async function restoreBackup(
       data: { backupId, hot: backup.hotBackup },
     });
 
-    if (wasRunning) {
+    if (wasLive) {
       options.onProgress?.({ phase: 'starting server' });
       const started = await startServer(ctx, server.id, { actor: options.actor ?? 'user' });
       if (!started.ok) {

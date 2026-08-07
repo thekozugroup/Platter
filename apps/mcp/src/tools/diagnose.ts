@@ -365,14 +365,94 @@ async function applyAction(
 
     case 'restore_backup': {
       const { listBackups } = await import('@platter/core');
-      const newest = listBackups(ctx, serverId).find((b) => b.status === 'complete');
-      if (!newest) {
-        return { ok: false, message: 'There are no backups to roll back to.', restarted: false };
+      const backups = listBackups(ctx, serverId).filter((b) => b.status === 'complete');
+      const target = action.backupId
+        ? backups.find((b) => b.id === action.backupId)
+        : backups[0];
+      if (!target) {
+        return {
+          ok: false,
+          message: action.backupId
+            ? `Backup ${action.backupId} is not available.`
+            : 'There are no backups to roll back to.',
+          restarted: false,
+        };
       }
-      const restored = await restoreBackup(ctx, newest.id, { actor: 'ai' });
+      const restored = await restoreBackup(ctx, target.id, { actor: 'ai' });
       return isErr(restored)
         ? { ok: false, message: restored.error.message, restarted: false }
-        : { ok: true, message: 'Rolled back to the most recent backup.', restarted: true };
+        : { ok: true, message: 'Rolled back to the backup.', restarted: true };
+    }
+
+    case 'install_mod':
+    case 'update_mod': {
+      // Deliberately routed back to install_mods rather than handled here. That tool resolves a
+      // real downloadable file, runs the compatibility check against what is already installed,
+      // and shows the human the dependency list — none of which a bare "install this" can do.
+      return {
+        ok: false,
+        message:
+          `This fix installs ${action.ref?.id ?? action.ref?.name ?? 'a mod'}. Use the ` +
+          'install_mods tool so it is compatibility-checked and its dependencies resolved first.',
+        restarted: false,
+      };
+    }
+
+    case 'set_loader_version': {
+      const server = resolveServer(ctx.db, serverId);
+      if (!server) {
+        return { ok: false, message: 'Server not found.', restarted: false };
+      }
+      updateServer(ctx.db, serverId, { loaderVersion: action.version });
+      const rebuilt = await recreateContainer(ctx, serverId, { start: true });
+      return isErr(rebuilt)
+        ? { ok: false, message: rebuilt.error.message, restarted: false }
+        : {
+            ok: true,
+            message: `Pinned ${action.loader} to ${action.version} and rebuilt the container.`,
+            restarted: true,
+          };
+    }
+
+    case 'reallocate_port': {
+      // Recreating picks a fresh port when the stored one is no longer bindable. The address
+      // changes, so this is worth saying out loud rather than leaving people to discover it.
+      const rebuilt = await recreateContainer(ctx, serverId, { start: true });
+      if (isErr(rebuilt)) {
+        return { ok: false, message: rebuilt.error.message, restarted: false };
+      }
+      const server = resolveServer(ctx.db, serverId);
+      return {
+        ok: true,
+        message: `Rebuilt on port ${server?.port ?? 'a new port'} — tell anyone who has the old address.`,
+        restarted: true,
+      };
+    }
+
+    case 'retry_start': {
+      const started = await restartServer(ctx, serverId, { actor: 'ai' });
+      return isErr(started)
+        ? { ok: false, message: started.error.message, restarted: false }
+        : { ok: true, message: 'Started the server again.', restarted: true };
+    }
+
+    case 'repair_permissions':
+    case 'free_disk_space': {
+      // Both need host-level access Platter deliberately does not have — it drives Docker, it
+      // does not chown the host filesystem or delete files it has no claim to. Explaining is
+      // more useful than a fix that half-works.
+      return {
+        ok: false,
+        message:
+          action.type === 'repair_permissions'
+            ? "Platter cannot change ownership on the host. Fix the data directory's permissions " +
+              'so uid 1000 can write to it, then start the server again.'
+            : `The host is out of disk space${
+                action.neededMiB ? ` (about ${action.neededMiB} MB short)` : ''
+              }. Free some up — old backups under the Platter data directory are usually the ` +
+              'largest thing — then start the server again.',
+        restarted: false,
+      };
     }
 
     case 'accept_eula': {

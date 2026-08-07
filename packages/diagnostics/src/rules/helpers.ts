@@ -209,7 +209,9 @@ export function modIdFromMixinConfig(config: string): string | undefined {
  */
 function guessIdFromPackage(fqcn: string): string {
   const parts = fqcn.split('.');
-  const meaningful = parts.slice(0, -1).filter((p) => !['com', 'net', 'org', 'io', 'me'].includes(p));
+  const meaningful = parts
+    .slice(0, -1)
+    .filter((p) => !['com', 'net', 'org', 'io', 'me'].includes(p));
   return meaningful[meaningful.length - 1] ?? parts[0] ?? 'unknown';
 }
 

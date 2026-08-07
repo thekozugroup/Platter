@@ -1,0 +1,4 @@
+[mc-image-helper] 01:52:04.511 DEBUG : JSON FETCH: uri=https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml
+[mc-image-helper] 01:52:04.560 ERROR : 'install-neoforge' command failed. Version is 1.41.9
+me.itzg.helpers.errors.GenericException: Unable to resolve NeoForge metadata
+	at me.itzg.helpers.neoforge.InstallNeoForgeCommand.call(InstallNeoForgeCommand.java:118)

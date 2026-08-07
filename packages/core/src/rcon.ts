@@ -33,12 +33,34 @@ interface PooledConnection {
   /** Serialises commands: Minecraft's RCON does not tolerate pipelining. */
   chain: Promise<unknown>;
   lastUsed: number;
+  /**
+   * Commands currently executing or queued. The idle reaper checks this, because `lastUsed` is
+   * only stamped when a command *finishes* — and `save-all flush` on a large modded world can
+   * legitimately run for longer than the idle timeout.
+   */
+  inFlight: number;
 }
 
 const pool = new Map<string, PooledConnection>();
 
-/** Idle connections are closed after this long. Keeps sockets off an idle server. */
-const IDLE_TIMEOUT_MS = 120_000;
+/**
+ * Connections currently being established.
+ *
+ * Without this, two callers that miss the pool in the same tick both call `connect`, and the
+ * second `pool.set` silently overwrites the first. The orphaned socket is then unreachable from
+ * `closeRcon`, `closeAllRcon` and the reaper, so it stays open for the life of the process — and
+ * the two callers run their commands on *different* connections with independent queues, which
+ * is precisely the concurrent-RCON situation the serialisation below exists to prevent.
+ */
+const connecting = new Map<string, Promise<Result<PooledConnection>>>();
+
+/**
+ * How long a connection may sit unused before it is closed.
+ *
+ * Strictly greater than the longest command timeout Platter issues (`save-all flush`, at 120s),
+ * so the reaper and a legitimate long-running command cannot be in a dead heat.
+ */
+const IDLE_TIMEOUT_MS = 300_000;
 
 async function connect(target: RconTarget): Promise<Result<PooledConnection>> {
   try {
@@ -53,6 +75,7 @@ async function connect(target: RconTarget): Promise<Result<PooledConnection>> {
       rcon,
       chain: Promise.resolve(),
       lastUsed: Date.now(),
+      inFlight: 0,
     };
 
     // A dropped connection must leave the pool, or every later command fails against a dead
@@ -96,7 +119,16 @@ async function acquire(target: RconTarget): Promise<Result<PooledConnection>> {
     existing.lastUsed = Date.now();
     return ok(existing);
   }
-  return connect(target);
+
+  // Share one in-flight connect between every caller that missed.
+  const pending = connecting.get(target.serverId);
+  if (pending) {
+    return pending;
+  }
+
+  const attempt = connect(target).finally(() => connecting.delete(target.serverId));
+  connecting.set(target.serverId, attempt);
+  return attempt;
 }
 
 /**
@@ -117,6 +149,8 @@ export async function rconCommand(
     return acquired;
   }
   const connection = acquired.value;
+
+  connection.inFlight++;
 
   const run = async (): Promise<Result<string>> => {
     try {
@@ -139,6 +173,8 @@ export async function rconCommand(
         details: { serverId: target.serverId, command },
         cause,
       });
+    } finally {
+      connection.inFlight--;
     }
   };
 
@@ -165,10 +201,17 @@ export async function closeAllRcon(): Promise<void> {
   await Promise.all([...pool.keys()].map(closeRcon));
 }
 
-/** Drop connections nobody has used recently. Called by the supervisor tick. */
+/**
+ * Drop connections nobody has used recently. Called by the supervisor tick.
+ *
+ * `inFlight` is checked as well as `lastUsed` because the two are not equivalent: `lastUsed` is
+ * stamped when a command *completes*, so a `save-all flush` that legitimately runs for two
+ * minutes on a large world looks idle the whole time it is working. Reaping it there kills the
+ * socket mid-flush and fails a backup on a server that was perfectly healthy.
+ */
 export async function reapIdleRcon(now = Date.now()): Promise<void> {
   const stale = [...pool.entries()]
-    .filter(([, connection]) => now - connection.lastUsed > IDLE_TIMEOUT_MS)
+    .filter(([, connection]) => connection.inFlight === 0 && now - connection.lastUsed > IDLE_TIMEOUT_MS)
     .map(([serverId]) => serverId);
   await Promise.all(stale.map(closeRcon));
 }

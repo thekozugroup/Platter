@@ -76,9 +76,17 @@ ENV PLATTER_DATA_DIR=/data
 VOLUME ["/data"]
 
 # Binding to 0.0.0.0 inside the container is correct — the container's network namespace is the
-# boundary, and compose decides what is published on the host.
+# boundary, and compose decides what is published on the host. PLATTER_IN_CONTAINER makes that
+# explicit so the loopback guard in the config schema relaxes to a warning rather than refusing
+# to start.
 ENV PLATTER_HOST=0.0.0.0
 ENV PLATTER_PORT=4880
+ENV PLATTER_IN_CONTAINER=1
+
+# Next's standalone server reads PORT and HOSTNAME — its own names, not Platter's. Setting only
+# the PLATTER_* pair leaves it listening on the default 3000, which looks like the app failed to
+# start when the published port simply has nothing behind it.
+ENV PORT=4880
 ENV HOSTNAME=0.0.0.0
 EXPOSE 4880
 

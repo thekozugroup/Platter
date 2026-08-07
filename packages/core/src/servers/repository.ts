@@ -54,9 +54,27 @@ export function listServers(db: PlatterDatabase, options: { includeDeleted?: boo
   return rows.map(hydrate);
 }
 
-export function getServer(db: PlatterDatabase, id: string): Server | undefined {
+/**
+ * Fetch a server by id.
+ *
+ * Soft-deleted rows are excluded by default, matching `listServers` and `getServerBySlug`. When
+ * it did not, a deleted server stayed fully operable through every path that resolves by id — a
+ * surviving backup schedule would keep firing against it nightly, writing archives forever for a
+ * server the user believes is gone.
+ */
+export function getServer(
+  db: PlatterDatabase,
+  id: string,
+  options: { includeDeleted?: boolean } = {}
+): Server | undefined {
   const row = db.select().from(servers).where(eq(servers.id, id)).get();
-  return row ? hydrate(row) : undefined;
+  if (!row) {
+    return undefined;
+  }
+  if (row.deletedAt !== null && options.includeDeleted !== true) {
+    return undefined;
+  }
+  return hydrate(row);
 }
 
 export function getServerBySlug(db: PlatterDatabase, slug: string): Server | undefined {

@@ -1,0 +1,6 @@
+# The repository root ignores `*.log`, which would silently drop every fixture in this directory.
+#
+# That failure mode is exactly the one these fixtures exist to prevent: the tests would still
+# pass on the machine that wrote them and fail — or worse, be quietly deleted — everywhere else,
+# leaving the rule catalogue unpinned to any real log. Re-include them explicitly.
+!*.log

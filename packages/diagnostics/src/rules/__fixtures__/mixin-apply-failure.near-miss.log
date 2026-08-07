@@ -1,0 +1,3 @@
+[12:04:11] [main/DEBUG] [mixin/]: Mixing MixinChunkMap from create.mixins.json into net.minecraft.server.level.ChunkMap
+[12:04:11] [main/DEBUG] [mixin/]: Successfully prepared mixin config create.mixins.json
+[12:04:12] [main/INFO]: Loading 42 mods

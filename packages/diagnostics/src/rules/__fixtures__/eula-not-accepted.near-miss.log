@@ -1,0 +1,5 @@
+[init] Setting initial memory to 2G and max to 2G
+[12:04:11] [Server thread/INFO]: Starting minecraft server version 1.21.4
+[12:04:12] [Server thread/INFO]: <Steve> does anyone know where the minecraft eula is
+[12:04:13] [Server thread/INFO]: Steve issued server command: /msg Alex accept the Minecraft EULA
+[12:04:14] [Server thread/INFO]: Done (8.221s)! For help, type "help"

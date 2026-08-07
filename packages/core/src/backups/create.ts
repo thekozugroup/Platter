@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, rm, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createGzip } from 'node:zlib';
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, lt, or } from 'drizzle-orm';
 import * as tar from 'tar-fs';
 import { backups, modInstalls } from '@platter/db';
 import {
@@ -19,6 +19,7 @@ import {
 import type { Context } from '../context';
 import { EVENT, emitEvent } from '../events';
 import { resumeSaves, suspendSaves } from '../rcon';
+import { lockKey, withLock } from '../locks';
 import { getServer } from '../servers/repository';
 
 const log = logger.child('backups');
@@ -67,7 +68,6 @@ export interface CreateBackupInput {
  * sends the container into a confusing reinstall loop.
  */
 const DEFAULT_EXCLUDES = [
-  'logs/',
   'crash-reports/',
   '.tmp/',
   'cache/',
@@ -82,22 +82,81 @@ const DEFAULT_EXCLUDES = [
   '.mc-health.env',
 ];
 
-const ALWAYS_INCLUDE = ['logs/latest.log'];
+/**
+ * Kept even though its directory is otherwise excluded — a diagnosis needs the current log.
+ *
+ * This is why `logs/` is not excluded wholesale: tar-fs prunes recursion at a skipped directory,
+ * so anything inside a directory you exclude is unreachable no matter what else you say. The
+ * directory is walked and its *entries* are filtered instead.
+ */
+const ALWAYS_INCLUDE = new Set(['logs/latest.log']);
 
-function makeFilter(excludes: string[]): (name: string) => boolean {
+/** Directories whose contents are dropped but which must still be descended into. */
+const PRUNE_CONTENTS_OF = ['logs'];
+
+/**
+ * Build the tar-fs `ignore` predicate.
+ *
+ * tar-fs v3 calls this with an **absolute host path**, not a path relative to the archive root
+ * — it does `ignore(join(cwd, next, entry))`. Comparing that against relative patterns silently
+ * matches nothing, which is a failure with no symptom: every backup simply contains everything,
+ * and you only notice when a nightly archive of a crash-looping server is several gigabytes of
+ * logs. Relativising first is the whole fix.
+ */
+function makeFilter(sourceDir: string, excludes: string[]): (name: string) => boolean {
   const all = [...DEFAULT_EXCLUDES, ...excludes];
+
   return (name: string) => {
-    const rel = name.replace(/^\/+/, '');
-    if (ALWAYS_INCLUDE.some((keep) => rel === keep)) {
-      return false; // tar-fs `ignore` returns true to SKIP
+    // Absolute from tar-fs; tolerate a relative path too so the predicate is unit-testable.
+    const rel = (isAbsolute(name) ? relative(sourceDir, name) : name)
+      .split(sep)
+      .join('/')
+      .replace(/^\/+/, '');
+
+    if (rel === '' || rel.startsWith('..')) {
+      return false;
     }
+    if (ALWAYS_INCLUDE.has(rel)) {
+      return false; // tar-fs `ignore` returns true to SKIP.
+    }
+    // Descend into these so their kept entries are reachable, but drop everything else in them.
+    if (PRUNE_CONTENTS_OF.includes(rel)) {
+      return false;
+    }
+    if (PRUNE_CONTENTS_OF.some((dir) => rel.startsWith(`${dir}/`))) {
+      return true;
+    }
+
     return all.some((pattern) =>
-      pattern.endsWith('/') ? rel === pattern.slice(0, -1) || rel.startsWith(pattern) : rel === pattern
+      pattern.endsWith('/')
+        ? rel === pattern.slice(0, -1) || rel.startsWith(pattern)
+        : rel === pattern
     );
   };
 }
 
+export { makeFilter as __makeFilterForTests };
+
 export async function createBackup(
+  ctx: Context,
+  input: CreateBackupInput
+): Promise<Result<{ id: string; path: string; sizeBytes: number }>> {
+  // Serialised per server. `save-off`/`save-on` are global switches on the Minecraft server, so
+  // two overlapping backups let the first one's `save-on` land in the middle of the second one's
+  // archive — producing exactly the torn chunks this whole sequence exists to prevent, in a file
+  // that still checksums cleanly. Reachable today from the UI, the MCP tool and the scheduler.
+  return withLock(lockKey.backup(input.serverId), () => runBackup(ctx, input));
+}
+
+/**
+ * The backup itself, without taking the lock.
+ *
+ * Exported because `restoreBackup` holds the same lock while taking its safety copy, and calling
+ * the locked entry point from inside would queue behind a lock the caller already owns — a
+ * deadlock that would present as a restore hanging forever with no error. Anything else should
+ * call `createBackup`.
+ */
+export async function runBackup(
   ctx: Context,
   input: CreateBackupInput
 ): Promise<Result<{ id: string; path: string; sizeBytes: number }>> {
@@ -188,7 +247,12 @@ export async function createBackup(
     }
 
     input.onProgress?.({ phase: 'archiving' });
-    const sizeBytes = await archive(server.dataDir, archivePath, makeFilter(input.exclude ?? []), input.onProgress);
+    const sizeBytes = await archive(
+      server.dataDir,
+      archivePath,
+      makeFilter(server.dataDir, input.exclude ?? []),
+      input.onProgress
+    );
 
     if (savesSuspended) {
       const resumed = await resumeSaves(rconTarget);
@@ -377,6 +441,50 @@ export async function pruneBackups(
   }
 
   return ok(removed);
+}
+
+/**
+ * Resolve backups left in a non-terminal state by a restart.
+ *
+ * A row is inserted as `running` before the archive starts, so a Platter that is stopped or
+ * OOM-killed mid-backup leaves it that way forever: `pruneBackups` only ever considers
+ * `complete` rows, so the half-written archive is invisible to retention and accumulates. A row
+ * stuck in `restoring` is worse — `restoreBackup` refuses anything that is not `complete`, so
+ * that backup is permanently unusable with no way to retry it.
+ *
+ * Called once at startup, where nothing can legitimately be in flight yet.
+ */
+export async function sweepInterruptedBackups(ctx: Context): Promise<number> {
+  const stuck = ctx.db
+    .select()
+    .from(backups)
+    .where(or(eq(backups.status, 'running'), eq(backups.status, 'restoring')))
+    .all();
+
+  for (const row of stuck) {
+    if (row.status === 'running') {
+      // The archive is incomplete by definition; nothing can use it.
+      await rm(row.path, { force: true });
+      ctx.db
+        .update(backups)
+        .set({
+          status: 'failed',
+          statusMessage: 'Interrupted by a Platter restart.',
+          completedAt: Date.now(),
+        })
+        .where(eq(backups.id, row.id))
+        .run();
+    } else {
+      // A `restoring` row's archive is intact — only the restore was cut short. Returning it to
+      // `complete` makes it retryable, which is what the user wants.
+      ctx.db.update(backups).set({ status: 'complete' }).where(eq(backups.id, row.id)).run();
+    }
+  }
+
+  if (stuck.length > 0) {
+    log.warn('resolved backups interrupted by a restart', { count: stuck.length });
+  }
+  return stuck.length;
 }
 
 export function listBackups(ctx: Context, serverId: string) {

@@ -1,0 +1,5 @@
+[12:04:11] [Server thread/ERROR]: Failed to load chunk 12,-4
+java.io.IOException: Chunk file at 12,-4 is missing header data
+	at net.minecraft.world.level.chunk.storage.RegionFile.getChunkDataInputStream(RegionFile.java:189)
+	at net.minecraft.world.level.chunk.storage.RegionFileStorage.read(RegionFileStorage.java:106)
+[12:04:11] [Server thread/ERROR]: Failed to save chunk 12,-4

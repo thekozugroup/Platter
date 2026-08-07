@@ -1,0 +1,3 @@
+[12:04:11] [Server thread/ERROR]: Failed to send packet
+java.io.IOException: Broken pipe
+	at java.base/sun.nio.ch.SocketDispatcher.write0(Native Method)

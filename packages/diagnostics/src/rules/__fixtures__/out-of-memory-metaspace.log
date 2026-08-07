@@ -1,0 +1,5 @@
+[12:04:11] [main/INFO]: Loading 214 mods
+[12:04:39] [main/ERROR]: Exception in thread "main"
+java.lang.OutOfMemoryError: Metaspace
+	at java.base/java.lang.ClassLoader.defineClass1(Native Method)
+	at cpw.mods.modlauncher.TransformingClassLoader.loadClass(TransformingClassLoader.java:106)

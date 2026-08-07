@@ -1,0 +1,4 @@
+[12:04:11] [Server thread/ERROR]: Failed to save chunk 3,9
+java.io.IOException: No space left on device
+	at java.base/sun.nio.ch.FileDispatcherImpl.write0(Native Method)
+	at net.minecraft.world.level.chunk.storage.RegionFile.write(RegionFile.java:271)

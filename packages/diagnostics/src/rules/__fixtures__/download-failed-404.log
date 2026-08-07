@@ -1,0 +1,3 @@
+[init] Downloading mod from https://cdn.modrinth.com/data/AABBCCDD/versions/1.2.3/example-1.2.3.jar
+[init] [ERROR] Failed to download from https://cdn.modrinth.com/data/AABBCCDD/versions/1.2.3/example-1.2.3.jar
+[mc-image-helper] 01:52:04.560 ERROR : Failed to download file: 404 Not Found

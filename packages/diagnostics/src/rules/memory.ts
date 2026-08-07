@@ -84,7 +84,8 @@ export const javaOutOfMemory: Rule = {
         const kind = classifyOom(flavour);
         // Metaspace and native-thread failures are outside the heap, so the smaller
         // headroom-shaped bump is the right one; a filled heap wants the half-again step.
-        const outsideHeap = kind === 'metaspace' || kind === 'native-thread' || kind === 'direct-buffer';
+        const outsideHeap =
+          kind === 'metaspace' || kind === 'native-thread' || kind === 'direct-buffer';
         return match([block], 'high', {
           kind,
           flavour,

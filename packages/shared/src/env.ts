@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
@@ -22,6 +23,32 @@ const booleanish = z
 const port = z.coerce.number().int().min(1).max(65_535);
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+
+/**
+ * Are we inside a container?
+ *
+ * This matters because binding to 0.0.0.0 means two different things. On a host it means "expose
+ * this to the network", which is the case the token requirement exists for. Inside a container
+ * it means "listen on my own network namespace" — the boundary is the container, and whoever
+ * runs it decides what reaches the outside via port publishing. Platter cannot see that decision
+ * from in here, and refusing to start would make the published image unusable out of the box for
+ * no security gain: the operator would simply set a token they never use.
+ *
+ * So inside a container the requirement relaxes to a loud warning, and `docker/compose.yaml`
+ * publishes the UI on 127.0.0.1 by default. Overridable either way with PLATTER_IN_CONTAINER.
+ */
+function inContainer(source: NodeJS.ProcessEnv): boolean {
+  const explicit = source.PLATTER_IN_CONTAINER;
+  if (explicit !== undefined) {
+    return ['1', 'true', 'yes', 'on'].includes(explicit.toLowerCase());
+  }
+  try {
+    // Docker creates this file in every container it starts.
+    return existsSync('/.dockerenv');
+  } catch {
+    return false;
+  }
+}
 
 export const envSchema = z
   .object({
@@ -96,6 +123,11 @@ export const envSchema = z
     PLATTER_DISABLE_AUTO_BACKUP: booleanish.default(false),
     /** Skip Docker connectivity checks. Only useful in unit tests. */
     PLATTER_SKIP_DOCKER: booleanish.default(false),
+    /**
+     * Force the containerised interpretation of PLATTER_HOST. Auto-detected from /.dockerenv;
+     * set explicitly for Podman, nerdctl, or to opt back into the strict host behaviour.
+     */
+    PLATTER_IN_CONTAINER: z.string().optional(),
   })
   .transform((env) => ({
     ...env,
@@ -116,8 +148,13 @@ export const envSchema = z
     }
 
     // Binding the UI beyond loopback without a token would put container-level control of the
-    // host on the network. Refuse at startup rather than discover it later.
-    if (!LOOPBACK_HOSTS.has(env.PLATTER_HOST) && !env.PLATTER_AUTH_TOKEN) {
+    // host on the network. Refuse at startup rather than discover it later — unless we are
+    // inside a container, where the publish decision belongs to whoever ran it.
+    if (
+      !LOOPBACK_HOSTS.has(env.PLATTER_HOST) &&
+      !env.PLATTER_AUTH_TOKEN &&
+      !inContainer(process.env)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['PLATTER_AUTH_TOKEN'],

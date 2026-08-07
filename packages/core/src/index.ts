@@ -1,5 +1,6 @@
 export * from './context';
 export * from './events';
+export * from './locks';
 export * from './paths';
 export * from './ports';
 export * from './rcon';

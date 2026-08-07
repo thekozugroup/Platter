@@ -1,0 +1,4 @@
+[12:04:11] [Server thread/INFO]: Starting Minecraft server on *:25565
+[12:04:11] [Server thread/WARN]: **** FAILED TO BIND TO PORT!
+[12:04:11] [Server thread/WARN]: The exception was: java.net.BindException: Address already in use
+[12:04:11] [Server thread/WARN]: Perhaps a server is already running on that port?

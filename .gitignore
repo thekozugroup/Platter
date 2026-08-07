@@ -38,3 +38,6 @@ test-results/
 !.vscode/extensions.json
 !.vscode/settings.json
 Thumbs.db
+
+# Local CA used only when validating the Docker build behind a TLS-inspecting proxy
+docker/.ca-test.crt

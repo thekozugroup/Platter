@@ -1,0 +1,3 @@
+[12:04:11] [Server thread/ERROR]: Encountered an unexpected exception
+java.lang.ClassCastException: class java.lang.String cannot be cast to class java.lang.Integer
+	at com.example.ExampleMod.readConfig(ExampleMod.java:88)

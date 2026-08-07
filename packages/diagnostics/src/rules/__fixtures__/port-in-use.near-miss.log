@@ -1,0 +1,3 @@
+[12:04:11] [Server thread/INFO]: Starting Minecraft server on 10.9.9.9:25565
+[12:04:11] [Server thread/WARN]: **** FAILED TO BIND TO PORT!
+[12:04:11] [Server thread/WARN]: The exception was: java.net.BindException: Cannot assign requested address

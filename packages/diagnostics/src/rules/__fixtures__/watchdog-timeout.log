@@ -1,0 +1,5 @@
+[05:11:26] [Server thread/WARN]: Can't keep up! Did the system time change, or is the server overloaded? Running 23352870ms behind, skipping 467057 tick(s)
+[05:11:35] [Server Watchdog/FATAL]: A single server tick took 23361.66 seconds (should be max 0.05)
+[05:11:38] [Server Watchdog/FATAL]: Considering it to be crashed, server will forcibly shutdown.
+[05:11:39] [Server Watchdog/ERROR]: This crash report has been saved to: /data/./crash-reports/crash-2024-11-24_05.11.39-server.txt
+[05:11:39] [Server Shutdown Thread/INFO]: Stopping server

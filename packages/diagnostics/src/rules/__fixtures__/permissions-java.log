@@ -1,0 +1,3 @@
+[12:04:11] [main/ERROR]: Failed to start the minecraft server
+java.nio.file.AccessDeniedException: /data/world/session.lock
+	at java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:90)

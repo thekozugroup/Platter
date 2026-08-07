@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { desc, eq, and, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
 import type { PlatterDatabase } from '@platter/db';
 import { events as eventsTable } from '@platter/db';
 import { type Actor, type EventLevel, ulid } from '@platter/shared';
@@ -105,6 +105,15 @@ export interface ListEventsOptions {
   limit?: number;
   /** Return events strictly older than this id. ULIDs sort chronologically, so this paginates. */
   before?: string;
+  /**
+   * Return events strictly newer than this id, oldest first.
+   *
+   * This is what an SSE client needs after a reconnect, and it has to be a query bound rather
+   * than a filter over the newest N: a laptop that slept through 600 events would otherwise be
+   * handed the newest 100 and silently lose the 500 in between, leaving a hole in the activity
+   * feed that nothing ever fills.
+   */
+  after?: string;
 }
 
 export function listEvents(db: PlatterDatabase, options: ListEventsOptions = {}): PlatterEvent[] {
@@ -115,12 +124,17 @@ export function listEvents(db: PlatterDatabase, options: ListEventsOptions = {})
   if (options.before) {
     conditions.push(lt(eventsTable.id, options.before));
   }
+  if (options.after) {
+    conditions.push(gt(eventsTable.id, options.after));
+  }
 
   const rows = db
     .select()
     .from(eventsTable)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(eventsTable.id))
+    // Ascending when catching up from a known position, so the caller gets the *oldest* missed
+    // events rather than the newest ones and a gap.
+    .orderBy(options.after ? asc(eventsTable.id) : desc(eventsTable.id))
     .limit(Math.min(options.limit ?? 50, 500))
     .all();
 

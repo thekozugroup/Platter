@@ -1,0 +1,3 @@
+[12:04:11] [main/ERROR] [ne.mi.fm.lo.mo.ModSorter/LOADING]: Missing or unsupported mandatory dependencies:
+	Mod ID: 'forge', Requested by: 'framework', Expected range: '[47.2.0,)', Actual version: '47.1.99'
+	Mod ID: 'jei', Requested by: 'examplemod', Expected range: '[15.2.0.27,)', Actual version: '[MISSING]'

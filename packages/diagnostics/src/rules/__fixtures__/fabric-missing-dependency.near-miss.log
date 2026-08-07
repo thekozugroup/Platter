@@ -1,0 +1,4 @@
+[12:04:11] [main/WARN] [FabricLoader/]: Warnings were found!
+	 - Mod 'Sodium' (sodium) 0.4.10 recommends any version of indium, which is missing!
+		 - You should install any version of indium for the optimal experience.
+[12:04:12] [main/INFO]: Loading 42 mods

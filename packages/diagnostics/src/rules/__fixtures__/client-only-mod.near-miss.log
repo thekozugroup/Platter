@@ -1,0 +1,3 @@
+[12:04:11] [Server thread/ERROR]: Failed to load mod
+java.lang.NoClassDefFoundError: net/minecraft/server/level/ServerLevel
+	at TRANSFORMER/examplemod@1.0.0/com.example.ExampleMod.init(ExampleMod.java:31)

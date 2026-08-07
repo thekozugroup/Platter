@@ -1,0 +1,5 @@
+[12:04:11] [Server thread/ERROR]: Exception ticking world
+java.lang.NullPointerException: Cannot invoke "com.example.Machine.tick()" because "machine" is null
+	at com.example.ExampleMod.onWorldTick(ExampleMod.java:112)
+[12:04:12] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld
+[12:04:13] [Server thread/INFO]: Done saving

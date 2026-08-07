@@ -19,6 +19,31 @@ interface LogLine {
 }
 
 /**
+ * A line as rendered.
+ *
+ * `key` is assigned by the client, not taken from `seq`. Docker's sequence number restarts at
+ * zero on every reconnect and locally-injected RCON responses have no sequence at all, so `seq`
+ * is unique only within one connection — using it as a React key collides the moment the stream
+ * reconnects, and React then reuses the wrong DOM node for the wrong line.
+ */
+interface ConsoleLine extends LogLine {
+  key: string;
+}
+
+/**
+ * Where the console got to, so a reconnect can resume instead of replaying.
+ *
+ * Docker's `since` filter is second-granular, so asking to resume at a millisecond still returns
+ * every line from that whole second. `texts` holds the lines already shown *at exactly*
+ * `timestamp`, which is what lets the boundary second be de-duplicated precisely rather than by
+ * dropping it wholesale — dropping it loses real output, keeping it duplicates real output.
+ */
+interface ResumePoint {
+  timestamp: number;
+  texts: string[];
+}
+
+/**
  * How many lines the console holds.
  *
  * A crash-looping modded server produces thousands of lines a minute. Keeping them all turns the
@@ -42,7 +67,7 @@ export function Console({
   serverId: string;
   status: ServerStatus;
 }) {
-  const [lines, setLines] = useState<LogLine[]>([]);
+  const [lines, setLines] = useState<ConsoleLine[]>([]);
   const [connected, setConnected] = useState(false);
   const [follow, setFollow] = useState(true);
   const [command, setCommand] = useState('');
@@ -52,6 +77,16 @@ export function Console({
 
   const scroller = useRef<HTMLDivElement | null>(null);
   const showToast = useToast();
+
+  // Monotonic across reconnects and across locally-injected lines, which is exactly what `seq`
+  // is not.
+  const nextKey = useRef(0);
+  const makeKey = useCallback(() => {
+    nextKey.current += 1;
+    return `l${nextKey.current}`;
+  }, []);
+
+  const resume = useRef<ResumePoint | null>(null);
 
   useEffect(() => {
     let source: EventSource | undefined;
@@ -63,7 +98,21 @@ export function Console({
       if (closed) {
         return;
       }
-      source = new EventSource(`/api/servers/${serverId}/logs?tail=400`);
+
+      const from = resume.current;
+      const query = new URLSearchParams({ tail: from ? '2000' : '400' });
+      if (from) {
+        query.set('since', String(from.timestamp));
+      }
+      source = new EventSource(`/api/servers/${serverId}/logs?${query.toString()}`);
+
+      /*
+       * Lines already shown at the resume boundary, consumed one occurrence at a time as the
+       * replay repeats them. Local to this connection: once the stream moves past the boundary
+       * second there is nothing left to filter, and the next reconnect builds a fresh one.
+       */
+      let pending: string[] | null = from ? [...from.texts] : null;
+      const boundary = from?.timestamp;
 
       source.addEventListener('open', () => {
         attempt = 0;
@@ -72,9 +121,36 @@ export function Console({
 
       source.addEventListener('line', (event) => {
         const line = JSON.parse((event as MessageEvent<string>).data) as LogLine;
+
+        // De-duplicate the replayed tail against what the console already holds.
+        if (pending !== null && boundary !== undefined && line.timestamp !== undefined) {
+          if (line.timestamp < boundary) {
+            return;
+          }
+          if (line.timestamp === boundary) {
+            const at = pending.indexOf(line.text);
+            if (at !== -1) {
+              pending.splice(at, 1);
+              return;
+            }
+          } else {
+            // Docker emits in order, so the first newer line means the boundary is behind us.
+            pending = null;
+          }
+        }
+
+        if (line.timestamp !== undefined) {
+          const point = resume.current;
+          if (point === null || line.timestamp > point.timestamp) {
+            resume.current = { timestamp: line.timestamp, texts: [line.text] };
+          } else if (line.timestamp === point.timestamp) {
+            point.texts.push(line.text);
+          }
+        }
+
         setLines((current) => {
           const next = current.length >= MAX_LINES ? current.slice(-MAX_LINES + 1) : current;
-          return [...next, line];
+          return [...next, { ...line, key: makeKey() }];
         });
       });
 
@@ -100,7 +176,7 @@ export function Console({
         clearTimeout(retry);
       }
     };
-  }, [serverId]);
+  }, [serverId, makeKey]);
 
   // Stick to the bottom only while the user is already there. Yanking them back down mid-read
   // makes the console unusable exactly when they are trying to read an error.
@@ -143,14 +219,17 @@ export function Console({
       setLines((current) => [
         ...current,
         {
-          seq: Number.MAX_SAFE_INTEGER - current.length,
+          key: makeKey(),
+          seq: -1,
           stream: 'stdout',
-          timestamp: Date.now(),
+          // Rendered without a clock: this line never came from the container, so stamping it
+          // alongside real output invites reading it as something the server logged.
+          timestamp: undefined,
           text: `> ${trimmed}\n${result.response}`,
         },
       ]);
     }
-  }, [command, sending, serverId, showToast]);
+  }, [command, makeKey, sending, serverId, showToast]);
 
   const running = status === 'running' || status === 'unhealthy' || status === 'starting';
 
@@ -186,7 +265,7 @@ export function Console({
           <Text type="supporting">Waiting for output…</Text>
         ) : (
           lines.map((line) => (
-            <span key={line.seq} className="platter-console__line" data-stream={line.stream}>
+            <span key={line.key} className="platter-console__line" data-stream={line.stream}>
               {line.timestamp && !hasOwnTimestamp(line.text) ? (
                 <span className="platter-console__time">{formatTime(line.timestamp)}</span>
               ) : null}

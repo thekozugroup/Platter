@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { eq } from 'drizzle-orm';
-import { servers } from '@platter/db';
+import { schedules, servers } from '@platter/db';
 import {
   LABELS,
   LOADER_FAMILY,
@@ -464,6 +464,13 @@ export async function deleteServer(
   }
 
   releaseServerPorts(ctx.db, serverId);
+
+  // Retire the server's schedules and rebuild the cron table. Without this the nightly backup
+  // job stays live for the lifetime of the process, and — for a soft delete, where the rows do
+  // not cascade — keeps writing archives every night for a server the user believes is gone.
+  ctx.db.delete(schedules).where(eq(schedules.serverId, serverId)).run();
+  const { syncSchedules } = await import('../supervisor');
+  syncSchedules(ctx);
 
   if (options.purgeData) {
     // Only ever removes a path Platter itself built from PLATTER_DATA_DIR plus the server's

@@ -1,0 +1,2 @@
+[init] Running as uid=1000 gid=1000 with /data as 'drwxr-xr-x 3 0 0 4096 Aug  7 12:01 /data'
+[init] [ERROR] Unable to write eula to /data. Please make sure attached directory is writable by uid=1000

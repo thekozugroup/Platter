@@ -1,0 +1,6 @@
+[12:41:02] [Server thread/WARN]: Can't keep up! Did the system time change, or is the server overloaded? Running 8021ms behind, skipping 160 tick(s)
+[12:41:44] [Server thread/ERROR]: Encountered an unexpected exception
+java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.util.Arrays.copyOf(Arrays.java:3537)
+	at net.minecraft.world.level.chunk.LevelChunkSection.<init>(LevelChunkSection.java:41)
+	at net.minecraft.world.level.chunk.storage.ChunkSerializer.read(ChunkSerializer.java:172)

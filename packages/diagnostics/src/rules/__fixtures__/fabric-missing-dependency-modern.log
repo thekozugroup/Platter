@@ -1,0 +1,7 @@
+[12:04:11] [main/ERROR] [FabricLoader/]: Incompatible mods found!
+net.fabricmc.loader.impl.discovery.ModResolutionException: Some of your mods are incompatible with the game or each other!
+A potential solution has been determined, this may resolve your problem:
+	 - Install fabric-api, version 0.83.0 or later.
+More details:
+	 - Mod 'Sodium' (sodium) 0.4.10 requires version 0.83.0 or later of fabric-api, which is missing!
+	at net.fabricmc.loader.impl.discovery.ModResolver.findCompatibleSet(ModResolver.java:147)
