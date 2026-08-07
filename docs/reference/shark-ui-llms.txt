@@ -1,0 +1,155 @@
+# Shark UI Documentation
+
+> Documentation for Shark UI component library.
+
+Shark UI is a component library built on [Tailwind CSS](https://tailwindcss.com/) and [Ark UI](https://ark-ui.com/). Components are accessible, customizable, and ready to use with your preferred framework.
+
+**Key Features:**
+
+- Beautiful by default - Professional look out of the box
+- Accessible - Built with accessibility best practices
+- Flexible - Customizable components with predictable patterns
+- Developer-friendly - Fully typed APIs and excellent autocompletion
+
+## Documentation Index
+
+### Components
+
+- [All Components](https://shark.vini.one/docs/components): Explore the full list of components available in the library.
+
+- [Accordion](https://shark.vini.one/docs/components/accordion): A collapsible for displaying content.
+- [Action Bar](https://shark.vini.one/docs/components/action-bar): Display an action bar for selected items.
+- [Alert Dialog](https://shark.vini.one/docs/components/alert-dialog): Dialog for displaying important content.
+- [Alert](https://shark.vini.one/docs/components/alert): Displays an alert for user attention.
+- [Announcement](https://shark.vini.one/docs/components/announcement): Inline notice for short, prominent updates.
+- [Aspect Ratio](https://shark.vini.one/docs/components/aspect-ratio): Wrapper that maintains aspect ratio for content.
+- [Autocomplete](https://shark.vini.one/docs/components/autocomplete): Displays a searchable list of options.
+- [Avatar](https://shark.vini.one/docs/components/avatar): Displays a user's profile image with fallback.
+- [Badge](https://shark.vini.one/docs/components/badge): A badge or an element styled as a badge.
+- [Bottom Navigation](https://shark.vini.one/docs/components/bottom-navigation): Fixed bottom nav for mobile-first apps.
+- [Breadcrumb](https://shark.vini.one/docs/components/breadcrumb): Shows user location within a hierarchy.
+- [Button Group](https://shark.vini.one/docs/components/button-group): Group button elements together.
+- [Button](https://shark.vini.one/docs/components/button): A button or an element styled as a button.
+- [Calendar](https://shark.vini.one/docs/components/calendar): Select a date or a range of dates.
+- [Card](https://shark.vini.one/docs/components/card): Displays content about a single subject.
+- [Carousel](https://shark.vini.one/docs/components/carousel): Lets users cycle through a series of items.
+- [Chart](https://shark.vini.one/docs/components/chart): Visualize data with beautiful charts.
+- [Checkbox](https://shark.vini.one/docs/components/checkbox): Control for multiple selections in a set.
+- [Circular Progress](https://shark.vini.one/docs/components/circular-progress): Shows task progress with a circular indicator.
+- [Circular Slider](https://shark.vini.one/docs/components/circular-slider): Circular slider for selecting values.
+- [Clipboard](https://shark.vini.one/docs/components/clipboard): Copy text to the clipboard.
+- [Collapsible](https://shark.vini.one/docs/components/collapsible): Collapsible content in a vertical stack.
+- [Color Picker](https://shark.vini.one/docs/components/color-picker): Pick colors with hue and alpha controls.
+- [Combobox](https://shark.vini.one/docs/components/combobox): Displays a searchable list of options.
+- [Command](https://shark.vini.one/docs/components/command): Searchable command input with filtering.
+- [Context Menu](https://shark.vini.one/docs/components/context-menu): A menu shown on right-click.
+- [Data List](https://shark.vini.one/docs/components/data-list): A list of label-value pairs.
+- [Date Input](https://shark.vini.one/docs/components/date-input): Segmented input for dates and times.
+- [Date Picker](https://shark.vini.one/docs/components/date-picker): Input with a built-in calendar.
+- [Dialog](https://shark.vini.one/docs/components/dialog): A dialog for displaying content.
+- [Drawer](https://shark.vini.one/docs/components/drawer): A sliding panel with swipe support.
+- [Editable](https://shark.vini.one/docs/components/editable): Allows user to edit text in-place.
+- [Field](https://shark.vini.one/docs/components/field): Container for inputs, labels, and helper text.
+- [File Upload](https://shark.vini.one/docs/components/file-upload): A component that allows users to upload files.
+- [Float](https://shark.vini.one/docs/components/float): Anchor an element to the edge of a container.
+- [Floating Panel](https://shark.vini.one/docs/components/floating-panel): Displays content in a floating window.
+- [Frame](https://shark.vini.one/docs/components/frame): Bordered box for grouping related content.
+- [Hint](https://shark.vini.one/docs/components/hint): Minimal tooltip for showing information.
+- [Hover Card](https://shark.vini.one/docs/components/hover-card): Popover that appears on hover.
+- [Image Cropper](https://shark.vini.one/docs/components/image-cropper): Crop and transform images.
+- [Input Group](https://shark.vini.one/docs/components/input-group): Group input elements together.
+- [Input OTP](https://shark.vini.one/docs/components/input-otp): Accessible one-time password input.
+- [Input](https://shark.vini.one/docs/components/input): A field that allows users to enter text.
+- [Item](https://shark.vini.one/docs/components/item): A versatile component for displaying content.
+- [Kbd](https://shark.vini.one/docs/components/kbd): Styled representation of a single key.
+- [Link Overlay](https://shark.vini.one/docs/components/link-overlay): Makes the whole card or article clickable.
+- [Listbox](https://shark.vini.one/docs/components/listbox): Select a single or multiple items from a list.
+- [Marquee](https://shark.vini.one/docs/components/marquee): Scrolls items in a horizontal container.
+- [Menu](https://shark.vini.one/docs/components/menu): List of options on button interaction.
+- [Native Select](https://shark.vini.one/docs/components/native-select): Styled native HTML select element.
+- [Number Input](https://shark.vini.one/docs/components/number-input): Numeric input for entering values.
+- [Pagination](https://shark.vini.one/docs/components/pagination): Navigate through a list of items.
+- [Password Input](https://shark.vini.one/docs/components/password-input): A field for entering secure text.
+- [Popover](https://shark.vini.one/docs/components/popover): Overlay with extra info or options on trigger.
+- [Progress](https://shark.vini.one/docs/components/progress): Displays task progress with a linear indicator.
+- [Prose](https://shark.vini.one/docs/components/prose): Typography styles for HTML content.
+- [QR Code](https://shark.vini.one/docs/components/qr-code): Displays a QR code.
+- [Radio Group](https://shark.vini.one/docs/components/radio-group): Allows single selection from multiple options.
+- [Rating](https://shark.vini.one/docs/components/rating): Show reviews and ratings in a visual format.
+- [Resizable](https://shark.vini.one/docs/components/resizable): Divides the interface into resizable sections.
+- [Scroll Area](https://shark.vini.one/docs/components/scroll-area): Custom scrollable area with styled scrollbars.
+- [Segment Group](https://shark.vini.one/docs/components/segment-group): Follows the selected item.
+- [Select](https://shark.vini.one/docs/components/select): Displays a list of options.
+- [Separator](https://shark.vini.one/docs/components/separator): Visually separate content with a line.
+- [Sheet](https://shark.vini.one/docs/components/sheet): Content that slides in from the screen edge.
+- [Sidebar](https://shark.vini.one/docs/components/sidebar): A sidebar for navigation and app structure.
+- [Signature Pad](https://shark.vini.one/docs/components/signature-pad): Capture hand-drawn signatures.
+- [Skeleton](https://shark.vini.one/docs/components/skeleton): Displays a loading state.
+- [Skip Nav](https://shark.vini.one/docs/components/skip-nav): Lets keyboard users skip to main content.
+- [Slider](https://shark.vini.one/docs/components/slider): A slider for selecting a value from a range.
+- [Spinner](https://shark.vini.one/docs/components/spinner): A spinner for displaying a loading state.
+- [Status](https://shark.vini.one/docs/components/status): Color-coded status for process or state.
+- [Steps](https://shark.vini.one/docs/components/steps): Steps in a wizard-like format.
+- [Switch](https://shark.vini.one/docs/components/switch): A switch for toggling a binary state.
+- [Table](https://shark.vini.one/docs/components/table): A responsive table component.
+- [Tabs](https://shark.vini.one/docs/components/tabs): A tabs for navigating between content.
+- [Tags Input](https://shark.vini.one/docs/components/tags-input): Allows users to add tags to an input field.
+- [Textarea](https://shark.vini.one/docs/components/textarea): Form textarea or textarea-styled component.
+- [Timer](https://shark.vini.one/docs/components/timer): Countdown or stopwatch with controls.
+- [Toast](https://shark.vini.one/docs/components/toast): Provides feedback on an action.
+- [Toggle Group](https://shark.vini.one/docs/components/toggle-group): Toggle buttons for selecting a value.
+- [Toggle Tooltip](https://shark.vini.one/docs/components/toggle-tooltip): Display information on click.
+- [Toggle](https://shark.vini.one/docs/components/toggle): Two-state button that can be toggled on or off.
+- [Tooltip](https://shark.vini.one/docs/components/tooltip): Display information on hover or focus.
+- [Tour](https://shark.vini.one/docs/components/tour): Displays a guided tour of the application.
+- [Tree View](https://shark.vini.one/docs/components/tree-view): Hierarchical data in a tree structure.
+
+### Handbook
+
+- [Colors](https://shark.vini.one/docs/colors): Color palette and color system.
+- [Introduction](https://shark.vini.one/docs): Modern, accessible, beautifully designed UI components.
+- [LLMs.txt](https://shark.vini.one/docs/llms-txt): Let AI assistants use the compact Shark UI documentation index.
+- [RTL](https://shark.vini.one/docs/rtl): Right-to-left support for Arabic, Hebrew, Persian, and other RTL languages.
+- [Skills](https://shark.vini.one/docs/skills): Give your agent knowledge to ship correct components, patterns, and migrations.
+- [Styling](https://shark.vini.one/docs/styling): Guide to styling components with the color system.
+
+### Installation
+
+- [Installation](https://shark.vini.one/docs/installation): Get Shark UI running in your project.
+- [Astro](https://shark.vini.one/docs/installation/astro): Install Shark UI in an Astro project.
+- [Laravel](https://shark.vini.one/docs/installation/laravel): Install Shark UI in a Laravel project.
+- [Manual Installation](https://shark.vini.one/docs/installation/manual): Install Shark UI without the shadcn CLI by copying config and files manually.
+- [Next.js](https://shark.vini.one/docs/installation/next): Install Shark UI in a Next.js project.
+- [React Router](https://shark.vini.one/docs/installation/react-router): Install Shark UI in a React Router project.
+- [TanStack Start](https://shark.vini.one/docs/installation/tanstack-start): Install Shark UI in a TanStack Start project.
+- [Vite](https://shark.vini.one/docs/installation/vite): Install Shark UI in a Vite project.
+
+### Utilities
+
+- [Client Only](https://shark.vini.one/docs/utilities/client-only): Render content only on the client side.
+- [Download Trigger](https://shark.vini.one/docs/utilities/download-trigger): Trigger file downloads programmatically.
+- [Format](https://shark.vini.one/docs/utilities/format): Format numbers, bytes, and time with Intl API.
+- [Highlight](https://shark.vini.one/docs/utilities/highlight): Highlight search terms within text.
+- [Hitbox](https://shark.vini.one/docs/utilities/hitbox): Expand hit areas of interactive elements without affecting layout.
+- [JSON Tree View](https://shark.vini.one/docs/utilities/json-tree-view): Display JSON data in an interactive, expandable tree.
+- [Presence](https://shark.vini.one/docs/utilities/presence): Animate components on mount and unmount.
+- [Show](https://shark.vini.one/docs/utilities/show): Conditionally render content based on a boolean value.
+- [Swap](https://shark.vini.one/docs/utilities/swap): Animate between two visual states with smooth transitions.
+
+### Hooks
+
+- [useIsMobile](https://shark.vini.one/docs/hooks/use-is-mobile): Reports whether the viewport is below the mobile breakpoint.
+
+### Forms
+
+- [Forms](https://shark.vini.one/docs/forms): A guide to building forms with Shark UI components.
+- [Formisch](https://shark.vini.one/docs/forms/formisch): Build forms in React using Formisch and Valibot.
+- [React Hook Form](https://shark.vini.one/docs/forms/react-hook-form): Build forms in React using React Hook Form and Zod.
+- [TanStack Form](https://shark.vini.one/docs/forms/tanstack-form): Build forms in React using TanStack Form and Zod.
+
+### Changelog
+
+- [January 2026 - Beta 1](https://shark.vini.one/docs/changelog/26-01-first-beta): First beta release with core components, blocks, templates, and theme support.
+- [March 2026 - Release Candidate](https://shark.vini.one/docs/changelog/26-03-rc): RC release with new components, utilities, theme improvements, and documentation updates.
+- [May 2026 - Post-RC updates](https://shark.vini.one/docs/changelog/26-05-post-rc): Registry listing, Hitbox utility, docs/site polish, and component fixes after the March RC.
+- [Changelog](https://shark.vini.one/docs/changelog): Notable changes to Shark UI are documented here.
