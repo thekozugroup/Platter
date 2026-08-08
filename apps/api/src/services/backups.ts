@@ -18,7 +18,8 @@ import { newId } from '../lib/ids.js';
 import { getLogHub } from '../orchestration/log-buffer.js';
 import { recordAudit } from './audit.js';
 import { serverDataDir } from '../lib/paths.js';
-import { stopServer } from './lifecycle.js';
+import { getBlueprint } from './blueprints.js';
+import { sendCommand, stopServer } from './lifecycle.js';
 
 /**
  * Backups: a streamed `.tar.gz` of a server's data directory, hashed as it is written so
@@ -170,6 +171,54 @@ export async function createBackup(serverId: string, options: CreateBackupOption
   }
 }
 
+/**
+ * Holds a running game still while its files are read.
+ *
+ * `tar` streaming a Minecraft region directory mid-write produces an archive that passes
+ * its own checksum — the hash is of what was read — and still restores a corrupt world. The
+ * games that can be told to stop writing have a console command for exactly this, so it is
+ * asked for; a game that has no console, or a server that is not running, needs nothing.
+ *
+ * Returns the resume step, which the caller must run whatever happens: a world left with
+ * saving switched off would lose everything since the backup on its next crash.
+ */
+async function quiesce(serverId: string): Promise<() => Promise<void>> {
+  const noop = async (): Promise<void> => undefined;
+  const server = await prisma.server.findUnique({
+    where: { id: serverId },
+    select: { status: true, suspended: true, blueprintKey: true },
+  });
+  if (!server || server.suspended || server.status !== 'running') return noop;
+
+  let blueprint;
+  try {
+    blueprint = await getBlueprint(server.blueprintKey);
+  } catch {
+    return noop;
+  }
+  if (!blueprint.features.console || blueprint.saveCommands === null) return noop;
+
+  const { flush, resume } = blueprint.saveCommands;
+  try {
+    for (const command of flush) await sendCommand(serverId, command);
+  } catch (error) {
+    // A game that refused the command is backed up live rather than not at all; the
+    // console line above is the operator's record that it was not quiesced.
+    getLogHub(serverId).system(`Could not pause saving before the backup: ${messageOf(error)}`);
+    return async () => {
+      for (const command of resume) await sendCommand(serverId, command).catch(() => undefined);
+    };
+  }
+
+  return async () => {
+    for (const command of resume) {
+      await sendCommand(serverId, command).catch((error: unknown) => {
+        getLogHub(serverId).system(`Could not resume saving after the backup: ${messageOf(error)}`);
+      });
+    }
+  };
+}
+
 async function runBackup(row: BackupRow, ignore: readonly string[]): Promise<void> {
   await prisma.backup.update({ where: { id: row.id }, data: { status: 'running' } }).catch(() => undefined);
 
@@ -179,7 +228,14 @@ async function runBackup(row: BackupRow, ignore: readonly string[]): Promise<voi
   const temp = `${archivePath}.part`;
 
   try {
-    const { sizeBytes, checksum } = await writeArchive(dataDir, temp, ignore);
+    const resume = await quiesce(row.serverId);
+    let archived;
+    try {
+      archived = await writeArchive(dataDir, temp, ignore);
+    } finally {
+      await resume();
+    }
+    const { sizeBytes, checksum } = archived;
     await rename(temp, archivePath);
     await prisma.backup.update({
       where: { id: row.id },

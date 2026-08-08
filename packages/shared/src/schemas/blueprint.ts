@@ -60,6 +60,16 @@ export const blueprintPortSchema = z.object({
   protocol: z.enum(['tcp', 'udp']).default('tcp'),
   /** The primary port is the one shown as "the address" and used for connectivity checks. */
   primary: z.boolean().default(false),
+  /**
+   * Publish on loopback only, never on every interface.
+   *
+   * For admin channels — RCON above all — that a player never dials. RCON is plaintext and
+   * a successful auth is arbitrary console execution, so a port bound `0.0.0.0` by default
+   * is an unauthenticated-until-password remote shell facing the whole network. Only
+   * honoured on a node whose runtime shares this process's network stack; a remote node
+   * would otherwise put its admin port out of Platter's own reach.
+   */
+  bindLocal: z.boolean().default(false),
 });
 export type BlueprintPort = z.infer<typeof blueprintPortSchema>;
 
@@ -127,6 +137,23 @@ export const blueprintSchema = z.object({
     signal: z.string().default('SIGTERM'),
     timeoutSeconds: z.number().int().min(1).max(600).default(30),
   }),
+  /**
+   * How to hold the game still while its files are copied, for a backup.
+   *
+   * `null` for a game with no such command — it is backed up live, which is what every
+   * game did before this existed. Where the pair does exist it is not optional politeness:
+   * archiving a region directory mid-write yields a file that verifies against its own
+   * checksum and still restores a corrupt world.
+   */
+  saveCommands: z
+    .object({
+      /** Stop writing, then flush what is pending. Run in order. */
+      flush: z.array(z.string()).min(1),
+      /** Start writing again. Always run, even when the backup failed. */
+      resume: z.array(z.string()).min(1),
+    })
+    .nullable()
+    .default(null),
   /** Absolute path inside the container where the game data volume is mounted. */
   dataPath: z.string().min(1).default('/data'),
   /** Feature flags that light up UI affordances (console input, mod browser, …). */

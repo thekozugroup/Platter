@@ -12,6 +12,7 @@ import { Grid3x3 } from 'pixelarticons/react/Grid3x3.js';
 import { ListBox } from 'pixelarticons/react/ListBox.js';
 import { Search } from 'pixelarticons/react/Search.js';
 import { Server } from 'pixelarticons/react/Server.js';
+import { connectAddress } from '@/components/common/connect-address';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { GameIcon } from '@/components/common/game-icon';
@@ -128,7 +129,7 @@ function ServerRow({
 
         <div className="flex min-w-0 basis-56 flex-col gap-0.5">
           <code className="truncate font-mono text-caption text-label-secondary">
-            {server.primaryAddress ?? 'Address assigned during install'}
+            {connectAddress(server) ?? 'Address assigned during install'}
           </code>
           <span className="tabular font-mono text-caption text-label-secondary">
             {formatMegabytes(server.memoryMb)}

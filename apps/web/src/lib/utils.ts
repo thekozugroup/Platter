@@ -1,5 +1,5 @@
 import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
 
 /**
  * The web client's small, dependency-free helpers.
@@ -10,6 +10,50 @@ import { twMerge } from 'tailwind-merge';
  * clipboard, and the one time format the shared package cannot own because it exists purely
  * to sit in a `title` attribute.
  */
+
+/**
+ * tailwind-merge only knows the *stock* Tailwind scales, and it resolves a conflict by
+ * deciding which group a class belongs to. Every scale this design system renames therefore
+ * has to be declared here or the merge silently does the wrong thing — and it fails
+ * destructively, not harmlessly:
+ *
+ * - `text-subhead` looks like a colour to the stock config (only t-shirt sizes are font
+ *   sizes), so `cn('text-primary-foreground', 'text-subhead')` **deleted** the foreground
+ *   token and every primary and destructive button in the app rendered a near-black label
+ *   on a near-black pill.
+ * - `rounded-button` matches no group at all, so it never displaced the `rounded-lg` in
+ *   `buttonVariants`' base and the 32px pill this system is built around rendered at 8px
+ *   everywhere.
+ *
+ * Keep this list in step with the `@theme` block in `styles/global.css`: a name added there
+ * and not here is a merge bug waiting to happen.
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'font-size': [
+        {
+          text: [
+            'display',
+            'title-1',
+            'title-2',
+            'title-3',
+            'headline',
+            'body',
+            'callout',
+            'subhead',
+            'footnote',
+            'caption',
+            'caption-2',
+          ],
+        },
+      ],
+      rounded: [{ rounded: ['card', 'button', 'pill'] }],
+      shadow: [{ shadow: ['1', '2', '3', '4', 'nav'] }],
+      ease: [{ ease: ['standard', 'out-expo'] }],
+    },
+  },
+});
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 

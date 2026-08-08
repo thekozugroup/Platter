@@ -15,6 +15,12 @@ export const queryKeys = {
 
   servers: {
     all: ['servers'] as const,
+    /*
+     * Every list query, and nothing else. `all` is a prefix of the per-server caches too
+     * (`files.all`, `backups.all`, every metric series), so invalidating it to refresh a
+     * name or a status refetches the open Files tab and every chart on screen.
+     */
+    lists: ['servers', 'list'] as const,
     list: (params: Record<string, unknown>) => ['servers', 'list', params] as const,
     detail: (id: string) => ['servers', 'detail', id] as const,
     stats: (id: string) => ['servers', 'detail', id, 'stats'] as const,

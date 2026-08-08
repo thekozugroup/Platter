@@ -71,9 +71,16 @@ export function CopyField({
             'rounded-sm border border-separator-strong bg-bg-sunken ps-3 pe-1 py-1',
         )}
       >
+        {/*
+          Wraps on a phone, truncates from `sm` up. `title` is the only thing behind a
+          truncated value and it never fires on touch, so an ellipsis on a small screen
+          means the value is simply unreadable — which for the connect address is the
+          product's headline feature failing at the moment it is used.
+        */}
         <code
           className={cn(
-            'min-w-0 flex-1 truncate font-mono text-label-secondary',
+            'min-w-0 flex-1 whitespace-normal break-all font-mono text-label-secondary',
+            'sm:truncate sm:break-normal',
             size === 'sm' ? 'text-caption' : 'text-footnote',
           )}
           title={value}

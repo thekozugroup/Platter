@@ -33,7 +33,7 @@ export const rustBlueprint: BlueprintDefinition = {
   minDiskMb: 30720,
   ports: [
     { name: 'game', label: 'Game', containerPort: 28015, protocol: 'udp', primary: true },
-    { name: 'rcon', label: 'RCON', containerPort: 28016, protocol: 'tcp' },
+    { name: 'rcon', label: 'RCON', containerPort: 28016, protocol: 'tcp', bindLocal: true },
     { name: 'app', label: 'Rust+ companion app', containerPort: 28082, protocol: 'tcp' },
   ],
   variables: [

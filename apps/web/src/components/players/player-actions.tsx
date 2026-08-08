@@ -145,6 +145,29 @@ export const ROSTER_UNAVAILABLE_FIX: Record<RosterUnavailableReason, string> = {
   protocol_error: 'Check the server log — a plugin may be sitting in front of RCON.',
 };
 
+/**
+ * The API's own sentence, when it says something the two lines above it do not.
+ *
+ * For the reasons Platter decides for itself — the game has no player list, RCON is off, no
+ * password yet, the server is stopped — the API message is a restatement of the copy above,
+ * and printing both gives the same advice twice, once in prose and once in monospace. The
+ * remaining reasons relay what the node or the game actually said, which is worth reading.
+ */
+const RELAYS_UPSTREAM_DETAIL: ReadonlySet<RosterUnavailableReason> = new Set([
+  'unreachable',
+  'timeout',
+  'auth_failed',
+  'protocol_error',
+]);
+
+export function rosterDetailFor(
+  unavailable: RosterUnavailableReason | null,
+  message: string | null | undefined,
+): string | null {
+  if (!unavailable || !message) return null;
+  return RELAYS_UPSTREAM_DETAIL.has(unavailable) ? message : null;
+}
+
 /** One sentence for a disabled action, given why the roster is unavailable. */
 export function blockedReasonFor(unavailable: RosterUnavailableReason | null): string | null {
   if (unavailable === null) return null;

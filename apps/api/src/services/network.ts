@@ -70,7 +70,7 @@ async function findBlueprint(key: string): Promise<Blueprint | null> {
   }
 }
 
-function primaryAllocation(allocations: readonly Allocation[]): Allocation | undefined {
+function primaryAllocation<T extends { primary: boolean }>(allocations: readonly T[]): T | undefined {
   return allocations.find((allocation) => allocation.primary) ?? allocations[0];
 }
 
@@ -248,6 +248,79 @@ export interface ServerNetworkAddress {
   allocations: ServerAllocation[];
 }
 
+/**
+ * Whether a server's hostname is actually usable right now, and whether an SRV record
+ * covers its port. Shared by the single-server view and the batch resolver below so the two
+ * can never disagree about which address a player should be shown.
+ *
+ * A custom (non-`.local`) zone is the operator's own DNS, which Platter cannot verify from
+ * here — once they have configured one, the hostname is presented as live, the same trust
+ * the rendered zone file already asks of them.
+ */
+function addressFacts(
+  serverId: string,
+  blueprintKey: string,
+  address: string,
+  zone: string,
+): { hostnameResolves: boolean; srvCoversPort: boolean } {
+  const mdnsEligible = isMdnsEligible(zone);
+  const resolves =
+    isValidHostnameChain(address) &&
+    (mdnsEligible ? isMdnsAvailable() && isAdvertised(serverId) : true);
+  return { hostnameResolves: resolves, srvCoversPort: wantsMinecraftSrv(blueprintKey) && resolves };
+}
+
+/** Enough of a server row to say what a player types at it. */
+export interface AddressableServer {
+  id: string;
+  blueprintKey: string;
+  /** The node's declared public address — the numeric fallback, never an allocation's bind IP. */
+  publicHost: string;
+  allocations: readonly { hostPort: number; primary: boolean }[];
+}
+
+/**
+ * Connect strings for a page of servers, resolved in one pass.
+ *
+ * The list and card views need the same string the network tab shows, and computing it per
+ * server would be a zone lookup and a full hostname assignment each. Both are hoisted here:
+ * the zone is two `Setting` reads, and hostnames can only be assigned by looking at every
+ * server at once (see `net/hostname.ts`), so doing it once per request is also the only
+ * correct way to do it.
+ *
+ * A server with no allocation yet is simply absent from the map — it has no address to give.
+ */
+export async function resolveConnectStrings(
+  servers: readonly AddressableServer[],
+): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>();
+  if (servers.length === 0) return resolved;
+
+  const [{ zone }, siblings] = await Promise.all([
+    getZoneSettings(),
+    prisma.server.findMany({ select: { id: true, name: true } }),
+  ]);
+  const hostnames = assignHostnames(siblings);
+
+  for (const server of servers) {
+    const primary = primaryAllocation(server.allocations);
+    if (!primary) continue;
+    const label = hostnames.get(server.id);
+    const address = label === undefined ? '' : fqdn(label, zone);
+    const facts = addressFacts(server.id, server.blueprintKey, address, zone);
+    resolved.set(
+      server.id,
+      connectString({
+        hostname: address,
+        ip: server.publicHost,
+        port: primary.hostPort,
+        ...facts,
+      }),
+    );
+  }
+  return resolved;
+}
+
 export async function getServerAddress(serverId: string): Promise<ServerNetworkAddress> {
   const { server, node, allocations } = await loadContext(serverId);
   const primary = primaryAllocation(allocations);
@@ -266,13 +339,9 @@ export async function getServerAddress(serverId: string): Promise<ServerNetworkA
     throw invalidState('This server does not have a usable address yet.');
   }
 
-  const mdnsEligible = isMdnsEligible(zone);
-  const mdnsAvailable = mdnsEligible && isMdnsAvailable() && isAdvertised(serverId);
-  // A custom (non-`.local`) zone is the operator's own DNS, which Platter cannot verify
-  // from here — once they have configured one, the hostname is presented as live, the
-  // same trust the rendered zone file already asks of them.
-  const hostnameResolves = mdnsEligible ? mdnsAvailable : true;
-  const minecraftSrv = wantsMinecraftSrv(server.blueprintKey) && hostnameResolves;
+  const { hostnameResolves, srvCoversPort } = addressFacts(serverId, server.blueprintKey, address, zone);
+  const mdnsAvailable = isMdnsEligible(zone) && isMdnsAvailable() && isAdvertised(serverId);
+  const minecraftSrv = srvCoversPort;
 
   const protocol: 'tcp' | 'udp' = primary.protocol === 'udp' ? 'udp' : 'tcp';
   const srv: ServerSrvInfo | null = minecraftSrv
@@ -294,7 +363,7 @@ export async function getServerAddress(serverId: string): Promise<ServerNetworkA
       ip: node.publicHost,
       port: primary.hostPort,
       hostnameResolves,
-      srvCoversPort: srv !== null,
+      srvCoversPort,
     }),
     allocations: toWireAllocations(allocations, blueprint),
   };

@@ -7,7 +7,11 @@ import { prisma } from '../db.js';
 import { notFound } from '../lib/errors.js';
 import { getLogHub } from '../orchestration/log-buffer.js';
 import { getDriverForNode } from '../orchestration/registry.js';
-import { readMinecraftHealth, type MinecraftHealth } from '../minecraft/health.js';
+import {
+  readMinecraftHealth,
+  type HealthUnavailableReason,
+  type MinecraftHealth,
+} from '../minecraft/health.js';
 import {
   assertIpAddress,
   assertPlayerName,
@@ -874,16 +878,28 @@ export async function getBans(serverId: string): Promise<BanView> {
   return { players: players.map(toEntry), ips: ips.map(toEntry), live: false };
 }
 
+const HEALTH_REASONS: Record<RconFailure, HealthUnavailableReason> = {
+  not_supported: 'unsupported',
+  // Fixable from the settings page, which is the whole reason these are not `offline`.
+  not_enabled: 'unconfigured',
+  no_password: 'unconfigured',
+  offline: 'offline',
+  // The server is up and configured; the channel itself did not answer.
+  timeout: 'unreadable',
+  unreachable: 'unreadable',
+  auth_failed: 'unreadable',
+  protocol_error: 'unreadable',
+};
+
 /** Tick health, or an honest "this server does not report it". */
 export async function getServerHealth(serverId: string): Promise<MinecraftHealth> {
   const context = await loadContext(serverId);
   const resolution = await resolveRcon(context);
   if (!resolution.ok) {
-    return {
-      tps: null,
-      mspt: null,
-      unavailable: resolution.reason === 'not_supported' ? 'unsupported' : 'offline',
-    };
+    // `resolveRcon` already distinguishes "this game has no RCON" from "RCON is off on this
+    // server" from "the server is not up". Collapsing the middle case into `offline` is what
+    // made a running server tell the operator to start it.
+    return { tps: null, mspt: null, unavailable: HEALTH_REASONS[resolution.reason] };
   }
   return readMinecraftHealth((command) =>
     rconCommand(resolution.endpoint, command, {

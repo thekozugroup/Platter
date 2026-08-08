@@ -42,6 +42,9 @@ export function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // The pair was rejected together, so both fields are marked but neither is blamed — which
+  // one was wrong is exactly what this form must not reveal.
+  const [credentialsRejected, setCredentialsRejected] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const totpRef = useRef<HTMLInputElement>(null);
@@ -59,6 +62,7 @@ export function LoginPage() {
     setFormError(null);
     setNotice(null);
     setFieldErrors({});
+    setCredentialsRejected(false);
 
     try {
       await login({
@@ -99,6 +103,7 @@ export function LoginPage() {
         return;
       }
       // Deliberately identical for an unknown email and a wrong password.
+      setCredentialsRejected(true);
       setFormError('That email and password don’t match an account.');
       return;
     }
@@ -151,7 +156,7 @@ export function LoginPage() {
                 </p>
               ) : null}
 
-              <Field invalid={Boolean(fieldErrors.email)} required>
+              <Field invalid={credentialsRejected || Boolean(fieldErrors.email)} required>
                 <FieldLabel>Email</FieldLabel>
                 <Input
                   autoComplete="username"
@@ -166,7 +171,7 @@ export function LoginPage() {
                 <FieldError>{fieldErrors.email}</FieldError>
               </Field>
 
-              <Field invalid={Boolean(fieldErrors.password)} required>
+              <Field invalid={credentialsRejected || Boolean(fieldErrors.password)} required>
                 <FieldLabel>Password</FieldLabel>
                 <PasswordInput size="lg">
                   <PasswordInputGroup className={FIELD_HEIGHT}>
@@ -211,10 +216,15 @@ export function LoginPage() {
             </FieldGroup>
           </form>
 
-          <p className="mt-8 text-caption text-label-tertiary">
-            Lost your authenticator? Use a recovery code from when you turned two-factor on —
-            an administrator can reset it for you if those are gone too.
-          </p>
+          {/* Only once the second factor is actually being asked for. On a first visit — or an
+              install where nobody has ever turned 2FA on — it is advice about a problem the
+              reader does not have, in the most prominent empty space on the screen. */}
+          {needsTotp ? (
+            <p className="mt-8 text-caption text-label-tertiary">
+              Lost your authenticator? Use a recovery code from when you turned two-factor on —
+              an administrator can reset it for you if those are gone too.
+            </p>
+          ) : null}
         </div>
       </div>
 

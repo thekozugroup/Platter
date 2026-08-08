@@ -54,10 +54,17 @@ export interface ServerHealthWindow {
   peak: number;
 }
 
+/**
+ * Why there is no tick rate. `offline` is the API's catch-all: it reports it for a stopped
+ * server *and* for a running one whose RCON it could not use, so a screen must weigh it
+ * against the live status rather than repeat it verbatim.
+ */
+export type HealthUnavailableReason = 'unsupported' | 'unreadable' | 'unconfigured' | 'offline';
+
 export interface ServerHealth {
   tps: { oneMinute: number; fiveMinutes: number; fifteenMinutes: number; estimated: boolean } | null;
   mspt: { fiveSeconds: ServerHealthWindow; oneMinute: ServerHealthWindow; fiveMinutes: ServerHealthWindow } | null;
-  unavailable: 'unsupported' | 'unreadable' | 'offline' | null;
+  unavailable: HealthUnavailableReason | null;
 }
 
 export interface WhitelistState {

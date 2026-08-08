@@ -195,13 +195,19 @@ export const Sidebar = (props: SidebarProps) => {
         onOpenChange={({ open }) => setOpenMobile(open)}
         open={openMobile}
       >
+        {/*
+          Shark hides the sheet's close button here. On a phone that left the nav with no
+          visible way out — tapping the backdrop worked, but nothing said so, and the
+          measured control was 0x0. The button is kept, sized to the 44px floor and nudged
+          clear of the "Platter" wordmark in the header below it.
+        */}
         <SheetContent
           className={cn(
             "w-(--sidebar-width)",
             "p-0",
             "bg-sidebar",
             "text-sidebar-foreground",
-            "[&>button]:hidden"
+            "[&>button]:hit-target [&>button]:top-3 [&>button]:inset-e-3 [&>button]:opacity-100"
           )}
           data-mobile="true"
           data-sidebar="sidebar"

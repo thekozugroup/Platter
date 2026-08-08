@@ -29,16 +29,39 @@ export function buildOtpauthUrl(secret: string, accountLabel: string): string {
 }
 
 /**
- * Returns false rather than throwing on a malformed secret or token: this runs on the
- * login path, where every failure mode is "the code is wrong".
+ * Which time step a code belongs to, or null when it is not a code for this secret.
+ *
+ * The step is the caller's business, not a detail: RFC 6238 §5.2 requires a code to be
+ * accepted once and once only, and "once" can only be enforced by remembering which step
+ * was spent. `validate` returns the delta from the current step, so the absolute step is
+ * that delta plus now.
+ *
+ * Returns null rather than throwing on a malformed secret or token: this runs on the login
+ * path, where every failure mode is "the code is wrong".
  */
-export function verifyTotp(secret: string, token: string): boolean {
+export function totpStepFor(secret: string, token: string): number | null {
   try {
     const totp = new TOTP({ ...TOTP_CONFIG, secret: Secret.fromBase32(secret) });
-    return totp.validate({ token, window: VERIFY_WINDOW }) !== null;
+    const delta = totp.validate({ token, window: VERIFY_WINDOW });
+    if (delta === null) return null;
+    return Math.floor(Date.now() / 1000 / TOTP_CONFIG.period) + delta;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * Whether a code is valid *and* has not been used.
+ *
+ * `lastStep` is the highest step this account has already spent. Rejecting anything at or
+ * below it closes the replay window a plain "is this code right" check leaves open for up
+ * to 90 seconds — long enough for a phishing proxy to relay a code a human just typed.
+ */
+export function verifyTotp(secret: string, token: string, lastStep: number | null = null): number | null {
+  const step = totpStepFor(secret, token);
+  if (step === null) return null;
+  if (lastStep !== null && step <= lastStep) return null;
+  return step;
 }
 
 /**

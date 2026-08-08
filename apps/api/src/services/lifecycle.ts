@@ -9,6 +9,7 @@ import {
   SERVER_STATUSES,
   canPerformPowerAction,
   type Blueprint,
+  type LogLine,
   type PowerAction,
   type ServerAllocation,
   type ServerStatus,
@@ -27,7 +28,7 @@ import type {
 } from '../orchestration/driver.js';
 import { dropLogHub, getLogHub } from '../orchestration/log-buffer.js';
 import { getDriver, getDriverForNode } from '../orchestration/registry.js';
-import { releasePorts } from './allocations.js';
+import { reconcileBindAddresses, releasePorts } from './allocations.js';
 import { buildEnvironment, getBlueprint, renderFileTemplates } from './blueprints.js';
 import { advertiseServer, withdrawServer } from './network.js';
 import { forgetPlayerHistory } from './players.js';
@@ -113,8 +114,8 @@ let logger: FastifyBaseLogger | null = null;
 /** In-flight operations, keyed by server. Also the "is this server busy" answer. */
 const operations = new Map<string, Promise<void>>();
 
-/** Cancels the boot watcher armed by the last start. */
-const bootWatchers = new Map<string, () => void>();
+/** Cancels the run watcher armed by the last start. */
+const runWatchers = new Map<string, () => void>();
 
 interface CrashRecord {
   /** Crash times inside the rolling window, oldest first. */
@@ -135,6 +136,17 @@ const crashRecords = new Map<string, CrashRecord>();
  * extraction are not interruptible, so the check happens between steps instead.
  */
 const cancelledInstalls = new Set<string>();
+
+/**
+ * Servers whose in-flight operation a kill has superseded.
+ *
+ * `killServer` deliberately runs outside the lock, so a restart it interrupts is still
+ * sitting between its stop and its start. Without this the restart's second half brings the
+ * container straight back up and the most emphatic thing a user can press loses to the
+ * operation it is documented to interrupt. An entry is consumed by the operation it
+ * cancels, and cleared by the next one to start, so it cannot leak forward.
+ */
+const cancelledOperations = new Set<string>();
 
 let supervisor: NodeJS.Timeout | null = null;
 let supervising = false;
@@ -455,6 +467,13 @@ export async function setStatus(
   if (update.message !== undefined) hub.system(update.message);
   hub.emitStatus(status, update.exitCode ?? null);
 
+  // The run watcher exists to see a server through being up. Releasing it here is what
+  // closes the driver's log stream for a server that is now stopped — the hub detaches at
+  // zero listeners — so a stopped server holds nothing open on the daemon.
+  if (status !== 'starting' && status !== 'running' && status !== 'restarting') {
+    cancelRunWatcher(serverId);
+  }
+
   // Discovery follows the same single writer as everything else, so there is exactly one
   // place where "is this server up" and "is its name being answered on the LAN" can
   // disagree. Advertising is deliberately not awaited: it is best-effort (it swallows its
@@ -527,7 +546,7 @@ export async function reinstallServer(serverId: string, actorId: string | null =
     getLogHub(serverId).system(withActor(`Reinstalling ${server.name}…`, who));
 
     if (WAS_ACTIVE.includes(server.status)) {
-      cancelBootWatcher(serverId);
+      cancelRunWatcher(serverId);
       await setStatus(serverId, 'stopping', { message: `Stopping ${server.name} for the reinstall…` });
       const exitCode = await stopInternal(serverId, {});
       await setStatus(serverId, 'offline', { exitCode, startedAt: null });
@@ -554,6 +573,7 @@ async function runInstall(serverId: string, options: { force: boolean }): Promis
   };
 
   cancelledInstalls.delete(serverId);
+  cancelledOperations.delete(serverId);
   try {
     await setStatus(serverId, 'installing', { message: `Installing ${blueprint.name}…` });
 
@@ -570,7 +590,8 @@ async function runInstall(serverId: string, options: { force: boolean }): Promis
 
     const dataDir = serverDataDir(serverId);
     await mkdir(dataDir, { recursive: true });
-    const allocations = toServerAllocations(blueprint, loaded.allocations);
+    const bound = await reconcileBindAddresses(loaded.node, blueprint.ports, loaded.allocations);
+    const allocations = toServerAllocations(blueprint, bound);
     const env = buildEnv(server, blueprint, allocations);
     await writeBlueprintFiles(dataDir, blueprint, env, { force: options.force });
     assertNotCancelled();
@@ -594,7 +615,9 @@ async function runInstall(serverId: string, options: { force: boolean }): Promis
     cancelledInstalls.delete(serverId);
   }
 
-  if (server.autoStart) {
+  // The same check the restart makes: a kill during the install has already put the server
+  // where the operator asked for it, and auto-start would immediately contradict them.
+  if (server.autoStart && !cancelledOperations.delete(serverId)) {
     await startInternal(serverId, `Starting ${server.name}…`);
   }
 }
@@ -641,7 +664,10 @@ async function startInternal(serverId: string, message: string): Promise<void> {
   const dataDir = serverDataDir(serverId);
   await mkdir(dataDir, { recursive: true });
 
-  const allocations = toServerAllocations(blueprint, loaded.allocations);
+  // Re-bound here, not only at provision time: a blueprint that has since marked a port
+  // loopback-only must take effect on the next boot of servers that already exist.
+  const bound = await reconcileBindAddresses(loaded.node, blueprint.ports, loaded.allocations);
+  const allocations = toServerAllocations(blueprint, bound);
   const env = buildEnv(server, blueprint, allocations);
   await writeBlueprintFiles(dataDir, blueprint, env);
 
@@ -663,39 +689,43 @@ async function startInternal(serverId: string, message: string): Promise<void> {
     throw error;
   }
 
-  await armBootWatcher(serverId, blueprint, driver);
+  await armRunWatcher(serverId, blueprint, driver);
 }
 
 /**
- * Watches the boot for the blueprint's ready pattern.
+ * Watches a server for as long as it is meant to be up.
  *
- * A container being up is not the same as a game being playable — a Minecraft server
- * spends a minute generating chunks before it accepts a connection — so `starting` is held
- * until the log says otherwise, with a timeout for images whose output we do not know.
+ * Two signals, one subscription. `ready` ends the boot: a container being up is not the
+ * same as a game being playable — a Minecraft server spends a minute generating chunks
+ * before it accepts a connection — so `starting` is held until the log says otherwise, with
+ * a timeout for images whose output we do not know.
+ *
+ * `crash` is why the subscription outlives the boot rather than ending at `ready`.
+ * `checkLiveness` only ever notices a container that has *exited*; a server that logs a
+ * fatal error and then hangs — a world that failed to load, an unaccepted EULA — would
+ * otherwise sit at `running` forever with nobody able to play on it. Staying subscribed
+ * also keeps the driver's log stream open while the server runs, which is what makes that
+ * detection work when no console is open: the hub tears the stream down at zero listeners,
+ * and the boot watcher used to be the only one.
+ *
+ * Released by `setStatus` the moment the server is no longer running or starting, so a
+ * stopped server costs nothing.
  */
-async function armBootWatcher(
+async function armRunWatcher(
   serverId: string,
   blueprint: Blueprint,
   driver: OrchestrationDriver,
 ): Promise<void> {
-  cancelBootWatcher(serverId);
+  cancelRunWatcher(serverId);
 
   const hub = getLogHub(serverId);
   // Each boot gets its own stream: the hub latches "ready seen" per attach, and the
   // previous stream belonged to the container this start just replaced.
   hub.detach();
 
-  if (blueprint.signals.ready.length === 0) {
-    hub.attach({ driver, signals: blueprint.signals });
-    // Nothing to wait for. A blueprint with no ready pattern cannot tell us when the game
-    // finished booting, and being slightly early beats being `starting` forever.
-    await promote(serverId, 'ready');
-    return;
-  }
-
   let timer: NodeJS.Timeout | null = null;
   let unsubscribe: (() => void) | null = null;
-  let settled = false;
+  let booted = false;
 
   const cleanup = (): void => {
     if (timer !== null) {
@@ -706,34 +736,88 @@ async function armBootWatcher(
       unsubscribe();
       unsubscribe = null;
     }
-    bootWatchers.delete(serverId);
+    runWatchers.delete(serverId);
   };
 
-  const finish = (reason: 'ready' | 'timeout'): void => {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    void promote(serverId, reason).catch((error: unknown) => {
+  const finishBoot = async (reason: 'ready' | 'timeout'): Promise<void> => {
+    if (booted) return;
+    booted = true;
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    await promote(serverId, reason);
+  };
+
+  const finishBootDetached = (reason: 'ready' | 'timeout'): void => {
+    void finishBoot(reason).catch((error: unknown) => {
       report('warn', { err: error, serverId }, 'could not promote a server to running');
     });
   };
 
   unsubscribe = hub.subscribe((event) => {
-    if (event.type === 'ready') finish('ready');
+    if (event.type === 'ready') finishBootDetached('ready');
+    else if (event.type === 'crash') {
+      void onCrashSignal(serverId, event.line).catch((error: unknown) => {
+        report('warn', { err: error, serverId }, 'could not record a log-detected crash');
+      });
+    }
   });
+  runWatchers.set(serverId, cleanup);
+
+  if (blueprint.signals.ready.length === 0) {
+    // Nothing to wait for. A blueprint with no ready pattern cannot tell us when the game
+    // finished booting, and being slightly early beats being `starting` forever. Awaited so
+    // `startServer` resolves with the status the caller is about to read.
+    hub.attach({ driver, signals: blueprint.signals });
+    await finishBoot('ready');
+    return;
+  }
+
   timer = setTimeout(() => {
-    finish('timeout');
+    finishBootDetached('timeout');
   }, BOOT_TIMEOUT_MS);
   // A boot that nobody is waiting for must not hold the process open at shutdown.
   timer.unref();
 
-  bootWatchers.set(serverId, cleanup);
   hub.attach({ driver, signals: blueprint.signals });
 }
 
-function cancelBootWatcher(serverId: string): void {
-  const cancel = bootWatchers.get(serverId);
+function cancelRunWatcher(serverId: string): void {
+  const cancel = runWatchers.get(serverId);
   if (cancel) cancel();
+}
+
+/**
+ * A blueprint's crash pattern matched on a server that is meant to be up.
+ *
+ * Taken under the lock and re-read, because the line can land while a stop is already in
+ * flight — that exit is expected, and calling it a crash would trigger an automatic restart
+ * of a server somebody just turned off. The container is brought down rather than left
+ * hanging: the process is not coming back on its own, and the restart path `recordCrash`
+ * arms can only work from a stopped container. A pattern that turns out to be too eager is
+ * bounded by the same crash-loop cutoff every other crash goes through.
+ */
+async function onCrashSignal(serverId: string, line: LogLine): Promise<void> {
+  await withServerLock(serverId, async () => {
+    const server = await prisma.server.findUnique({ where: { id: serverId } });
+    if (!server || server.suspended) return;
+    if (server.status !== 'starting' && server.status !== 'running') return;
+
+    cancelRunWatcher(serverId);
+    getLogHub(serverId).system(`${server.name} reported a fatal error: ${line.content}`);
+
+    const { driver } = await loadServer(serverId);
+    try {
+      await driver.kill(serverId);
+    } catch (error) {
+      // Already gone is the outcome we wanted; the inspect below reports what happened.
+      if (!(error instanceof PlatterError && error.code === 'not_found')) {
+        report('warn', { err: error, serverId }, 'could not stop a server that logged a crash');
+      }
+    }
+    await recordCrash(server, await driver.inspect(serverId), Date.now());
+  });
 }
 
 async function promote(serverId: string, reason: 'ready' | 'timeout'): Promise<void> {
@@ -765,7 +849,7 @@ export async function stopServer(
     const who = await actorLabel(actorId);
     // A deliberate stop is not a crash and never has an automatic restart behind it.
     clearCrashRecord(serverId);
-    cancelBootWatcher(serverId);
+    cancelRunWatcher(serverId);
 
     await setStatus(serverId, 'stopping', { message: withActor(`Stopping ${server.name}…`, who) });
     const exitCode = await stopInternal(serverId, options);
@@ -788,7 +872,12 @@ export async function killServer(serverId: string, actorId: string | null = null
 
   const who = await actorLabel(actorId);
   clearCrashRecord(serverId);
-  cancelBootWatcher(serverId);
+  cancelRunWatcher(serverId);
+
+  // An operation is in flight exactly when the lock we are skipping is held. Telling it it
+  // has been superseded is the only way a kill can win against a restart that is already
+  // past its stop and about to start the container again.
+  if (operations.has(serverId)) cancelledOperations.add(serverId);
 
   const wasInstalling = statusOf(server) === 'installing';
   // The install is running under the lock we deliberately did not take, so it is told to
@@ -825,12 +914,19 @@ export async function restartServer(
 
     const who = await actorLabel(actorId);
     clearCrashRecord(serverId);
-    cancelBootWatcher(serverId);
+    cancelRunWatcher(serverId);
+    cancelledOperations.delete(serverId);
 
     await setStatus(serverId, 'restarting', {
       message: withActor(`Restarting ${server.name}…`, who),
     });
     const exitCode = await stopInternal(serverId, options);
+    if (cancelledOperations.delete(serverId)) {
+      // Killed mid-restart. The kill already wrote the status it wanted; starting the
+      // container back up here would undo the most emphatic thing a user can press.
+      getLogHub(serverId).system(`The restart of ${server.name} was stopped.`);
+      return;
+    }
     // Kept at `restarting` while the exit code is recorded: a client that saw `offline`
     // here would flash a stopped server in the middle of a restart it asked for.
     await setStatus(serverId, 'restarting', { exitCode, startedAt: null });
@@ -972,7 +1068,7 @@ export async function deleteServer(serverId: string, actorId: string | null = nu
     const { server, driver } = await loadServer(serverId);
     const who = await actorLabel(actorId);
 
-    cancelBootWatcher(serverId);
+    cancelRunWatcher(serverId);
     clearCrashRecord(serverId);
     await setStatus(serverId, 'deleting', { message: withActor(`Deleting ${server.name}…`, who) });
 
@@ -1317,10 +1413,11 @@ export function stopCrashSupervisor(): void {
 /** Drops every timer, watcher and counter this module owns. Shutdown, and tests. */
 export function resetLifecycleState(): void {
   stopCrashSupervisor();
-  for (const cancel of [...bootWatchers.values()]) cancel();
-  bootWatchers.clear();
+  for (const cancel of [...runWatchers.values()]) cancel();
+  runWatchers.clear();
   crashRecords.clear();
   cancelledInstalls.clear();
+  cancelledOperations.clear();
   operations.clear();
   logger = null;
 }

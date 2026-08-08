@@ -98,9 +98,24 @@ const WATCHED = makeBlueprint({
   // The line MockDriver prints once its simulated boot finishes.
   signals: { ready: ['Done \\('], crash: [], playerJoin: [], playerLeave: [] },
 });
+/** Declares a crash pattern, so the run watcher has something fatal to react to. */
+const CRASHY = makeBlueprint({
+  key: 'crashy-game',
+  signals: { ready: [], crash: ['FATAL'], playerJoin: [], playerLeave: [] },
+});
+/**
+ * Stops with a console command the mock does not honour, so `stopInternal` sits in its
+ * exit poll for the full timeout. That is the window a kill has to land in.
+ */
+const SLOW_STOP = makeBlueprint({
+  key: 'slow-stop-game',
+  stop: { strategy: 'command', command: 'wind-down', signal: 'SIGTERM', timeoutSeconds: 3 },
+});
 
 catalogue.set(INSTANT.key, INSTANT);
 catalogue.set(WATCHED.key, WATCHED);
+catalogue.set(CRASHY.key, CRASHY);
+catalogue.set(SLOW_STOP.key, SLOW_STOP);
 
 interface SeedOptions {
   blueprintKey?: string;
@@ -349,6 +364,79 @@ describe('boot signals', () => {
     const driver = await driverFor();
     driver.advance(5000);
     await waitForStatus('running');
+  });
+});
+
+describe('kill versus an operation already in flight', () => {
+  it('does not let an interrupted restart bring the container back up', async () => {
+    await seed({ blueprintKey: SLOW_STOP.key });
+    await lifecycle.installServer(SERVER_ID);
+    await lifecycle.startServer(SERVER_ID, OWNER_ID);
+    expect(await statusOf()).toBe('running');
+
+    // Not awaited: the restart is deliberately left sitting between its stop and its start,
+    // which is the only moment the bug is reachable.
+    const restarting = lifecycle.restartServer(SERVER_ID, OWNER_ID);
+    await waitForStatus('restarting');
+
+    await lifecycle.killServer(SERVER_ID, OWNER_ID);
+    await restarting;
+
+    // The most emphatic thing a user can press must not lose to the operation it is
+    // documented to interrupt.
+    expect(await statusOf()).toBe('offline');
+    expect((await (await driverFor()).inspect(SERVER_ID)).running).toBe(false);
+  });
+
+  it('leaves an ordinary restart alone', async () => {
+    await seed({ blueprintKey: SLOW_STOP.key });
+    await lifecycle.installServer(SERVER_ID);
+    await lifecycle.startServer(SERVER_ID, OWNER_ID);
+
+    await lifecycle.restartServer(SERVER_ID, OWNER_ID);
+    expect(await statusOf()).toBe('running');
+  });
+});
+
+describe('log-detected crashes', () => {
+  it('marks a server crashed when the blueprint crash pattern appears', async () => {
+    await seed({ blueprintKey: CRASHY.key });
+    await lifecycle.installServer(SERVER_ID);
+    await lifecycle.startServer(SERVER_ID, OWNER_ID);
+    expect(await statusOf()).toBe('running');
+
+    // A fatal line from a process that has not exited: `checkLiveness` only ever notices a
+    // container that is already gone, so without a consumer for this signal the server sits
+    // at `running` forever with nobody able to play on it.
+    getLogHub(SERVER_ID).append({ stream: 'stdout', content: '[main/FATAL]: Failed to load world' });
+
+    await waitForStatus('crashed');
+    expect((await (await driverFor()).inspect(SERVER_ID)).running).toBe(false);
+  });
+
+  it('ignores a crash pattern on a server that is already stopped', async () => {
+    await seed({ blueprintKey: CRASHY.key });
+    await lifecycle.installServer(SERVER_ID);
+    expect(await statusOf()).toBe('offline');
+
+    getLogHub(SERVER_ID).append({ stream: 'stdout', content: '[main/FATAL]: shutting down' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(await statusOf()).toBe('offline');
+  });
+
+  it('keeps the log stream open past the ready line, with no console attached', async () => {
+    await seed({ blueprintKey: WATCHED.key });
+    await lifecycle.installServer(SERVER_ID);
+    await lifecycle.startServer(SERVER_ID, OWNER_ID);
+    (await driverFor()).advance(5000);
+    await waitForStatus('running');
+
+    // The boot watcher used to be the only subscriber and left at `ready`, which took the
+    // driver stream down with it — so nothing was reading the log a crash pattern is in.
+    expect(getLogHub(SERVER_ID).attached).toBe(true);
+
+    await lifecycle.stopServer(SERVER_ID, OWNER_ID);
+    expect(getLogHub(SERVER_ID).attached).toBe(false);
   });
 });
 

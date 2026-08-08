@@ -3,6 +3,7 @@ import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify';
 import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 import { prisma } from '../db.js';
 import { getDriverForNode } from '../orchestration/registry.js';
+import { getPlayerCount, getServerHealth } from './players.js';
 import { recordSample } from './timeseries.js';
 
 /**
@@ -78,9 +79,8 @@ export const driverOperationDuration = new Histogram({
 });
 
 /**
- * For orchestration code to call around a driver method. Not called from anywhere yet —
- * `orchestration/docker.ts` and `mock.ts` are outside this file's ownership. Exported so
- * that wiring is a one-line addition wherever a driver call is made, not a new metric.
+ * Called by `orchestration/registry.ts`, which wraps every driver it hands out — one place
+ * rather than one call per method, so a driver method added later is measured for free.
  */
 export function observeDriverOperation(
   driver: 'docker' | 'mock',
@@ -91,21 +91,14 @@ export function observeDriverOperation(
   driverOperationDuration.observe({ driver, operation, outcome }, seconds);
 }
 
-/**
- * Plain gauge, incremented and decremented by whoever owns the websocket lifecycle
- * (`routes/console.ts`, on connect/close). Not wired from anywhere yet — see the project
- * report.
- */
+/** Incremented and decremented by `routes/console.ts` as sockets open and close. */
 export const websocketConnections = new Gauge({
   name: 'platter_websocket_connections',
   help: 'Currently open console websocket connections.',
   registers: [metricsRegistry],
 });
 
-/**
- * Incremented by the schedule dispatcher (not yet built) each time a schedule fires.
- * Exported now so that service has one line to add, not a metric to design.
- */
+/** Incremented by `services/scheduler.ts` each time a schedule fires. */
 export const schedulerRuns = new Counter({
   name: 'platter_scheduler_runs_total',
   help: 'Schedule executions, by action and outcome.',
@@ -127,11 +120,14 @@ export interface MetricsCollectorOptions {
   intervalMs?: number;
   /** Disk usage means walking a directory (or `exec`-ing `du`), so it runs far less often. */
   diskIntervalMs?: number;
+  /** Player count and tick rate cost a live round-trip into the game, so slower again. */
+  gameIntervalMs?: number;
   logger?: FastifyBaseLogger;
 }
 
 const DEFAULT_COLLECT_INTERVAL_MS = 10_000;
 const DEFAULT_DISK_INTERVAL_MS = 60_000;
+const DEFAULT_GAME_INTERVAL_MS = 60_000;
 const MIN_COLLECT_INTERVAL_MS = 1000;
 
 /** Statuses whose container is expected to still exist, so a disk sample is worth trying. */
@@ -149,8 +145,10 @@ const HAS_DATA_DIR_STATUSES: readonly string[] = [
 
 let collectTimer: NodeJS.Timeout | null = null;
 let diskTimer: NodeJS.Timeout | null = null;
+let gameTimer: NodeJS.Timeout | null = null;
 let collectingUsage = false;
 let collectingDisk = false;
+let collectingGame = false;
 let collectorLogger: FastifyBaseLogger | null = null;
 
 type ServerWithNode = { id: string; node: NodeRow };
@@ -225,9 +223,47 @@ async function collectDiskOnce(): Promise<void> {
   }
 }
 
+/**
+ * Player count and tick rate: the two series the charts offer that no container counter can
+ * answer. Both need a live query into the game (RCON, else the game's query port), which is
+ * why they are on their own slow timer rather than folded into the usage pass — a
+ * round-trip per running server every ten seconds would be a poll the game can feel.
+ *
+ * A server that cannot answer records nothing rather than a zero: "nobody is playing" and
+ * "we could not ask" are the same number and very different facts.
+ */
+async function collectGameOnce(): Promise<void> {
+  if (collectingGame) return;
+  collectingGame = true;
+  try {
+    const servers = await prisma.server.findMany({
+      where: { status: 'running', suspended: false },
+      select: { id: true },
+    });
+
+    await Promise.all(
+      servers.map(async (server) => {
+        const at = new Date();
+        const [players, health] = await Promise.all([
+          getPlayerCount(server.id).catch(() => null),
+          getServerHealth(server.id).catch(() => null),
+        ]);
+        if (players) recordSample(server.id, 'players', players.online, at);
+        // The one-minute figure is the one an operator reads; the longer windows are a
+        // smoothing of it and would flatten exactly the dip a chart exists to show.
+        if (health?.tps) recordSample(server.id, 'tps', health.tps.oneMinute, at);
+      }),
+    );
+  } catch (error) {
+    collectorLogger?.error({ err: error }, 'game metric collection pass failed');
+  } finally {
+    collectingGame = false;
+  }
+}
+
 /** Called once from the app's boot sequence, alongside health polling and the crash supervisor. */
 export function startMetricsCollection(options: MetricsCollectorOptions = {}): void {
-  if (collectTimer || diskTimer) return;
+  if (collectTimer || diskTimer || gameTimer) return;
   collectorLogger = options.logger ?? null;
 
   const intervalMs = Math.max(
@@ -248,8 +284,18 @@ export function startMetricsCollection(options: MetricsCollectorOptions = {}): v
   }, diskIntervalMs);
   diskTimer.unref();
 
+  const gameIntervalMs = Math.max(
+    MIN_COLLECT_INTERVAL_MS,
+    options.gameIntervalMs ?? DEFAULT_GAME_INTERVAL_MS,
+  );
+  gameTimer = setInterval(() => {
+    void collectGameOnce();
+  }, gameIntervalMs);
+  gameTimer.unref();
+
   void collectUsageOnce();
   void collectDiskOnce();
+  void collectGameOnce();
 }
 
 export function stopMetricsCollection(): void {
@@ -260,5 +306,9 @@ export function stopMetricsCollection(): void {
   if (diskTimer) {
     clearInterval(diskTimer);
     diskTimer = null;
+  }
+  if (gameTimer) {
+    clearInterval(gameTimer);
+    gameTimer = null;
   }
 }

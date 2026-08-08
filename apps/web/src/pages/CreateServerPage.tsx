@@ -17,6 +17,7 @@ import {
   RECOMMENDED_TYPE,
   TYPE_VARIABLE_KEY,
   hasMinecraftTypePicker,
+  minecraftTypeLabel,
 } from '@/components/servers/minecraft-type-picker';
 import {
   ResourceFields,
@@ -50,6 +51,7 @@ import { toast } from '@/components/ui/toast';
 import { ApiError, api, errorMessage } from '@/lib/api-client.js';
 import { useAuth } from '@/lib/auth.js';
 import { queryKeys } from '@/lib/query.js';
+import { serverNameProblem } from '@/lib/server-name.js';
 
 /**
  * Create a server.
@@ -107,15 +109,6 @@ function pickCapacity(nodes: readonly Node[]): ResourceCapacity | null {
     diskFreeMb: Math.max(0, best.diskTotalMb - best.diskAllocatedMb),
     cpuCores: best.cpuCores,
   };
-}
-
-function nameProblem(name: string): string | null {
-  const trimmed = name.trim();
-  if (trimmed.length < LIMITS.serverNameMin) return 'Give your server a name.';
-  if (trimmed.length > LIMITS.serverNameMax) {
-    return `Keep it to ${LIMITS.serverNameMax} characters or fewer.`;
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -208,7 +201,7 @@ export function CreateServerPage() {
     [blueprint, capacity],
   );
 
-  const nameError = nameTouched ? nameProblem(name) : null;
+  const nameError = nameTouched ? serverNameProblem(name) : null;
 
   const settingsErrors = useMemo(() => {
     if (!blueprint) return {};
@@ -241,9 +234,22 @@ export function CreateServerPage() {
         case 'type':
           return selectedType === '' ? 'Pick a server type to continue.' : null;
         case 'details': {
-          const problem = nameProblem(name);
+          const problem = serverNameProblem(name);
           if (problem) return problem;
           if (!limits) return 'Waiting for this game’s memory and disk requirements.';
+          /*
+           * The sliders are clamped to what the node has left, so a request over capacity is
+           * only reachable when even the blueprint's minimum does not fit. The API answers
+           * that with a 507 — after four steps and a submission. Say it here instead.
+           */
+          if (capacity) {
+            if (limits.memoryMb > capacity.memoryFreeMb) {
+              return `${capacity.nodeName} has ${formatMegabytes(capacity.memoryFreeMb)} of memory free and this game needs at least ${formatMegabytes(limits.memoryMb)}. Free some by deleting a server, or lower another server’s limits.`;
+            }
+            if (limits.diskMb > capacity.diskFreeMb) {
+              return `${capacity.nodeName} has ${formatMegabytes(capacity.diskFreeMb)} of disk free and this game needs at least ${formatMegabytes(limits.diskMb)}. Free some by deleting a server, or lower another server’s limits.`;
+            }
+          }
           return null;
         }
         case 'settings': {
@@ -256,7 +262,16 @@ export function CreateServerPage() {
           return null;
       }
     },
-    [blueprintKey, blueprintQuery.isPending, blueprintQuery.isError, selectedType, name, limits, settingsErrors],
+    [
+      blueprintKey,
+      blueprintQuery.isPending,
+      blueprintQuery.isError,
+      selectedType,
+      name,
+      limits,
+      capacity,
+      settingsErrors,
+    ],
   );
 
   const isStepValid = useCallback(
@@ -270,6 +285,15 @@ export function CreateServerPage() {
   const currentStep = steps[stepIndex];
   const currentBlocker = currentStep ? blockerFor(currentStep.key) : null;
   const isLastStep = stepIndex === steps.length - 1;
+
+  /*
+   * On the last step the button has to answer for the whole form, not just this panel:
+   * `submit()` refuses when *any* step is unhappy, and a Create button that looks live and
+   * then does nothing is worse than one that says which step still needs something.
+   */
+  const submitBlocker = isLastStep
+    ? (steps.map((step) => blockerFor(step.key)).find((problem) => problem !== null) ?? null)
+    : currentBlocker;
 
   const create = useMutation({
     mutationFn: (input: {
@@ -531,7 +555,7 @@ export function CreateServerPage() {
                 <p className="text-caption text-label-secondary">
                   <span className="font-medium text-label">{name.trim() || 'Unnamed server'}</span>
                   {` · ${blueprint.name}`}
-                  {showTypeStep ? ` · ${selectedType}` : ''}
+                  {showTypeStep ? ` · ${minecraftTypeLabel(selectedType)}` : ''}
                   {` · ${formatMegabytes(limits.memoryMb)} memory · ${formatMegabytes(limits.diskMb)} disk`}
                 </p>
               </div>
@@ -550,9 +574,9 @@ export function CreateServerPage() {
 
               {isLastStep ? (
                 <Button
-                  {...(currentBlocker ? { 'aria-describedby': 'create-blocker' } : {})}
+                  {...(submitBlocker ? { 'aria-describedby': 'create-blocker' } : {})}
                   className="h-11 rounded-button px-5 text-subhead font-medium"
-                  disabled={Boolean(currentBlocker) || !blueprint || !limits}
+                  disabled={Boolean(submitBlocker) || !blueprint || !limits}
                   isLoading={create.isPending}
                   size="lg"
                   type="submit"
@@ -573,14 +597,14 @@ export function CreateServerPage() {
                 </Button>
               )}
 
-              {currentBlocker ? (
+              {submitBlocker ? (
                 <span className="text-caption text-label-secondary" id="create-blocker">
-                  {currentBlocker}
+                  {submitBlocker}
                 </span>
               ) : null}
             </div>
 
-            {isLastStep && !currentBlocker ? (
+            {isLastStep && !submitBlocker ? (
               <p className="max-w-prose text-caption text-label-tertiary">
                 Creating it pulls the container image and runs the install, which takes a few
                 minutes the first time. You will land on the console and see it happen.

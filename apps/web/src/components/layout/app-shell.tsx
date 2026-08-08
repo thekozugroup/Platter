@@ -30,7 +30,14 @@ function readSidebarExpanded(): boolean {
   } catch {
     // Private mode can throw on localStorage. A width-based default is a fine answer.
   }
-  return typeof window === 'undefined' || window.innerWidth >= 1280;
+  if (typeof window === 'undefined') return true;
+  /*
+   * Collapsing to an icon rail hides every label behind a tooltip, and a tooltip needs a
+   * pointer. On a touch tablet at 768–1279px that left nine unlabelled icons with no way to
+   * find out what they were, so width alone is the wrong test — hover capability is.
+   */
+  const hoverable = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true;
+  return !hoverable || window.innerWidth >= 1280;
 }
 
 export interface AppSplashProps {

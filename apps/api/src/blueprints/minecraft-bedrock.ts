@@ -229,6 +229,9 @@ export const minecraftBedrockBlueprint: BlueprintDefinition = {
     signal: 'SIGTERM',
     timeoutSeconds: 60,
   },
+  // Bedrock's own pair. `save query` reports which files are ready; Platter does not read
+  // that back, so the hold is best-effort — still far better than copying a live world.
+  saveCommands: { flush: ['save hold', 'save query'], resume: ['save resume'] },
   dataPath: '/data',
   // No RCON in Bedrock — Mojang never implemented it. The console is the only control channel,
   // and the player list is derived from the connect/disconnect lines above.

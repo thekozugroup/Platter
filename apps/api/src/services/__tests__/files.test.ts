@@ -227,4 +227,81 @@ describe('compress / extract', () => {
     const archive = await files.compressServerPaths(SERVER_ID, ['sub/a.txt']);
     expect(archive.path.startsWith('sub/archive-')).toBe(true);
   });
+
+  it('writes nothing at all when a later entry escapes the destination', async () => {
+    const staging = await mkdtemp(path.join(workdir, 'partial-'));
+    const inner = path.join(staging, 'inner');
+    await mkdir(inner, { recursive: true });
+    await writeFile(path.join(inner, 'harmless.txt'), 'written before the hostile entry');
+    await writeFile(path.join(staging, 'evil.txt'), 'pwned');
+
+    // Order matters: the good member is streamed — and, before the fix, extracted — before
+    // tar ever reaches the one that makes it refuse the archive.
+    const pack = tarCreate({ gzip: true, cwd: inner, preservePaths: true }, [
+      'harmless.txt',
+      '../evil.txt',
+    ]);
+    const archivePath = path.join(root(), 'mixed.tar.gz');
+    await pipeline(pack, createWriteStream(archivePath));
+
+    await expect(files.extractServerArchive(SERVER_ID, 'mixed.tar.gz', 'dest')).rejects.toMatchObject({
+      code: 'bad_request',
+    });
+
+    // "Fails the whole extraction rather than writing anything past it" has to mean the
+    // entries before it too, or a refused archive still leaves its payload on disk.
+    expect(await readdir(path.join(root(), 'dest'))).toEqual([]);
+    expect(await readdir(root())).not.toContain('evil.txt');
+  });
+
+  it('leaves no staging directory behind after a successful extract', async () => {
+    await mkdir(path.join(root(), 'world'), { recursive: true });
+    await writeFile(path.join(root(), 'world', 'level.dat'), 'level-data');
+    await files.compressServerPaths(SERVER_ID, ['world'], 'clean.tar.gz');
+
+    await files.extractServerArchive(SERVER_ID, 'clean.tar.gz', 'out');
+    const remaining = await readdir(root());
+    expect(remaining.every((name) => !name.startsWith('.platter-extract-'))).toBe(true);
+  });
+});
+
+describe('symlinks are objects, not the things they point at', () => {
+  it('deletes the link and leaves its target alone', async () => {
+    await mkdir(path.join(root(), 'realdir'), { recursive: true });
+    await writeFile(path.join(root(), 'realdir', 'keep.txt'), 'the world folder');
+    await symlink(path.join(root(), 'realdir'), path.join(root(), 'link'), 'dir');
+
+    const result = await files.deleteServerPaths(SERVER_ID, ['link']);
+    expect(result.deleted).toEqual(['link']);
+
+    // Deleting what the file list showed as a shortcut must not take the folder with it.
+    expect(await readdir(root())).toContain('realdir');
+    expect(await readdir(path.join(root(), 'realdir'))).toEqual(['keep.txt']);
+    expect(await readdir(root())).not.toContain('link');
+  });
+
+  it('deletes a link whose target is outside the sandbox, without touching the target', async () => {
+    const outside = path.join(workdir, 'outside-target');
+    await mkdir(outside, { recursive: true });
+    await writeFile(path.join(outside, 'secret.txt'), 'not ours to delete');
+    await symlink(outside, path.join(root(), 'escape'), 'dir');
+
+    await files.deleteServerPaths(SERVER_ID, ['escape']);
+    expect(await readdir(root())).not.toContain('escape');
+    expect(await readdir(outside)).toEqual(['secret.txt']);
+  });
+
+  it('renames the link rather than moving its target', async () => {
+    await mkdir(path.join(root(), 'realdir'), { recursive: true });
+    await writeFile(path.join(root(), 'realdir', 'keep.txt'), 'the world folder');
+    await symlink(path.join(root(), 'realdir'), path.join(root(), 'link'), 'dir');
+
+    await files.renameServerPath(SERVER_ID, 'link', 'moved');
+
+    const entries = await readdir(root());
+    expect(entries).toContain('realdir');
+    expect(entries).toContain('moved');
+    expect(entries).not.toContain('link');
+    expect(await readdir(path.join(root(), 'realdir'))).toEqual(['keep.txt']);
+  });
 });

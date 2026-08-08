@@ -114,8 +114,17 @@
 
   --pl-label: var(--ghost-black);
   --pl-label-secondary: var(--ghost-gray-mid);
-  --pl-label-tertiary: var(--ghost-gray-light);
-  --pl-label-quaternary: #9a9a9a;
+  /*
+   * The bottom two rungs are darker than Ghost's own ramp. `--ghost-gray-light` (#777777)
+   * is 4.48:1 on white and 4.26:1 on the sand sidebar — below AA — and this product spends
+   * these two roles on things that exist nowhere else on the screen: the signed-in email,
+   * a container's internal port, a checksum, the sidebar's section headers. The Ghost
+   * palette above is left verbatim; the deviation belongs in the semantic layer, which is
+   * where "is this legible" is actually decided. Both now clear 4.5:1 on white, sand and
+   * stone while staying two visible steps below `--pl-label-secondary`.
+   */
+  --pl-label-tertiary: #6a6a6a;
+  --pl-label-quaternary: #707070;
   --pl-label-inverted: var(--ghost-on-primary);
   --pl-label-strong-secondary: var(--ghost-gray-dark);
 
@@ -202,8 +211,10 @@
 
   --pl-label: #f2f2f2;
   --pl-label-secondary: #a6a6a6;
-  --pl-label-tertiary: #7d7d7d;
-  --pl-label-quaternary: #5c5c5c;
+  /* Same AA correction as light, inverted: #7d7d7d/#5c5c5c were 4.40:1 and 2.71:1 on the
+     dark card surface. */
+  --pl-label-tertiary: #8a8a8a;
+  --pl-label-quaternary: #828282;
   --pl-label-inverted: var(--ghost-black);
   --pl-label-strong-secondary: #d0d0d0;
 
@@ -344,6 +355,10 @@
   --pl-frost-saturate: 1.4;
 
   --pl-container-max: 1180px;
+  /* For the console only: log lines earn more width than prose, but "no cap at all" is not
+     the same request — on a 2560px display it left the panel 500px out of line with its own
+     page heading. */
+  --pl-container-max-wide: 1600px;
   --pl-container-gutter: 24px;
   --pl-container-gutter-lg: 48px;
   --pl-nav-clearance: 88px;

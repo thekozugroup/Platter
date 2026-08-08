@@ -34,7 +34,11 @@ const RECOVERY: Partial<Record<ErrorCode, string>> = {
   ai_rate_limited: 'Wait a moment and send it again.',
   validation_failed: 'Correct the highlighted fields and submit again.',
   internal_error: 'If it keeps happening, check the API logs with the request id below.',
-  service_unavailable: 'The API is restarting or overloaded. Try again shortly.',
+  // Deliberately does not name Platter: the API raises this for its own overload *and* for
+  // an upstream that timed out, and telling someone to restart Platter because Modrinth is
+  // down sends them to fix the wrong machine. Screens that know which one it was pass
+  // `recovery` instead.
+  service_unavailable: 'Something this needs is not answering. Try again shortly.',
   not_implemented: 'This part of Platter is not built yet.',
 };
 
@@ -62,6 +66,12 @@ export interface ErrorStateProps {
   error: unknown;
   /** Overrides the derived headline when the screen knows better. */
   title?: string;
+  /**
+   * Overrides the "what to do next" line. The map below can only speak about Platter, so a
+   * screen that calls out to somebody else's service — a registry, a node — has to supply
+   * the sentence itself rather than send the reader off to restart the wrong thing.
+   */
+  recovery?: string;
   onRetry?: () => void;
   isRetrying?: boolean;
   /** `page` fills the content region; `inline` sits inside a card or panel. */
@@ -72,6 +82,7 @@ export interface ErrorStateProps {
 export function ErrorState({
   error,
   title,
+  recovery: recoveryOverride,
   onRetry,
   isRetrying = false,
   variant = 'page',
@@ -89,11 +100,13 @@ export function ErrorState({
   const headline = deriveHeadline();
 
   const detail = errorMessage(error);
-  const recovery = isNetwork
-    ? 'Check your connection, then retry. If the API is on another machine, check it is still running.'
-    : apiError
-      ? RECOVERY[apiError.code]
-      : undefined;
+  const recovery =
+    recoveryOverride ??
+    (isNetwork
+      ? 'Check your connection, then retry. If the API is on another machine, check it is still running.'
+      : apiError
+        ? RECOVERY[apiError.code]
+        : undefined);
 
   const retryable = isNetwork || (apiError?.retryable ?? false);
   const showRetry = Boolean(onRetry) && retryable;

@@ -723,7 +723,11 @@ function AppearanceCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {/* Three fixed-width segments overflowed their own card at 360px and took the whole
+            document sideways with them — the only page in the app that scrolled
+            horizontally. They now share the row instead of demanding their natural width. */}
         <SegmentGroup
+          className="w-full"
           onValueChange={({ value }) => setPreference(value as ThemePreference)}
           value={preference}
         >
@@ -731,7 +735,7 @@ function AppearanceCard() {
             const Icon = choice.icon;
             return (
               <SegmentGroupItem
-                className="flex h-11 items-center gap-2 rounded-md px-4 text-subhead"
+                className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-md px-2 text-subhead sm:px-4"
                 key={choice.value}
                 value={choice.value}
               >

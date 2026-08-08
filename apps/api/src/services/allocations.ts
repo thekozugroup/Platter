@@ -25,11 +25,40 @@ import { parseDockerEndpoint } from '../orchestration/docker.js';
  */
 
 /**
- * Allocations bind on every interface. A node has no host-IP column, and the schema
- * default matches — the value is written explicitly so the unique key we rely on is
- * never affected by a default changing.
+ * A game port binds on every interface — that is the point of it. A node has no host-IP
+ * column, and the schema default matches; the value is written explicitly so the unique key
+ * we rely on is never affected by a default changing.
  */
 const HOST_IP = '0.0.0.0';
+
+/** Where an admin port lives instead. See `bindLocal` on the blueprint port. */
+const LOOPBACK_IP = '127.0.0.1';
+
+/**
+ * Which interface one blueprint port binds on this node.
+ *
+ * A `bindLocal` port is left wide open only where it has to be: a node reached over
+ * `tcp://` runs its containers on another host, where loopback is not our loopback, and
+ * Platter's own RCON client — the thing that reads the player list — could no longer reach
+ * it. The honest answer for that topology is that the operator's firewall is the boundary,
+ * not ours. Everything else (a unix socket, the mock runtime) is this host, so the admin
+ * port is kept off the network.
+ */
+export function bindAddressFor(port: BlueprintPort | undefined, node: NodeRow): string {
+  return port?.bindLocal === true && !isRemoteNode(node) ? LOOPBACK_IP : HOST_IP;
+}
+
+/**
+ * Containers on another host — Docker's three spellings for "the daemon is over the
+ * network". Matched on the scheme rather than through `parseDockerEndpoint`, which
+ * normalises every scheme to http and so cannot tell `tcp://` from the mock runtime's
+ * `mock://`. Deliberately the narrow case: anything else is this host, and defaulting an
+ * admin port to "reachable from the whole network" on a guess is backwards.
+ */
+function isRemoteNode(node: NodeRow): boolean {
+  const endpoint = node.endpoint.trim().toLowerCase();
+  return ['tcp://', 'http://', 'https://'].some((scheme) => endpoint.startsWith(scheme));
+}
 
 /** A bind probe that has not answered in this long is treated as "not available". */
 const BIND_PROBE_TIMEOUT_MS = 1000;
@@ -177,6 +206,7 @@ async function isBindable(hostPort: number, protocol: Protocol): Promise<boolean
 
 interface ClaimRequest {
   nodeId: string;
+  hostIp: string;
   hostPort: number;
   protocol: Protocol;
   portName: string;
@@ -202,14 +232,27 @@ async function claim(request: ClaimRequest): Promise<Allocation | null> {
     const existing = await prisma.allocation.findUnique({ where: { id: request.reusableId } });
     if (existing && existing.serverId === null) {
       // Guarded on `serverId: null` so a row claimed while we were deciding is not
-      // relabelled out from under the server that now owns it.
-      const updated = await prisma.allocation.updateMany({
-        where: { id: existing.id, serverId: null },
-        data: { portName: request.portName, primary: request.primary },
-      });
-      if (updated.count === 0) return null;
+      // relabelled out from under the server that now owns it. `hostIp` is rewritten too:
+      // a recycled row may predate the blueprint marking this port loopback-only.
+      try {
+        const updated = await prisma.allocation.updateMany({
+          where: { id: existing.id, serverId: null },
+          data: { hostIp: request.hostIp, portName: request.portName, primary: request.primary },
+        });
+        if (updated.count === 0) return null;
+      } catch (error) {
+        // Moving the row to another interface can collide with a row already there; that
+        // number is spoken for either way, so the caller moves on.
+        if (isPrismaKnownError(error) && error.code === 'P2002') return null;
+        throw error;
+      }
       reservations.set(existing.id, Date.now() + RESERVATION_TTL_MS);
-      return { ...existing, portName: request.portName, primary: request.primary };
+      return {
+        ...existing,
+        hostIp: request.hostIp,
+        portName: request.portName,
+        primary: request.primary,
+      };
     }
     if (existing) return null;
     // The row was deleted since the scan; fall through and insert a fresh one.
@@ -225,7 +268,7 @@ async function claim(request: ClaimRequest): Promise<Allocation | null> {
       data: {
         id,
         nodeId: request.nodeId,
-        hostIp: HOST_IP,
+        hostIp: request.hostIp,
         hostPort: request.hostPort,
         protocol: request.protocol,
         portName: request.portName,
@@ -336,6 +379,7 @@ export async function allocatePorts(
 
         const row = await claim({
           nodeId,
+          hostIp: bindAddressFor(blueprintPort, node),
           hostPort: explicit,
           protocol,
           portName: blueprintPort.name,
@@ -351,6 +395,7 @@ export async function allocatePorts(
 
       const row = await allocateFromRange(node, {
         protocol,
+        hostIp: bindAddressFor(blueprintPort, node),
         portName: blueprintPort.name,
         primary,
         skip: (candidate) => blocked.has(candidate) || assigned.has(candidate),
@@ -372,6 +417,7 @@ export async function allocatePorts(
 
 interface RangePick {
   protocol: Protocol;
+  hostIp: string;
   portName: string;
   primary: boolean;
   skip: (hostPort: number) => boolean;
@@ -390,6 +436,7 @@ async function allocateFromRange(node: NodeRow, pick: RangePick): Promise<Alloca
 
     const row = await claim({
       nodeId: node.id,
+      hostIp: pick.hostIp,
       hostPort: candidate,
       protocol: pick.protocol,
       portName: pick.portName,
@@ -432,6 +479,44 @@ export async function releasePorts(serverId: string): Promise<number> {
   // to free up 25565 and immediately recreates it expects that number back.
   for (const row of rows) reservations.delete(row.id);
   return result.count;
+}
+
+/**
+ * Re-binds a server's allocations whose interface no longer matches its blueprint.
+ *
+ * Called on the path that builds a container, so a server provisioned before a port was
+ * marked `bindLocal` is corrected the next time it starts rather than needing a migration
+ * — and so the row stays the single truth about where the port actually is, which is what
+ * every reader (the container spec, the RCON dialer, the port table) goes on.
+ *
+ * A collision — something already holds that number on the other interface — leaves the row
+ * alone. The old binding still works; failing the boot over a hardening step would not.
+ */
+export async function reconcileBindAddresses(
+  node: NodeRow,
+  blueprintPorts: readonly BlueprintPort[],
+  allocations: readonly Allocation[],
+): Promise<Allocation[]> {
+  const declared = new Map(blueprintPorts.map((port) => [port.name, port]));
+  const reconciled: Allocation[] = [];
+
+  for (const row of allocations) {
+    const wanted = bindAddressFor(
+      row.portName === null ? undefined : declared.get(row.portName),
+      node,
+    );
+    if (row.hostIp === wanted) {
+      reconciled.push(row);
+      continue;
+    }
+    try {
+      reconciled.push(await prisma.allocation.update({ where: { id: row.id }, data: { hostIp: wanted } }));
+    } catch (error) {
+      if (isPrismaKnownError(error) && error.code === 'P2002') reconciled.push(row);
+      else throw error;
+    }
+  }
+  return reconciled;
 }
 
 /** Every allocation on a node, free and owned, in port order. */

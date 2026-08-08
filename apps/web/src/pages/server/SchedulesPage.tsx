@@ -45,7 +45,7 @@ import {
   useUpdateSchedule,
 } from '@/hooks';
 import { errorMessage } from '@/lib/api-client.js';
-import { useServerScope } from './ServerLayout';
+import { SECTION_HEADING, useServerScope } from './ServerLayout';
 import { cn } from '@/lib/utils';
 
 /**
@@ -557,7 +557,7 @@ export function SchedulesPage() {
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="font-sans text-title-3 font-semibold text-label">Schedules</h2>
+            <h2 className={SECTION_HEADING}>Schedules</h2>
             <p className="max-w-prose text-subhead text-label-secondary">
               Recurring tasks Platter runs for you — restarts, backups, or any console command. The
               clock runs on the Platter host, not inside the game.

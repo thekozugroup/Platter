@@ -18,6 +18,7 @@ import { Trash } from 'pixelarticons/react/Trash.js';
 import { User as UserIcon } from 'pixelarticons/react/User.js';
 import { UserX } from 'pixelarticons/react/UserX.js';
 import { Users as UsersIcon } from 'pixelarticons/react/Users.js';
+import { avatarStyle } from '@/components/common/avatar-ink';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { PageAction, PageBody, PageHeader } from '@/components/layout/page-header';
@@ -236,8 +237,8 @@ function IdentityCell({ user }: { user: User }) {
     <div className="flex min-w-0 items-center gap-3">
       <Avatar className="size-9 rounded-sm" size="md">
         <AvatarFallback
-          className="rounded-sm text-caption font-semibold text-white"
-          style={{ backgroundColor: user.avatarColor }}
+          className="rounded-sm text-caption font-semibold"
+          style={avatarStyle(user.avatarColor)}
         >
           {user.displayName.slice(0, 2).toUpperCase()}
         </AvatarFallback>

@@ -339,6 +339,78 @@ describe('per-server authorisation', () => {
   });
 });
 
+describe('the address a player is shown', () => {
+  it('is the connect string on the card, the detail and the network tab alike', async () => {
+    const user = await createTestUser('owner');
+    const created = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers`,
+      headers: authHeaders(user),
+      payload: paperBody('Creative Build'),
+    });
+    const serverId = created.json().id as string;
+
+    // A real (non-`.local`) zone is the operator's own DNS, so the hostname is presented as
+    // live — which is what makes the friendly form the answer rather than the IP fallback.
+    const zoned = await app.inject({
+      method: 'PUT',
+      url: `${BASE}/network/zone`,
+      headers: authHeaders(user),
+      payload: { zone: 'games.example.com' },
+    });
+    expect(zoned.statusCode).toBe(200);
+
+    const network = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}/network`,
+      headers: authHeaders(user),
+    });
+    const expected = network.json().connectString as string;
+    expect(expected).toContain('creative-build.games.example.com');
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: authHeaders(user),
+    });
+    expect(detail.json().connectString).toBe(expected);
+
+    const list = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers`,
+      headers: authHeaders(user),
+    });
+    expect(list.json().data[0].primaryAddress).toBe(expected);
+  });
+
+  it('never puts a bind address where a connect address belongs', async () => {
+    const user = await createTestUser('owner');
+    const created = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers`,
+      headers: authHeaders(user),
+      payload: paperBody('Bind Check'),
+    });
+    const serverId = created.json().id as string;
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: authHeaders(user),
+    });
+    const list = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers`,
+      headers: authHeaders(user),
+    });
+
+    // `0.0.0.0` is a listen address. Handing it to someone under a "copy this" button is
+    // worse than showing nothing, because it looks like it should work.
+    expect(detail.json().connectString).not.toContain('0.0.0.0');
+    expect(list.json().data[0].primaryAddress).not.toContain('0.0.0.0');
+  });
+});
+
 describe('system', () => {
   it('answers health without credentials', async () => {
     const response = await app.inject({ method: 'GET', url: `${BASE}/system/health` });

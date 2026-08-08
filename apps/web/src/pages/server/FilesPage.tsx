@@ -4,7 +4,7 @@ import type { FileEntry } from '@platter/shared';
 import { FileBrowser } from '@/components/files/file-browser';
 import { PageBody } from '@/components/layout/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useServerScope } from './ServerLayout';
+import { SECTION_HEADING, useServerScope } from './ServerLayout';
 
 /**
  * The files tab.
@@ -99,7 +99,7 @@ export function FilesPage() {
       ) : (
         <>
           <div className="flex flex-col gap-1">
-            <h2 className="font-sans text-title-3 font-semibold text-label">Files</h2>
+            <h2 className={SECTION_HEADING}>Files</h2>
             <p className="max-w-prose text-subhead text-label-secondary">
               Everything on {server.name}’s data volume, mounted at{' '}
               <code className="font-mono text-footnote">{blueprint?.dataPath ?? '/data'}</code>{' '}

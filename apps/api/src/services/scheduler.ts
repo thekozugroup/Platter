@@ -6,6 +6,7 @@ import { prisma } from '../db.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
 import { createBackup } from './backups.js';
 import { recordAudit } from './audit.js';
+import { schedulerRuns } from './metrics.js';
 import { restartServer, sendCommand, startServer, stopServer } from './lifecycle.js';
 
 /**
@@ -161,6 +162,7 @@ async function executeAction(row: ScheduleRow): Promise<ExecuteOutcome> {
 
 async function runOnce(row: ScheduleRow, actorId: string | null): Promise<void> {
   const outcome = await executeAction(row);
+  schedulerRuns.inc({ action: row.action, outcome: outcome.status });
   await prisma.schedule
     .update({
       where: { id: row.id },
@@ -237,11 +239,14 @@ async function claimAndRun(row: ScheduleRow): Promise<void> {
   if (claimed.count === 0) return;
 
   running.add(row.id);
-  try {
-    await runOnce(row, null);
-  } finally {
-    running.delete(row.id);
-  }
+  // Not awaited, mirroring `runScheduleNow`: a backup takes as long as a backup takes, and
+  // the dispatcher has to stay free to notice the next schedule. `running` is what keeps
+  // this schedule from overlapping itself; the caller awaits only as far as the claim.
+  void runOnce(row, null)
+    .catch((error: unknown) => {
+      report('error', { err: error, scheduleId: row.id }, 'a scheduled run failed');
+    })
+    .finally(() => running.delete(row.id));
 }
 
 async function runDueSchedules(): Promise<void> {
@@ -250,11 +255,17 @@ async function runDueSchedules(): Promise<void> {
     orderBy: { nextRunAt: 'asc' },
     take: MAX_DUE_PER_TICK,
   });
-  for (const row of due) {
-    void claimAndRun(row).catch((error: unknown) => {
-      report('error', { err: error, scheduleId: row.id }, 'a scheduled run failed to start');
-    });
-  }
+  // The claims are awaited, the runs are not. `tick` re-arms the timer as soon as this
+  // returns and plans the next wake by re-reading `nextRunAt`; returning before the claims
+  // commit reads the very rows this pass is about to advance, computes a zero delay, and
+  // ticks straight back into the same query.
+  await Promise.allSettled(
+    due.map(async (row) =>
+      claimAndRun(row).catch((error: unknown) => {
+        report('error', { err: error, scheduleId: row.id }, 'a scheduled run failed to start');
+      }),
+    ),
+  );
 }
 
 async function armTimer(): Promise<void> {

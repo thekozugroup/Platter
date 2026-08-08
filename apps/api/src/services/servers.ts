@@ -30,6 +30,7 @@ import { getDriver } from '../orchestration/registry.js';
 import { allocatePorts, releasePorts } from './allocations.js';
 import { getBlueprint } from './blueprints.js';
 import { installServer } from './lifecycle.js';
+import { resolveConnectStrings } from './network.js';
 import { getPlayerCount } from './players.js';
 import type { AuthenticatedUser, ServerRecord } from '../plugins/auth.js';
 
@@ -137,6 +138,47 @@ export async function serverPermissionsFor(
   return new Set(parseServerPermissions(subuser.permissions, server.id, log));
 }
 
+/**
+ * What a `password`-typed variable reads as once it has left the process. Never accepted
+ * back as a value — see `updateServer`, which is what makes echoing it safe.
+ */
+export const REDACTED_VALUE = '[redacted]';
+
+/**
+ * Replaces the values of `password`-typed blueprint variables before they leave the process.
+ *
+ * Every reader goes through this, not just the agent surface: a `server.view` collaborator
+ * reading `GET /servers/:id` was being handed the RCON password *and* the RCON port in one
+ * response, which is a direct route to `op <self>` past every permission they were given.
+ * The keys are reported so a client can still say "this is set"; the values are not.
+ */
+export function redactVariables(
+  variables: Record<string, string>,
+  blueprint: Blueprint | null,
+): { variables: Record<string, string>; redacted: string[] } {
+  const secrets = secretKeysOf(blueprint);
+
+  const safe: Record<string, string> = {};
+  const redacted: string[] = [];
+  for (const [key, value] of Object.entries(variables)) {
+    if (secrets.has(key) && value.length > 0) {
+      safe[key] = REDACTED_VALUE;
+      redacted.push(key);
+    } else {
+      safe[key] = value;
+    }
+  }
+  return { variables: safe, redacted };
+}
+
+function secretKeysOf(blueprint: Blueprint | null): Set<string> {
+  return new Set(
+    (blueprint?.variables ?? [])
+      .filter((variable) => variable.type === 'password')
+      .map((variable) => variable.key),
+  );
+}
+
 function toLimits(row: ServerRecord): ResourceLimits {
   return {
     memoryMb: row.memoryMb,
@@ -174,8 +216,13 @@ export interface ServerWithAllocations extends ServerRecord {
 export function toServerDto(
   row: ServerWithAllocations,
   blueprint: Blueprint | null,
+  connectString: string | null,
   log?: FastifyBaseLogger,
 ): Server {
+  const { variables, redacted } = redactVariables(
+    parseVariables(row.variables, row.id, log),
+    blueprint,
+  );
   return {
     id: row.id,
     name: row.name,
@@ -187,7 +234,9 @@ export function toServerDto(
     containerId: row.containerId,
     limits: toLimits(row),
     allocations: toAllocations(row.allocations, blueprint),
-    variables: parseVariables(row.variables, row.id, log),
+    connectString,
+    variables,
+    redactedVariables: redacted,
     autoStart: row.autoStart,
     autoRestart: row.autoRestart,
     lastExitCode: row.lastExitCode,
@@ -204,7 +253,7 @@ interface SummaryRow extends ServerRecord {
   allocations: Allocation[];
 }
 
-function toServerSummary(row: SummaryRow): ServerSummary {
+function toServerSummary(row: SummaryRow, connectString: string | undefined): ServerSummary {
   const primary = row.allocations.find((allocation) => allocation.primary) ?? row.allocations[0];
   return {
     id: row.id,
@@ -212,7 +261,10 @@ function toServerSummary(row: SummaryRow): ServerSummary {
     blueprintKey: row.blueprintKey,
     status: presentStatus(row),
     nodeId: row.nodeId,
-    primaryAddress: primary ? formatAddress(row.node.publicHost, primary.hostPort) : null,
+    // The resolved connect string, never `hostIp` — that column is the bind address
+    // (`0.0.0.0`), which is not something any player can dial. `publicHost:port` is the
+    // fallback when no hostname resolves, which is what `connectString` already returns.
+    primaryAddress: connectString ?? (primary ? formatAddress(row.node.publicHost, primary.hostPort) : null),
     memoryMb: row.memoryMb,
     cpuCores: row.cpuCores,
     // Player counts need a live query against the game; the grid must stay cheap enough
@@ -221,6 +273,30 @@ function toServerSummary(row: SummaryRow): ServerSummary {
     playersMax: null,
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * The one-server form of `resolveConnectStrings`.
+ *
+ * The node is fetched here rather than joined into every caller's query because only the
+ * `publicHost` column is wanted, and only as the numeric fallback for a hostname that does
+ * not resolve.
+ */
+async function connectStringFor(row: ServerWithAllocations): Promise<string | null> {
+  const node = await prisma.node.findUnique({
+    where: { id: row.nodeId },
+    select: { publicHost: true },
+  });
+  if (!node) return null;
+  const resolved = await resolveConnectStrings([
+    {
+      id: row.id,
+      blueprintKey: row.blueprintKey,
+      publicHost: node.publicHost,
+      allocations: row.allocations,
+    },
+  ]);
+  return resolved.get(row.id) ?? null;
 }
 
 /**
@@ -250,7 +326,8 @@ export async function loadServerDto(serverId: string, log?: FastifyBaseLogger): 
     include: { allocations: true },
   });
   if (!row) throw notFound('server');
-  return toServerDto(row, await findBlueprint(row.blueprintKey, log), log);
+  const blueprint = await findBlueprint(row.blueprintKey, log);
+  return toServerDto(row, blueprint, await connectStringFor(row), log);
 }
 
 /**
@@ -303,8 +380,19 @@ export async function listServers(
     }),
   ]);
 
+  // One pass for the whole page: the zone and the hostname assignment are per-install, not
+  // per-server, so resolving them inside the map would repeat both for every card.
+  const connectStrings = await resolveConnectStrings(
+    rows.map((row) => ({
+      id: row.id,
+      blueprintKey: row.blueprintKey,
+      publicHost: row.node.publicHost,
+      allocations: row.allocations,
+    })),
+  );
+
   return {
-    data: rows.map(toServerSummary),
+    data: rows.map((row) => toServerSummary(row, connectStrings.get(row.id))),
     meta: {
       page: query.page,
       perPage: query.perPage,
@@ -678,7 +766,7 @@ export async function createServer(
     });
     if (!created) throw notFound('server');
 
-    const dto = toServerDto(created, blueprint, log);
+    const dto = toServerDto(created, blueprint, await connectStringFor(created), log);
     if (input.startOnCreate) startInstall(serverId, log);
     return dto;
   } catch (error) {
@@ -690,6 +778,28 @@ export async function createServer(
 // ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
+
+/**
+ * Drops a submitted secret that is only the placeholder we handed the client back.
+ *
+ * Reads see `[redacted]`, so any form that round-trips its whole variable map submits that
+ * string for a password the user never touched. Taking it literally would set the RCON
+ * password to the word "[redacted]" the first time anyone saved an unrelated field. The
+ * check lives here rather than in the client because every client has the same problem.
+ */
+function withoutEchoedSecrets(
+  submitted: Record<string, string>,
+  stored: Record<string, string>,
+  blueprint: Blueprint,
+): Record<string, string> {
+  const secrets = secretKeysOf(blueprint);
+  const kept: Record<string, string> = {};
+  for (const [key, value] of Object.entries(submitted)) {
+    if (secrets.has(key) && value === REDACTED_VALUE && (stored[key] ?? '').length > 0) continue;
+    kept[key] = value;
+  }
+  return kept;
+}
 
 export async function updateServer(
   server: ServerRecord,
@@ -726,7 +836,8 @@ export async function updateServer(
     }
     // Merged with what is stored: a form that only submits the fields it rendered must
     // not silently clear the variables it did not.
-    const merged = { ...parseVariables(server.variables, server.id, log), ...input.variables };
+    const stored = parseVariables(server.variables, server.id, log);
+    const merged = { ...stored, ...withoutEchoedSecrets(input.variables, stored, blueprint) };
     data.variables = JSON.stringify(resolveVariables(blueprint, merged, log));
   }
 
@@ -737,7 +848,7 @@ export async function updateServer(
   });
   // New limits and variables reach the container when it is next created; the lifecycle
   // service recreates from the row on start, so nothing is applied behind the operator.
-  return toServerDto(updated, blueprint, log);
+  return toServerDto(updated, blueprint, await connectStringFor(updated), log);
 }
 
 // ---------------------------------------------------------------------------

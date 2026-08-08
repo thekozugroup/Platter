@@ -17,8 +17,10 @@ import { Server } from 'pixelarticons/react/Server.js';
 import { SettingsCog } from 'pixelarticons/react/SettingsCog.js';
 import { User } from 'pixelarticons/react/User.js';
 import { Users } from 'pixelarticons/react/Users.js';
+import { avatarStyle } from '@/components/common/avatar-ink';
 import { GameIcon } from '@/components/common/game-icon';
 import { StatusDot } from '@/components/common/status-pill';
+import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -178,6 +180,11 @@ function ServerRows() {
   const { pathname } = useLocation();
   const { isMobile, setOpenMobile } = useSidebar();
   const { data, isPending, isError, refetch } = useSidebarServers();
+  // Without the blueprint's own mark, `GameIcon` falls back to hashing the key — which is
+  // stable but is *not* the hue the cards use, so the same server was one colour here and
+  // another one grid away. Chroma that carries no meaning is the one thing the palette
+  // forbids; two chromas for one object is worse.
+  const blueprints = useBlueprintIndex();
 
   if (isPending) {
     return (
@@ -229,7 +236,13 @@ function ServerRows() {
               }}
               to={`/servers/${server.id}`}
             >
-              <GameIcon blueprintKey={server.blueprintKey} name={server.name} size="xs" />
+              <GameIcon
+                blueprintKey={server.blueprintKey}
+                hue={blueprints.get(server.blueprintKey)?.icon.hue}
+                monogram={blueprints.get(server.blueprintKey)?.icon.monogram}
+                name={server.name}
+                size="xs"
+              />
               <span className={cn('min-w-0 flex-1 truncate text-start', COLLAPSED_LABEL)}>
                 {server.name}
               </span>
@@ -277,8 +290,8 @@ function AccountMenu() {
         >
           <Avatar className="size-8 rounded-sm" size="md">
             <AvatarFallback
-              className="rounded-sm text-caption font-semibold text-white"
-              style={{ backgroundColor: user.avatarColor }}
+              className="rounded-sm text-caption font-semibold"
+              style={avatarStyle(user.avatarColor)}
             >
               {user.displayName.slice(0, 2).toUpperCase()}
             </AvatarFallback>
@@ -388,8 +401,10 @@ export function AppSidebar({ onSearch, searchShortcut }: AppSidebarProps) {
                   >
                     <Search aria-hidden />
                     <span className={COLLAPSED_LABEL}>Search</span>
+                    {/* A phone has no Ctrl key, and this row renders inside the nav sheet
+                        there — so the shortcut is desktop-only. */}
                     <Kbd
-                      className={cn('ms-auto bg-transparent', COLLAPSED_LABEL)}
+                      className={cn('ms-auto hidden bg-transparent md:inline-flex', COLLAPSED_LABEL)}
                       variant="outline"
                     >
                       {searchShortcut}

@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { formatMegabytes, type BlueprintSummary, type ServerSummary } from '@platter/shared';
+import { connectAddress } from '@/components/common/connect-address';
 import { GameIcon } from '@/components/common/game-icon';
 import { StatusPill } from '@/components/common/status-pill';
 import { cn } from '@/lib/utils';
@@ -65,7 +66,7 @@ function cardDetail(server: ServerSummary): string {
 export function ServerCard({ server, blueprint, className }: ServerCardProps) {
   const subtitle = blueprintSubtitle(server.blueprintKey, blueprint);
   const detail = cardDetail(server);
-  const address = server.primaryAddress;
+  const address = connectAddress(server);
 
   return (
     <Link

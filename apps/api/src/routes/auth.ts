@@ -32,6 +32,7 @@ import {
 } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
 import { dummyVerify, hashPassword, verifyPassword } from '../lib/password.js';
+import { parseScopes } from '../lib/scopes.js';
 import {
   buildOtpauthUrl,
   generateRecoveryCodes,
@@ -210,7 +211,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             totp: ['A six-digit code is required.'],
           });
         }
-        if (!user.totpSecret || !verifyTotp(user.totpSecret, totp)) {
+        // The step is spent below, before the session is issued: a code replayed inside
+        // its own 90-second window is not a second successful login.
+        const step = user.totpSecret ? verifyTotp(user.totpSecret, totp, user.lastTotpStep) : null;
+        if (step === null) {
           await recordAudit({
             action: 'auth.login_failed',
             targetType: 'user',
@@ -224,6 +228,17 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           });
           throw invalidCredentials('That code is not valid.', {
             totp: ['Check the code and try again.'],
+          });
+        }
+        // Guarded on the value we read, so two logins racing the same code cannot both
+        // record it — the loser's update matches nothing and it is refused.
+        const spent = await prisma.user.updateMany({
+          where: { id: user.id, lastTotpStep: user.lastTotpStep },
+          data: { lastTotpStep: step },
+        });
+        if (spent.count === 0) {
+          throw invalidCredentials('That code has already been used.', {
+            totp: ['Wait for your authenticator to show the next code.'],
           });
         }
       }
@@ -549,17 +564,21 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       const { user } = requireInteractiveSession(request);
       const record = await prisma.user.findUnique({
         where: { id: user.id },
-        select: { totpSecret: true, totpEnabled: true },
+        select: { totpSecret: true, totpEnabled: true, lastTotpStep: true },
       });
       if (!record?.totpSecret) throw badRequest('Start two-factor setup first.');
       if (record.totpEnabled) throw badRequest('Two-factor authentication is already on.');
-      if (!verifyTotp(record.totpSecret, request.body.token)) {
+      const step = verifyTotp(record.totpSecret, request.body.token, record.lastTotpStep);
+      if (step === null) {
         throw invalidCredentials('That code is not valid.', {
           token: ['Check your authenticator app and try again.'],
         });
       }
 
-      await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { totpEnabled: true, lastTotpStep: step },
+      });
       await recordAuditFromRequest(request, {
         action: 'auth.totp_enabled',
         targetType: 'user',
@@ -588,20 +607,22 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       const { user } = requireInteractiveSession(request);
       const record = await prisma.user.findUnique({
         where: { id: user.id },
-        select: { totpSecret: true, totpEnabled: true },
+        select: { totpSecret: true, totpEnabled: true, lastTotpStep: true },
       });
       if (!record?.totpEnabled || !record.totpSecret) {
         throw badRequest('Two-factor authentication is not on.');
       }
-      if (!verifyTotp(record.totpSecret, request.body.token)) {
+      if (verifyTotp(record.totpSecret, request.body.token, record.lastTotpStep) === null) {
         throw invalidCredentials('That code is not valid.', {
           token: ['Check your authenticator app and try again.'],
         });
       }
 
+      // `lastTotpStep` is cleared alongside the secret: a future enrolment mints a new
+      // secret, and a step counter from the old one would reject its first codes.
       await prisma.user.update({
         where: { id: user.id },
-        data: { totpEnabled: false, totpSecret: null, recoveryCodes: '[]' },
+        data: { totpEnabled: false, totpSecret: null, recoveryCodes: '[]', lastTotpStep: null },
       });
       await recordAuditFromRequest(request, {
         action: 'auth.totp_disabled',
@@ -711,6 +732,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         id: key.id,
         name: key.name,
         prefix: key.prefix,
+        scopes: [...(parseScopes(key.scopes) ?? [])],
         lastUsedAt: key.lastUsedAt?.toISOString() ?? null,
         expiresAt: key.expiresAt?.toISOString() ?? null,
         createdAt: key.createdAt.toISOString(),
@@ -733,14 +755,25 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { user } = requireInteractiveSession(request);
-      const { name, expiresInDays } = request.body;
+      const { name, scopes, expiresInDays } = request.body;
 
       const { token, prefix, tokenHash } = generateApiKey();
       const expiresAt =
         expiresInDays === null ? null : new Date(Date.now() + expiresInDays * 86_400_000);
 
+      // De-duplicated so the stored list is the set it is read back as, and the audit row
+      // records the grant: which scopes a key carries is the whole of what it can do.
+      const granted = [...new Set(scopes)];
       const created = await prisma.apiKey.create({
-        data: { id: newId('key'), userId: user.id, name, prefix, tokenHash, expiresAt },
+        data: {
+          id: newId('key'),
+          userId: user.id,
+          name,
+          prefix,
+          tokenHash,
+          scopes: JSON.stringify(granted),
+          expiresAt,
+        },
       });
 
       await recordAuditFromRequest(request, {
@@ -748,13 +781,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         targetType: 'apikey',
         targetId: created.id,
         targetName: name,
-        metadata: { prefix, expiresAt: expiresAt?.toISOString() ?? null },
+        metadata: { prefix, scopes: granted, expiresAt: expiresAt?.toISOString() ?? null },
       });
 
       return reply.status(201).send({
         id: created.id,
         name: created.name,
         prefix: created.prefix,
+        scopes: granted,
         lastUsedAt: null,
         expiresAt: created.expiresAt?.toISOString() ?? null,
         createdAt: created.createdAt.toISOString(),

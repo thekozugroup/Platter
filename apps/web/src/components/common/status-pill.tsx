@@ -67,12 +67,13 @@ const DOT_TONE: Record<StatusTone, string> = {
   neutral: 'bg-neutral-status',
 };
 
-const TEXT_TONE: Record<StatusTone, string> = {
-  success: 'text-success',
-  warning: 'text-warning',
-  danger: 'text-danger',
-  neutral: 'text-label-secondary',
-};
+/**
+ * The word stays near-black in every tone. Painting it the status colour turns the label
+ * into a *second* colour channel when its whole job is to be the redundant one — and the
+ * muted greens and ambers this system uses are 3.3:1 on the pill, under AA for text. The
+ * dot carries the colour; the ring and the pulse carry the rest.
+ */
+const LABEL_TONE = 'text-label';
 
 export interface StatusDotProps {
   status: ServerStatus;
@@ -122,7 +123,6 @@ export interface StatusPillProps {
 }
 
 export function StatusPill({ status, size = 'sm', live = false, label, className }: StatusPillProps) {
-  const tone = serverStatusTone(status);
   const text = label ?? SERVER_STATUS_LABELS[status];
 
   return (
@@ -131,7 +131,7 @@ export function StatusPill({ status, size = 'sm', live = false, label, className
         'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill',
         'border border-pill-border bg-pill font-medium',
         size === 'sm' ? 'h-6 px-2 text-caption' : 'h-7 px-2.5 text-footnote',
-        TEXT_TONE[tone],
+        LABEL_TONE,
         className,
       )}
       data-status={status}

@@ -41,7 +41,7 @@ import {
 } from '@/hooks';
 import { errorMessage } from '@/lib/api-client.js';
 import { queryKeys } from '@/lib/query.js';
-import { useServerScope } from './ServerLayout';
+import { SECTION_HEADING, useServerScope } from './ServerLayout';
 import { cn } from '@/lib/utils';
 
 /**
@@ -155,7 +155,7 @@ export function BackupsPage() {
     <PageBody className="flex flex-col gap-8">
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="font-sans text-title-3 font-semibold text-label">Backups</h2>
+          <h2 className={SECTION_HEADING}>Backups</h2>
           <p className="max-w-prose text-subhead text-label-secondary">
             A backup is a compressed archive of the whole data volume, taken while the server keeps
             running. Restoring one stops the server first.

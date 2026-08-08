@@ -125,7 +125,7 @@ const healthResponseSchema = z.object({
       fiveMinutes: msptWindowSchema,
     })
     .nullable(),
-  unavailable: z.enum(['unsupported', 'unreadable', 'offline']).nullable(),
+  unavailable: z.enum(['unsupported', 'unconfigured', 'unreadable', 'offline']).nullable(),
 });
 
 /**

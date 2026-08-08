@@ -4,6 +4,7 @@ import { ModDetailSheet } from '@/components/mods/mod-detail-sheet';
 import { ModSearch } from '@/components/mods/mod-search';
 import { ProposalQueue } from '@/components/mods/proposal-review';
 import { PageBody } from '@/components/layout/page-header';
+import { minecraftTypeLabel } from '@/components/servers/minecraft-type-picker';
 import type { ModSource } from '@/hooks';
 import { useInstalledMods } from '@/hooks';
 import { useServerScope } from '@/pages/server/ServerLayout';
@@ -49,7 +50,7 @@ export function ModsPage() {
   const [target, setTarget] = useState<SheetTarget | null>(null);
 
   const gameVersion = concreteGameVersion(server.variables);
-  const serverType = (server.variables.TYPE ?? '').trim();
+  const serverType = minecraftTypeLabel((server.variables.TYPE ?? '').trim());
 
   return (
     <PageBody>

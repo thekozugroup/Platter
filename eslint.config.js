@@ -15,6 +15,13 @@ export default tseslint.config(
       '**/test-results/**',
       '**/*.d.ts',
       'apps/api/src/generated/**',
+      /*
+       * Vendored Shark UI registry code. These files are pulled in by
+       * `shadcn add @shark/…` and are re-fetched wholesale on update, so lint fixes here
+       * are overwritten rather than kept — the same reason node_modules is ignored. Our own
+       * composition lives in components/<feature>/ and is linted normally.
+       */
+      'apps/web/src/components/ui/**',
     ],
   },
   js.configs.recommended,

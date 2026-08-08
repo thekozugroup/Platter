@@ -6,6 +6,7 @@ import {
   API_PREFIX,
   SERVER_PERMISSIONS,
   roleAtLeast,
+  type ApiKeyScope,
   type ServerPermission,
   type UserRole,
 } from '@platter/shared';
@@ -14,6 +15,7 @@ import { prisma } from '../db.js';
 import { forbidden, internal, notFound, tokenExpired, unauthenticated } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
 import { constantTimeEqual, randomToken, sha256Hex } from '../lib/password.js';
+import { parseScopes } from '../lib/scopes.js';
 
 /** The projection of a user that is safe to hang off a request. Never carries secrets. */
 export interface AuthenticatedUser {
@@ -34,6 +36,11 @@ export interface AuthContext {
   via: 'jwt' | 'apikey';
   /** Set only for `apikey`, so audit entries can name the key that acted. */
   apiKeyId: string | null;
+  /**
+   * What this credential may do, on top of what the user may do. `null` is unrestricted —
+   * always the case for a browser session, and for a key minted without scopes.
+   */
+  scopes: ReadonlySet<ApiKeyScope> | null;
 }
 
 export interface RefreshTokenMeta {
@@ -77,6 +84,8 @@ declare module 'fastify' {
     tryAuthenticate: preHandlerHookHandler;
     requireRole(minimum: UserRole): preHandlerHookHandler;
     requireServerAccess(permission: ServerPermission): preHandlerHookHandler;
+    /** For routes with no `:serverId` to hang a per-server permission off. */
+    requireScope(scope: ApiKeyScope): preHandlerHookHandler;
 
     issueAccessToken(user: AuthenticatedUser): string;
     issueRefreshToken(user: AuthenticatedUser, meta?: RefreshTokenMeta): Promise<IssuedRefreshToken>;
@@ -185,6 +194,36 @@ async function loadAuthUser(userId: string): Promise<AuthenticatedUser | null> {
   return row ? toAuthenticatedUser(row) : null;
 }
 
+/**
+ * The second half of "authorised twice" (docs/ARCHITECTURE.md §4), applied to REST.
+ *
+ * A scoped key is refused before anything touches the database: an under-scoped credential
+ * should learn nothing about which servers exist, and a rejection that costs no query is
+ * also the cheapest thing to do under a key looping on a call it may not make.
+ *
+ * `scope: null` means "this surface has no scope that expresses it" — the admin routes,
+ * where there is no per-server permission a subuser could hold either. A restricted key is
+ * refused there rather than assumed to hold a grant the vocabulary cannot name.
+ */
+export function assertScope(auth: AuthContext, scope: ApiKeyScope | null): void {
+  if (auth.scopes === null) return;
+  if (scope !== null && auth.scopes.has(scope)) return;
+  throw forbidden(
+    scope === null
+      ? 'This API key is not allowed to act on the account itself.'
+      : `This API key is not scoped for ${scope}.`,
+  );
+}
+
+/**
+ * The same check from inside a handler, for a route whose required permission is only known
+ * once the body has been parsed — the power endpoint, where the action names the grant.
+ */
+export function assertRequestScope(request: FastifyRequest, scope: ApiKeyScope): void {
+  if (!request.auth) throw unauthenticated();
+  assertScope(request.auth, scope);
+}
+
 const authPlugin: FastifyPluginAsync = async (app) => {
   await app.register(fastifyCookie);
   await app.register(fastifyJwt, {
@@ -219,7 +258,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     // credentials at all rather than as a server error.
     if (!user) throw unauthenticated('That token is not valid.');
     if (user.suspended) throw forbidden('This account is suspended.');
-    return { user, via: 'jwt', apiKeyId: null };
+    return { user, via: 'jwt', apiKeyId: null, scopes: null };
   }
 
   async function resolveApiKey(token: string): Promise<AuthContext> {
@@ -231,6 +270,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
       select: {
         id: true,
         tokenHash: true,
+        scopes: true,
         expiresAt: true,
         lastUsedAt: true,
         user: { select: AUTH_USER_SELECT },
@@ -248,7 +288,12 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     if (record.user.suspended) throw forbidden('This account is suspended.');
 
     touchApiKey(record.id, record.lastUsedAt);
-    return { user: toAuthenticatedUser(record.user), via: 'apikey', apiKeyId: record.id };
+    return {
+      user: toAuthenticatedUser(record.user),
+      via: 'apikey',
+      apiKeyId: record.id,
+      scopes: parseScopes(record.scopes),
+    };
   }
 
   /**
@@ -307,8 +352,16 @@ const authPlugin: FastifyPluginAsync = async (app) => {
 
   app.decorate('requireRole', (minimum: UserRole): preHandlerHookHandler => {
     const handler: preHandlerHookHandler = async (request) => {
-      const { user } = await ensureAuth(request);
-      if (!roleAtLeast(user.role, minimum)) throw forbidden();
+      const auth = await ensureAuth(request);
+      assertScope(auth, null);
+      if (!roleAtLeast(auth.user.role, minimum)) throw forbidden();
+    };
+    return handler;
+  });
+
+  app.decorate('requireScope', (scope: ApiKeyScope): preHandlerHookHandler => {
+    const handler: preHandlerHookHandler = async (request) => {
+      assertScope(await ensureAuth(request), scope);
     };
     return handler;
   });
@@ -335,7 +388,9 @@ const authPlugin: FastifyPluginAsync = async (app) => {
 
   app.decorate('requireServerAccess', (permission: ServerPermission): preHandlerHookHandler => {
     const handler: preHandlerHookHandler = async (request) => {
-      const { user } = await ensureAuth(request);
+      const auth = await ensureAuth(request);
+      const { user } = auth;
+      assertScope(auth, permission);
 
       const params = request.params as Record<string, unknown> | undefined;
       const serverId = params?.['serverId'];
