@@ -83,14 +83,19 @@ export function ModSearch({
   );
 
   const query = useModSearch(serverId, params);
-  const pages = query.data?.pages ?? [];
+  /*
+   * Deliberately not defaulted to `[]` here: that would mint a fresh array on every render
+   * while the query is still loading, changing the memo's dependency each time and
+   * re-deduplicating the whole result set on every keystroke. `undefined` is stable.
+   */
+  const pages = query.data?.pages;
 
   const hits = useMemo(() => {
     // A merged multi-source page can repeat a project across pages; keying by source+id keeps
     // React happy and stops the same mod appearing twice as the reader pages down.
     const seen = new Set<string>();
     const unique: ModSummary[] = [];
-    for (const page of pages) {
+    for (const page of pages ?? []) {
       for (const hit of page.hits) {
         const key = `${hit.source}:${hit.projectId}`;
         if (seen.has(key)) continue;
@@ -120,8 +125,8 @@ export function ModSearch({
       .map(([value]) => value);
   }, [hits, category]);
 
-  const total = pages[0]?.total ?? 0;
-  const failedSources = (pages[0]?.sources ?? []).filter((entry) => entry.error !== null);
+  const total = pages?.[0]?.total ?? 0;
+  const failedSources = (pages?.[0]?.sources ?? []).filter((entry) => entry.error !== null);
 
   // A sentinel plus a real button: the observer is the convenience, the button is the only
   // path that works with a keyboard, with a screen reader, or with JS-driven scrolling off.
@@ -257,6 +262,7 @@ export function ModSearch({
             error={query.error}
             isRetrying={query.isFetching}
             onRetry={() => void query.refetch()}
+            recovery="The registries are outside Platter, so restarting it will not help. Try again in a minute."
             title="The registry search failed"
             variant="inline"
           />

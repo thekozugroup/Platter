@@ -1,8 +1,15 @@
 import type { Server as ServerRecord } from '@prisma/client';
-import { SERVER_PERMISSIONS, type ServerPermission } from '@platter/shared';
+import {
+  API_KEY_SCOPES,
+  GLOBAL_SCOPES,
+  isApiKeyScope,
+  type ApiKeyScope,
+  type ServerPermission,
+} from '@platter/shared';
 import { prisma } from '../db.js';
 import { forbidden, notFound, tokenExpired, unauthenticated } from '../lib/errors.js';
 import { constantTimeEqual, sha256Hex } from '../lib/password.js';
+import { parseScopes } from '../lib/scopes.js';
 import { AUTH_USER_SELECT, toAuthenticatedUser, type AuthenticatedUser } from '../plugins/auth.js';
 import { serverPermissionsFor } from '../services/servers.js';
 
@@ -26,42 +33,18 @@ import { serverPermissionsFor } from '../services/servers.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Scopes that have no per-server analogue. Everything else in the vocabulary is a
- * `ServerPermission`, reused verbatim: an API key must not be grantable something a subuser
- * could not be granted, and one list is easier to reason about than two that drift.
+ * The vocabulary itself lives in `@platter/shared` and the parsing in `lib/scopes.ts`,
+ * because REST enforces the identical set — see `plugins/auth.ts`. These aliases are kept
+ * so this module still reads in its own terms.
  */
-export const MCP_GLOBAL_SCOPES = ['server.create'] as const;
-export type McpGlobalScope = (typeof MCP_GLOBAL_SCOPES)[number];
+export const MCP_GLOBAL_SCOPES = GLOBAL_SCOPES;
+export type McpGlobalScope = (typeof GLOBAL_SCOPES)[number];
 
-export type McpScope = ServerPermission | McpGlobalScope;
+export type McpScope = ApiKeyScope;
 
-export const MCP_SCOPES: readonly McpScope[] = [...SERVER_PERMISSIONS, ...MCP_GLOBAL_SCOPES];
+export const MCP_SCOPES: readonly McpScope[] = API_KEY_SCOPES;
 
-export function isMcpScope(value: unknown): value is McpScope {
-  return typeof value === 'string' && (MCP_SCOPES as readonly string[]).includes(value);
-}
-
-/**
- * `ApiKey.scopes` is a JSON `string[]` where empty means "everything the owning user can
- * do" — see prisma/schema.prisma. Three cases, and the difference between them matters:
- *
- * - `[]` -> `null`, the unrestricted key the create-key endpoint mints today.
- * - a list -> that set, with strings this build does not recognise dropped. A scope we
- *   cannot interpret must never widen access.
- * - unparseable -> the empty set, which denies everything. A corrupted column is not a
- *   licence; failing closed turns it into a visible outage instead of a silent grant.
- */
-function parseScopes(raw: string): ReadonlySet<McpScope> | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return new Set();
-  }
-  if (!Array.isArray(parsed)) return new Set();
-  if (parsed.length === 0) return null;
-  return new Set(parsed.filter(isMcpScope));
-}
+export const isMcpScope: (value: unknown) => value is McpScope = isApiKeyScope;
 
 // ---------------------------------------------------------------------------
 // The principal

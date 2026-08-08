@@ -42,7 +42,7 @@ export const palworldBlueprint: BlueprintDefinition = {
   ports: [
     { name: 'game', label: 'Game', containerPort: 8211, protocol: 'udp', primary: true },
     { name: 'query', label: 'Steam query', containerPort: 27015, protocol: 'udp' },
-    { name: 'rcon', label: 'RCON', containerPort: 25575, protocol: 'tcp' },
+    { name: 'rcon', label: 'RCON', containerPort: 25575, protocol: 'tcp', bindLocal: true },
     { name: 'restapi', label: 'REST API', containerPort: 8212, protocol: 'tcp' },
   ],
   variables: [

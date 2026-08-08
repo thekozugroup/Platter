@@ -58,7 +58,7 @@ export const projectZomboidBlueprint: BlueprintDefinition = {
     { name: 'game', label: 'Game', containerPort: 16261, protocol: 'udp', primary: true },
     { name: 'direct', label: 'Direct connection', containerPort: 16262, protocol: 'udp' },
     { name: 'steam', label: 'Steam', containerPort: 8766, protocol: 'udp' },
-    { name: 'rcon', label: 'RCON', containerPort: 27015, protocol: 'tcp' },
+    { name: 'rcon', label: 'RCON', containerPort: 27015, protocol: 'tcp', bindLocal: true },
   ],
   variables: [
     {

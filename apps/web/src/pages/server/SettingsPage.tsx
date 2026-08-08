@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { ServerPermission, ServerSubuser } from '@platter/shared';
 import {
   DEFAULT_SUBUSER_PERMISSIONS,
+  LIMITS,
   SERVER_PERMISSIONS,
   formatCpu,
   formatMegabytes,
@@ -10,6 +11,7 @@ import {
 } from '@platter/shared';
 import { Reload } from 'pixelarticons/react/Reload.js';
 import { Trash } from 'pixelarticons/react/Trash.js';
+import { avatarStyle } from '@/components/common/avatar-ink';
 import { ErrorState } from '@/components/common/error-state';
 import { PageBody } from '@/components/layout/page-header';
 import {
@@ -61,6 +63,7 @@ import {
 } from '@/hooks';
 import { ApiError, errorMessage } from '@/lib/api-client.js';
 import { useAuth } from '@/lib/auth.js';
+import { serverNameProblem } from '@/lib/server-name.js';
 import { useServerScope } from './ServerLayout';
 import { cn } from '@/lib/utils';
 
@@ -119,6 +122,7 @@ function IdentityCard() {
   const [name, setName] = useState(server.name);
   const [description, setDescription] = useState(server.description);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setName(server.name);
@@ -127,6 +131,16 @@ function IdentityCard() {
 
   const dirty = name !== server.name || description !== server.description;
   const pending = rename.isPending || update.isPending;
+
+  /*
+   * A rejected submit must leave the keyboard where it was. Without this the browser's
+   * focus falls to `<body>` the moment the button disables — the optimistic rename briefly
+   * makes the form clean — and the next Tab restarts at "Skip to content".
+   */
+  const rejectName = (problem: string) => {
+    setFieldErrors({ name: problem });
+    nameRef.current?.focus();
+  };
 
   return (
     <Card>
@@ -146,7 +160,9 @@ function IdentityCard() {
             setFieldErrors({});
 
             const onError = (cause: unknown) => {
-              setFieldErrors(cause instanceof ApiError ? cause.fieldErrors : {});
+              const fields = cause instanceof ApiError ? cause.fieldErrors : {};
+              setFieldErrors(fields);
+              if (fields.name) nameRef.current?.focus();
               toast.create({
                 title: 'Couldn’t save that',
                 description: errorMessage(cause),
@@ -154,9 +170,15 @@ function IdentityCard() {
               });
             };
 
-            // The rename is its own optimistic mutation; the description goes through the
-            // general update, which is not optimistic because it can fail validation.
+            // The rename is optimistic — the sidebar, the header and every card take the new
+            // name immediately — so a name the API will certainly refuse has to be caught
+            // here. Sending it would flash a nameless server across the whole shell.
             if (name !== server.name) {
+              const problem = serverNameProblem(name);
+              if (problem) {
+                rejectName(problem);
+                return;
+              }
               rename.mutate(name.trim(), { onError });
             }
             if (description !== server.description) {
@@ -177,9 +199,10 @@ function IdentityCard() {
               <FieldLabel>Name</FieldLabel>
               <Input
                 className={FIELD}
-                maxLength={60}
+                maxLength={LIMITS.serverNameMax}
                 name="name"
                 onChange={(event) => setName(event.target.value)}
+                ref={nameRef}
                 value={name}
               />
               <FieldError>{fieldErrors.name}</FieldError>
@@ -772,8 +795,8 @@ function PeopleCard() {
                   <div className="flex flex-wrap items-center gap-3">
                     <span
                       aria-hidden
-                      className="flex size-9 shrink-0 items-center justify-center rounded-sm text-caption font-semibold text-white"
-                      style={{ backgroundColor: subuser.avatarColor }}
+                      className="flex size-9 shrink-0 items-center justify-center rounded-sm text-caption font-semibold"
+                      style={avatarStyle(subuser.avatarColor)}
                     >
                       {subuser.displayName.slice(0, 2).toUpperCase()}
                     </span>

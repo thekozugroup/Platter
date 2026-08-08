@@ -24,8 +24,12 @@ import {
 import { StatTile, describeDelta } from '@/components/monitoring/stat-tile';
 import { UptimeStrip, buildUptimeBuckets } from '@/components/monitoring/uptime-strip';
 import { useMetricSeries, type MetricSeries } from '@/hooks/use-metrics.js';
-import { useServerHealth, type ServerHealth } from '@/hooks/use-players.js';
-import { useServerScope } from '@/pages/server/ServerLayout';
+import {
+  useServerHealth,
+  type HealthUnavailableReason,
+  type ServerHealth,
+} from '@/hooks/use-players.js';
+import { SECTION_HEADING, useServerScope } from '@/pages/server/ServerLayout';
 
 /**
  * Monitoring: what this server is doing now, and what it has been doing.
@@ -43,11 +47,29 @@ import { useServerScope } from '@/pages/server/ServerLayout';
 
 const MB = 1024 * 1024;
 
-const HEALTH_UNAVAILABLE: Record<NonNullable<ServerHealth['unavailable']>, string> = {
+const NOT_REPORTING_TPS =
+  'This server is not reporting a tick rate. Turn RCON on in Settings and restart it.';
+const NOT_RUNNING = 'Available once the server is running.';
+
+const HEALTH_UNAVAILABLE: Record<HealthUnavailableReason, string> = {
   unsupported: 'This game does not report a tick rate.',
   unreadable: 'The server did not answer the tick query.',
-  offline: 'Available once the server is running.',
+  unconfigured: NOT_REPORTING_TPS,
+  offline: NOT_RUNNING,
 };
+
+/**
+ * Why the tile is empty, in a sentence that cannot contradict the status pill above it.
+ *
+ * The API collapses every RCON problem it cannot name into `offline`, so taking that reason
+ * at face value tells a server that is visibly running to start itself. The live status is
+ * the tiebreak: if it is up, the problem is RCON, not power.
+ */
+function tickRateUnavailable(health: ServerHealth | undefined, isRunning: boolean): string {
+  const reason = health?.unavailable;
+  if (reason && reason !== 'offline') return HEALTH_UNAVAILABLE[reason] ?? NOT_REPORTING_TPS;
+  return isRunning ? NOT_REPORTING_TPS : NOT_RUNNING;
+}
 
 /** Sample values out of a series response, oldest first, for a sparkline. */
 function historyOf(response: MetricSeries | undefined): number[] {
@@ -59,8 +81,6 @@ function latestOf(response: MetricSeries | undefined): number | null {
   const last = points[points.length - 1];
   return last ? last.avg : null;
 }
-
-const SECTION_HEADING = 'text-title-2 text-label';
 
 export function MonitoringPage() {
   const { server, status, console: consoleState } = useServerScope();
@@ -142,7 +162,6 @@ export function MonitoringPage() {
               history={historyOf(cpuHour.data)}
               icon={<Cpu />}
               label="CPU"
-              series={1}
               {...(stats ? {} : { unavailable: 'Nothing is running to measure.' })}
               value={stats ? formatPercent(stats.cpuPercent) : null}
             />
@@ -156,7 +175,6 @@ export function MonitoringPage() {
               history={historyOf(memoryHour.data)}
               icon={<MemoryStick />}
               label="Memory"
-              series={3}
               {...(stats ? {} : { unavailable: 'Nothing is running to measure.' })}
               value={stats ? formatBytes(stats.memoryBytes) : null}
             />
@@ -171,7 +189,6 @@ export function MonitoringPage() {
               icon={<Database />}
               isLoading={diskPending}
               label="Disk"
-              series={2}
               {...(diskBytes === null
                 ? {
                     unavailable:
@@ -190,12 +207,11 @@ export function MonitoringPage() {
               history={historyOf(playersHour.data)}
               icon={<Users />}
               label="Players"
-              series={5}
               {...(stats?.playersOnline === null || stats?.playersOnline === undefined
                 ? {
                     unavailable: isRunning
                       ? 'This server is not reporting a player count. Turn RCON on in Settings to read it.'
-                      : 'Available once the server is running.',
+                      : NOT_RUNNING,
                   }
                 : {})}
               value={
@@ -217,11 +233,7 @@ export function MonitoringPage() {
               tone={health.data?.tps && health.data.tps.oneMinute < 15 ? 'warning' : 'default'}
               {...(health.data?.tps
                 ? {}
-                : {
-                    unavailable: health.data?.unavailable
-                      ? HEALTH_UNAVAILABLE[health.data.unavailable]
-                      : 'Available once the server is running.',
-                  })}
+                : { unavailable: tickRateUnavailable(health.data, isRunning) })}
               value={health.data?.tps ? health.data.tps.oneMinute.toFixed(1) : null}
             />
 

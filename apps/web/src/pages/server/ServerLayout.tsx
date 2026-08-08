@@ -1,8 +1,8 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import type { Blueprint, Server, ServerStatus } from '@platter/shared';
-import { formatAddress } from '@platter/shared';
 import { ArrowLeft } from 'pixelarticons/react/ArrowLeft.js';
+import { connectAddress } from '@/components/common/connect-address';
 import { CopyField } from '@/components/common/copy-field';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
@@ -14,7 +14,7 @@ import { PowerControls } from '@/components/servers/power-controls';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useBlueprint, useConsole, useMediaQuery, useServer } from '@/hooks';
+import { useBlueprint, useConsole, useMediaQuery, useServer, useServerAddress } from '@/hooks';
 import type { UseConsoleResult } from '@/hooks/use-console.js';
 import { ApiError } from '@/lib/api-client.js';
 
@@ -39,7 +39,11 @@ export interface ServerScope {
   console: UseConsoleResult;
   /** The socket's status when it has one, the server record's otherwise. */
   status: ServerStatus;
-  /** `host:port` of the primary allocation, or `null` before one is assigned. */
+  /**
+   * What a player types to join — the friendly hostname where one resolves, `host:port`
+   * otherwise, `null` before a port is assigned. Never a bind address; see
+   * `components/common/connect-address.ts`.
+   */
   primaryAddress: string | null;
 }
 
@@ -99,6 +103,19 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
   const location = useLocation();
   const navigate = useNavigate();
   const compact = useMediaQuery('(max-width: 639px)');
+  const tabScroller = useRef<HTMLDivElement | null>(null);
+  const activeValue = activeTabValue(location.pathname, serverId);
+
+  /*
+   * Keep the selected tab on screen. Nine tabs are ~790px wide, so on a phone five of them
+   * sit outside the scroller — and deep-linking to Monitoring or Settings landed on a strip
+   * scrolled to 0 with nothing selected in view, which reads as broken navigation rather
+   * than as a cramped one.
+   */
+  useEffect(() => {
+    const selected = tabScroller.current?.querySelector('[aria-selected="true"]');
+    selected?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [activeValue]);
 
   const serverQuery = useServer(serverId);
   const server = serverQuery.data;
@@ -106,6 +123,11 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
   // Mounted unconditionally: hooks cannot be called behind a branch, and the socket is
   // wanted from the moment the route opens rather than after the detail query settles.
   const consoleState = useConsole(serverId);
+  // The Network tab issues the same query under the same key, so opening it is a cache hit
+  // rather than a second request. It is worth one query here because the allocation on the
+  // server record only carries the *bind* address — `0.0.0.0` — and this header sits next
+  // to a copy button labelled "Connect address".
+  const addressQuery = useServerAddress(serverId);
 
   const status: ServerStatus = consoleState.serverStatus ?? server?.status ?? 'offline';
 
@@ -118,9 +140,12 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
       blueprint: blueprintQuery.data,
       console: consoleState,
       status,
-      primaryAddress: primary ? formatAddress(primary.hostIp, primary.hostPort) : null,
+      primaryAddress: connectAddress(
+        { connectString: addressQuery.data?.connectString ?? null },
+        primary ? { host: primary.hostIp, port: primary.hostPort } : null,
+      ),
     };
-  }, [server, blueprintQuery.data, consoleState, status]);
+  }, [server, blueprintQuery.data, consoleState, status, addressQuery.data]);
 
   if (serverQuery.isPending) return <ServerSkeleton />;
 
@@ -140,7 +165,6 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
 
   if (!scope || !server) return <ServerSkeleton />;
 
-  const activeValue = activeTabValue(location.pathname, serverId);
   const tabs = TABS.filter(
     (tab) => !tab.feature || !blueprintQuery.data || blueprintQuery.data.features[tab.feature],
   );
@@ -170,10 +194,12 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
         value={activeValue}
       >
         <PageHeader
-          description={subtitle}
+          /* Dropped on a phone: the game mark two lines down already says which game this
+             is, and on a 740px screen this header competes with the console for the fold. */
+          {...(compact ? {} : { description: subtitle })}
           eyebrow={
             <Link
-              className="inline-flex h-8 items-center gap-1.5 text-caption text-label-tertiary hover:text-label"
+              className="hit-target -ms-1 inline-flex h-8 items-center gap-1.5 px-1 text-caption text-label-tertiary hover:text-label"
               to="/servers"
             >
               <ArrowLeft aria-hidden className="size-3.5" />
@@ -207,10 +233,14 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
                     value={scope.primaryAddress}
                     variant="inline"
                   />
-                ) : (
+                ) : server.allocations.length === 0 ? (
                   <span className="text-caption text-label-tertiary">
                     No port assigned yet. One is allocated when the container is created.
                   </span>
+                ) : (
+                  // A port exists but only as a bind address until the address query lands.
+                  // Showing that would mean printing `0.0.0.0`, so hold the space instead.
+                  <Skeleton className="h-5 w-56 max-w-full rounded-xs" />
                 )}
               </div>
 
@@ -221,10 +251,14 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
 
             <div
               /* On a phone the nine tabs must scroll sideways; wrapping them into three
-                 stacked rows pushes the actual page below the fold. */
-              className="-mx-6 overflow-x-auto px-6 lg:mx-0 lg:px-0"
+                 stacked rows pushes the actual page below the fold. `tab-scroller` fades
+                 the overflowing edge so the hidden tabs are discoverable — without it a
+                 360px screen shows four tabs and no hint that five more exist. */
+              className="tab-scroller -mx-6 overflow-x-auto px-6 lg:mx-0 lg:px-0"
+              ref={tabScroller}
             >
               <TabsList
+                aria-label="Server sections"
                 className="w-max min-w-full justify-start gap-x-1 border-b-0"
                 variant="underline"
               >
@@ -402,8 +436,14 @@ function NoAccess() {
 /**
  * Shared page-level furniture for the tabs below this layout, kept here so nine screens do
  * not each invent their own section heading size.
+ *
+ * `SECTION_HEADING` is the `<h2>` that opens a block on a tab — "Right now", "Files",
+ * "Schedules". It stays in the pixel display face: the two faces divide by *role*, not by
+ * screen, and a tab whose section headings are 20px sans while the next tab's are 24px pixel
+ * makes the two read as different products. Card and dialog titles are a different role and
+ * are correctly sans at 20px — see the `SECTION_TITLE` constants next to them.
  */
-export const SECTION_TITLE = 'font-sans text-title-3 font-semibold';
+export const SECTION_HEADING = 'text-title-2 text-label';
 export const ACTION_BUTTON = 'h-11 rounded-button px-5 text-subhead font-medium';
 
 /** A disabled control always says why, and the reason is reachable from the control. */

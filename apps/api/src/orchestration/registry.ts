@@ -4,6 +4,7 @@ import type { NodeStatus } from '@platter/shared';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { notFound } from '../lib/errors.js';
+import { observeDriverOperation } from '../services/metrics.js';
 import { DockerDriver } from './docker.js';
 import { MockDriver, isMockDriver } from './mock.js';
 import type { OrchestrationDriver } from './driver.js';
@@ -52,9 +53,55 @@ function fingerprintOf(node: NodeRow): string {
 }
 
 function instantiate(node: NodeRow): OrchestrationDriver {
-  return effectiveKind(node) === 'mock'
-    ? new MockDriver({ nodeId: node.id })
-    : new DockerDriver({ nodeId: node.id, endpoint: node.endpoint });
+  const kind = effectiveKind(node);
+  const driver =
+    kind === 'mock'
+      ? new MockDriver({ nodeId: node.id })
+      : new DockerDriver({ nodeId: node.id, endpoint: node.endpoint });
+  return instrument(driver, kind);
+}
+
+/**
+ * Times every driver call into `platter_driver_operation_duration_seconds`.
+ *
+ * A proxy rather than a wrapper class, and here rather than in the drivers: "how long is
+ * the daemon taking" is an operator's question about the registry's product, not something
+ * each driver should have to remember to report — and a method added to the interface later
+ * is measured without anyone touching this file.
+ *
+ * Async generators (`streamLogs`) are deliberately not timed: they are open for as long as
+ * someone is watching, so a duration would measure the viewer, not the daemon.
+ */
+function instrument(driver: OrchestrationDriver, kind: DriverKind): OrchestrationDriver {
+  return new Proxy(driver, {
+    get(target, property, receiver) {
+      const value: unknown = Reflect.get(target, property, receiver);
+      if (typeof value !== 'function' || typeof property !== 'string') return value;
+
+      return (...args: unknown[]): unknown => {
+        const started = process.hrtime.bigint();
+        const elapsed = (): number => Number(process.hrtime.bigint() - started) / 1e9;
+        let result: unknown;
+        try {
+          result = (value as (...call: unknown[]) => unknown).apply(target, args);
+        } catch (error) {
+          observeDriverOperation(kind, property, elapsed(), 'error');
+          throw error;
+        }
+        if (!(result instanceof Promise)) return result;
+        return result.then(
+          (resolved: unknown) => {
+            observeDriverOperation(kind, property, elapsed());
+            return resolved;
+          },
+          (error: unknown) => {
+            observeDriverOperation(kind, property, elapsed(), 'error');
+            throw error;
+          },
+        );
+      };
+    },
+  });
 }
 
 /** Mock drivers own a timer; dropping one without disposing it leaks that timer. */

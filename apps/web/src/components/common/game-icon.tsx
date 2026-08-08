@@ -9,8 +9,9 @@ import { cn } from '@/lib/utils';
  * blueprint is not loaded yet, the hue is derived from its key — deterministically, so the
  * icon never changes colour between two renders of the same server.
  *
- * Square with a small radius, never a circle: the whole system rests on rounded chrome
- * against square content, and a circular game mark reads as an avatar.
+ * Square, never a circle and never rounded: the whole system rests on rounded chrome against
+ * square content, so a game mark that borrows the chrome's radius erases the one contrast the
+ * design is built on. A circular one reads as an avatar, which is a different object entirely.
  */
 
 export type GameIconSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -20,10 +21,10 @@ export type GameIconSize = 'xs' | 'sm' | 'md' | 'lg';
  * sizes set their monogram in bold sans and the two large ones get the display face.
  */
 const SIZE_CLASS: Record<GameIconSize, string> = {
-  xs: 'size-5 rounded-xs text-caption-2 font-sans font-semibold',
-  sm: 'size-7 rounded-xs text-caption font-sans font-semibold',
-  md: 'size-11 rounded-sm text-subhead font-heading font-medium',
-  lg: 'size-16 rounded-md text-title-3 font-heading font-medium',
+  xs: 'size-5 rounded-none text-caption-2 font-sans font-semibold',
+  sm: 'size-7 rounded-none text-caption font-sans font-semibold',
+  md: 'size-11 rounded-none text-subhead font-heading font-medium',
+  lg: 'size-16 rounded-none text-title-3 font-heading font-medium',
 };
 
 /** How many characters of the monogram fit without crowding the mark. */
@@ -44,6 +45,48 @@ export interface GameIconProps {
    */
   label?: string | undefined;
   className?: string | undefined;
+}
+
+/**
+ * The gradient's two lightness stops, and the floor the *lighter* one may not cross.
+ *
+ * Lightness in HSL is not perceptual: `hsl(220 46% 48%)` is a deep blue that carries white
+ * comfortably, while `hsl(90 46% 48%)` is a bright lime where white measures 2.6:1 — and the
+ * shipped Minecraft and Terraria marks were exactly that. Since a blueprint declares only a
+ * hue, and the fallback hashes one out of a string, the failure is unbounded rather than a
+ * few bad values someone could fix by hand.
+ *
+ * So the hue is honoured and the lightness is solved for: darkened, per hue, only as far as
+ * white needs. Reds, blues and purples keep their declared 48%; the yellows and greens that
+ * would have swallowed their monogram come down until they hold it.
+ */
+const STOP_LIGHT = 0.48;
+const STOP_DARK = 0.38;
+const SATURATION = 0.46;
+/** Background luminance at which white reaches 4.5:1. */
+const MAX_LUMINANCE = 0.1783;
+
+function channel(value: number): number {
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+/** Relative luminance of an `hsl()` colour, without going through a string. */
+function hslLuminance(hue: number, saturation: number, lightness: number): number {
+  const chroma = saturation * Math.min(lightness, 1 - lightness);
+  const component = (n: number): number => {
+    const k = (n + hue / 30) % 12;
+    return channel(lightness - chroma * Math.max(-1, Math.min(k - 3, 9 - k, 1)));
+  };
+  return 0.2126 * component(0) + 0.7152 * component(8) + 0.0722 * component(4);
+}
+
+/** The lighter stop for this hue, lowered in 1% steps only if white would not clear AA. */
+function legibleLightness(hue: number): number {
+  let lightness = STOP_LIGHT;
+  while (lightness > 0.2 && hslLuminance(hue, SATURATION, lightness) > MAX_LUMINANCE) {
+    lightness -= 0.01;
+  }
+  return lightness;
 }
 
 /** `minecraft-java` -> `MJ`, `valheim` -> `VA`, `Survival SMP` -> `SS`. */
@@ -85,7 +128,11 @@ export function GameIcon({
       )}
       style={{
         // Two stops of the same hue so a generated mark reads as artwork rather than a swatch.
-        backgroundImage: `linear-gradient(160deg, hsl(${resolvedHue} 46% 48%), hsl(${resolvedHue} 44% 38%))`,
+        backgroundImage: (() => {
+          const top = legibleLightness(resolvedHue);
+          const bottom = top - (STOP_LIGHT - STOP_DARK);
+          return `linear-gradient(160deg, hsl(${resolvedHue} 46% ${(top * 100).toFixed(1)}%), hsl(${resolvedHue} 44% ${(bottom * 100).toFixed(1)}%))`;
+        })(),
       }}
       {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >

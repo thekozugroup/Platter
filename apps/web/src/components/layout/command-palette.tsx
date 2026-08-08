@@ -5,13 +5,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useNavigate } from 'react-router';
 import { Search } from 'pixelarticons/react/Search.js';
+import { connectAddress } from '@/components/common/connect-address';
 import { GameIcon } from '@/components/common/game-icon';
 import { StatusPill } from '@/components/common/status-pill';
 import { ADMIN_NAV, PRIMARY_NAV, useSidebarServers } from '@/components/layout/sidebar';
+import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
 import {
   Command,
   CommandContent,
@@ -56,6 +59,13 @@ export interface CommandPaletteContextValue {
   toggle: () => void;
   /** `⌘K` on Apple keyboards, `Ctrl K` everywhere else. */
   shortcutHint: string;
+  /**
+   * Whatever had focus when the palette was opened. The dialog is controlled rather than
+   * driven by a trigger, so Ark has nothing of its own to hand focus back to on Escape and
+   * would otherwise drop the keyboard user on `<body>` — at the top of the document, in the
+   * app's own headline keyboard affordance.
+   */
+  returnFocusEl: () => HTMLElement | null;
 }
 
 const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(null);
@@ -68,8 +78,15 @@ function isApplePlatform(): boolean {
 export function CommandPaletteProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const { status } = useAuth();
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const shortcutHint = useMemo(() => (isApplePlatform() ? '⌘K' : 'Ctrl K'), []);
+
+  // Remembered on the way in, while the trigger still has focus.
+  const rememberFocus = useCallback(() => {
+    const active = document.activeElement;
+    returnFocusRef.current = active instanceof HTMLElement ? active : null;
+  }, []);
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -77,22 +94,30 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
+      rememberFocus();
       setIsOpen((current) => !current);
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [status]);
+  }, [status, rememberFocus]);
 
   const value = useMemo<CommandPaletteContextValue>(
     () => ({
       isOpen,
-      open: () => setIsOpen(true),
+      open: () => {
+        rememberFocus();
+        setIsOpen(true);
+      },
       close: () => setIsOpen(false),
-      toggle: () => setIsOpen((current) => !current),
+      toggle: () => {
+        rememberFocus();
+        setIsOpen((current) => !current);
+      },
       shortcutHint,
+      returnFocusEl: () => (returnFocusRef.current?.isConnected ? returnFocusRef.current : null),
     }),
-    [isOpen, shortcutHint],
+    [isOpen, shortcutHint, rememberFocus],
   );
 
   return (
@@ -123,33 +148,47 @@ function matches(entry: PaletteEntry, query: string): boolean {
 }
 
 function CommandPalette() {
-  const { isOpen, close } = useCommandPalette();
+  const { isOpen, close, returnFocusEl } = useCommandPalette();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const { data } = useSidebarServers();
+  // A server's mark must be the same colour and letters wherever it appears; without the
+  // blueprint's own icon the fallback hash invents a different hue from the one the cards
+  // show for the same server.
+  const blueprints = useBlueprintIndex();
   const [query, setQuery] = useState('');
 
   const entries = useMemo<PaletteEntry[]>(() => {
-    const servers: PaletteEntry[] = (data?.data ?? []).map((server) => ({
-      id: `server:${server.id}`,
-      label: server.name,
-      hint: server.primaryAddress ?? undefined,
-      keywords: `${server.blueprintKey} ${server.status} server`,
-      group: 'servers',
-      to: `/servers/${server.id}`,
-      render: () => (
-        <>
-          <GameIcon blueprintKey={server.blueprintKey} name={server.name} size="sm" />
-          <span className="min-w-0 flex-1 truncate">{server.name}</span>
-          {server.primaryAddress ? (
-            <span className="hidden truncate font-mono text-caption text-label-tertiary sm:inline">
-              {server.primaryAddress}
-            </span>
-          ) : null}
-          <StatusPill status={server.status} />
-        </>
-      ),
-    }));
+    const servers: PaletteEntry[] = (data?.data ?? []).map((server) => {
+      const address = connectAddress(server);
+      const icon = blueprints.get(server.blueprintKey)?.icon;
+      return {
+        id: `server:${server.id}`,
+        label: server.name,
+        hint: address ?? undefined,
+        keywords: `${server.blueprintKey} ${server.status} server`,
+        group: 'servers',
+        to: `/servers/${server.id}`,
+        render: () => (
+          <>
+            <GameIcon
+              blueprintKey={server.blueprintKey}
+              hue={icon?.hue}
+              monogram={icon?.monogram}
+              name={server.name}
+              size="sm"
+            />
+            <span className="min-w-0 flex-1 truncate">{server.name}</span>
+            {address ? (
+              <span className="hidden truncate font-mono text-caption text-label-tertiary sm:inline">
+                {address}
+              </span>
+            ) : null}
+            <StatusPill status={server.status} />
+          </>
+        ),
+      };
+    });
 
     const navItems = [...PRIMARY_NAV, ...(isAdmin ? ADMIN_NAV : [])];
     const pages: PaletteEntry[] = [
@@ -180,7 +219,7 @@ function CommandPalette() {
     ];
 
     return [...servers, ...pages];
-  }, [data, isAdmin]);
+  }, [data, isAdmin, blueprints]);
 
   const filtered = useMemo(() => entries.filter((entry) => matches(entry, query)), [entries, query]);
 
@@ -209,6 +248,7 @@ function CommandPalette() {
 
   return (
     <CommandDialog
+      finalFocusEl={returnFocusEl}
       onOpenChange={({ open }) => {
         if (!open) {
           close();

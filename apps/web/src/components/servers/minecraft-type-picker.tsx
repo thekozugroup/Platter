@@ -479,4 +479,15 @@ export function hasMinecraftTypePicker(blueprintKey: string): boolean {
   return blueprintKey === 'minecraft-java';
 }
 
+/**
+ * The plain-language name for a `TYPE` value, for prose elsewhere in the app.
+ *
+ * Sentences read to a non-technical operator must never shout `FABRIC` or `AUTO_CURSEFORGE`
+ * at them. The raw value keeps its place inside the picker's own `<code>` metadata line,
+ * where it is marked up as the technical identifier it is.
+ */
+export function minecraftTypeLabel(value: string): string {
+  return TYPE_COPY[value]?.label ?? value;
+}
+
 export { TYPE_VARIABLE_KEY };

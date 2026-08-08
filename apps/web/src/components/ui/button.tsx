@@ -12,9 +12,11 @@ export const buttonVariants = tv({
     "rounded-lg",
     "transition-all",
     "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32",
-    "disabled:pointer-events-none disabled:opacity-64",
-    "data-disabled:pointer-events-none data-disabled:opacity-64",
-    "aria-disabled:pointer-events-none aria-disabled:opacity-64",
+    // 40%, not Shark's 64%: at 64% a dark primary button still reads as enabled, so people
+    // press it and nothing happens. See DESIGN.md §8.
+    "disabled:pointer-events-none disabled:opacity-40",
+    "data-disabled:pointer-events-none data-disabled:opacity-40",
+    "aria-disabled:pointer-events-none aria-disabled:opacity-40",
     "data-[state=loading]:pointer-events-none",
     "aria-invalid:border-destructive aria-invalid:ring-destructive/24",
     "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",

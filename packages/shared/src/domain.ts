@@ -153,6 +153,25 @@ export const SERVER_PERMISSIONS = [
 
 export type ServerPermission = (typeof SERVER_PERMISSIONS)[number];
 
+/**
+ * Scopes that have no per-server analogue. Everything else in the API-key vocabulary is a
+ * `ServerPermission`, reused verbatim: a key must not be grantable something a subuser
+ * could not be granted, and one list is easier to reason about than two that drift.
+ */
+export const GLOBAL_SCOPES = ['server.create', 'audit.read'] as const;
+export type GlobalScope = (typeof GLOBAL_SCOPES)[number];
+
+/**
+ * What an API key can be restricted to. Enforced identically on MCP and on REST — a key
+ * that cannot stop a server over one surface must not be able to stop it over the other.
+ */
+export const API_KEY_SCOPES = [...SERVER_PERMISSIONS, ...GLOBAL_SCOPES] as const;
+export type ApiKeyScope = ServerPermission | GlobalScope;
+
+export function isApiKeyScope(value: unknown): value is ApiKeyScope {
+  return typeof value === 'string' && (API_KEY_SCOPES as readonly string[]).includes(value);
+}
+
 /** Sensible default grant for an invited collaborator: run it, don't destroy it. */
 export const DEFAULT_SUBUSER_PERMISSIONS: readonly ServerPermission[] = [
   'server.view',

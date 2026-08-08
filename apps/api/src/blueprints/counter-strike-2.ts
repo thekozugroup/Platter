@@ -30,7 +30,7 @@ export const counterStrike2Blueprint: BlueprintDefinition = {
   minDiskMb: 61440,
   ports: [
     { name: 'game', label: 'Game', containerPort: 27015, protocol: 'udp', primary: true },
-    { name: 'rcon', label: 'RCON', containerPort: 27015, protocol: 'tcp' },
+    { name: 'rcon', label: 'RCON', containerPort: 27015, protocol: 'tcp', bindLocal: true },
     { name: 'tv', label: 'CSTV', containerPort: 27020, protocol: 'udp' },
   ],
   variables: [

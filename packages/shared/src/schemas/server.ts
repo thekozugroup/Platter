@@ -47,7 +47,15 @@ export const serverSchema = z.object({
   containerId: z.string().nullable(),
   limits: resourceLimitsSchema,
   allocations: z.array(serverAllocationSchema),
+  /**
+   * The address a player types. Built from the server's hostname where that resolves, and
+   * never from an allocation's `hostIp` — that is a bind address (`0.0.0.0`), which is not
+   * a thing anyone can connect to.
+   */
+  connectString: z.string().nullable(),
   variables: z.record(z.string(), z.string()),
+  /** Keys whose value came back as `[redacted]`. Password-typed variables are never sent. */
+  redactedVariables: z.array(z.string()),
   autoStart: z.boolean(),
   /** Restart automatically after an unexpected exit, up to a backoff cap. */
   autoRestart: z.boolean(),
@@ -68,6 +76,7 @@ export const serverSummarySchema = z.object({
   blueprintKey: z.string(),
   status: z.enum(SERVER_STATUSES),
   nodeId: idSchema,
+  /** The address a player types — same rule as `serverSchema.connectString`. */
   primaryAddress: z.string().nullable(),
   memoryMb: z.number().int(),
   cpuCores: z.number(),

@@ -34,7 +34,7 @@ export const factorioBlueprint: BlueprintDefinition = {
   minDiskMb: 4096,
   ports: [
     { name: 'game', label: 'Game', containerPort: 34197, protocol: 'udp', primary: true },
-    { name: 'rcon', label: 'RCON', containerPort: 27015, protocol: 'tcp' },
+    { name: 'rcon', label: 'RCON', containerPort: 27015, protocol: 'tcp', bindLocal: true },
   ],
   variables: [
     {

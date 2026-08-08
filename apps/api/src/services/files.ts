@@ -118,6 +118,42 @@ async function resolveServerPath(serverId: string, relPath: string): Promise<Res
   };
 }
 
+/**
+ * The final component *without* dereferencing it, when that component is a symlink.
+ *
+ * `resolveServerPath` deliberately canonicalises everything, which is right for reading and
+ * writing — the bytes really do live at the target. It is wrong for deleting and renaming: a
+ * link is its own object, and `rm` on the realpath destroys whatever it points at. A user
+ * who deletes what the file list showed as a shortcut would lose the world folder behind it.
+ *
+ * The parent chain is still resolved and containment-checked, so this narrows what is
+ * dereferenced to exactly one component and gives up no part of the sandbox. Returns null
+ * when the entry is not a link, and the caller falls back to the ordinary resolved path.
+ */
+async function resolveLinkItself(
+  serverId: string,
+  relPath: string,
+): Promise<{ absolute: string; relative: string } | null> {
+  if (relPath.startsWith('/')) return null;
+  const root = serverDataDir(serverId);
+  try {
+    const realRoot = await fsRealpath(root);
+    const lexical = path.resolve(path.join(realRoot, relPath));
+    if (lexical === realRoot) return null;
+
+    const realParent = await fsRealpath(path.dirname(lexical));
+    if (realParent !== realRoot && !realParent.startsWith(realRoot + path.sep)) return null;
+
+    const absolute = path.join(realParent, path.basename(lexical));
+    const st = await lstat(absolute);
+    if (!st.isSymbolicLink()) return null;
+    return { absolute, relative: path.relative(realRoot, absolute).split(path.sep).join('/') };
+  } catch {
+    // Nothing there, or a parent that does not resolve. Both are the ordinary path's problem.
+    return null;
+  }
+}
+
 /** Maps common fs failures onto the error the client actually needs to hear. */
 function translateFsError(error: unknown, fallback: string): PlatterError {
   if (error instanceof PlatterError) return error;
@@ -412,9 +448,9 @@ export async function createServerDirectory(serverId: string, relPath: string): 
 }
 
 export async function renameServerPath(serverId: string, from: string, to: string): Promise<FileEntry> {
-  const src = await resolveServerPath(serverId, from);
-  if (src.isRoot) throw badRequest('The server root cannot be renamed.');
-  if (!src.exists) throw notFound('file or folder');
+  // Same rule as delete: renaming a shortcut moves the shortcut, not what it points at.
+  const link = await resolveLinkItself(serverId, from);
+  const source = link ?? (await resolveSourceForRename(serverId, from));
 
   const dst = await resolveServerPath(serverId, to);
   if (dst.isRoot) throw badRequest('Cannot rename onto the server root.');
@@ -422,11 +458,21 @@ export async function renameServerPath(serverId: string, from: string, to: strin
   if (dst.missing.length > 1) throw notFound('destination folder');
 
   try {
-    await rename(src.absolute, dst.absolute);
+    await rename(source.absolute, dst.absolute);
   } catch (error) {
     throw translateFsError(error, 'Could not rename that.');
   }
   return buildEntry(dst);
+}
+
+async function resolveSourceForRename(
+  serverId: string,
+  from: string,
+): Promise<{ absolute: string; relative: string }> {
+  const src = await resolveServerPath(serverId, from);
+  if (src.isRoot) throw badRequest('The server root cannot be renamed.');
+  if (!src.exists) throw notFound('file or folder');
+  return src;
 }
 
 export async function copyServerPath(serverId: string, from: string, to: string): Promise<FileEntry> {
@@ -456,6 +502,19 @@ export async function deleteServerPaths(
 ): Promise<{ deleted: string[] }> {
   const deleted: string[] = [];
   for (const relPath of relPaths) {
+    // A link is unlinked, never followed — see `resolveLinkItself`. This also makes a link
+    // pointing outside the sandbox removable, which resolving it never could.
+    const link = await resolveLinkItself(serverId, relPath);
+    if (link) {
+      try {
+        await rm(link.absolute, { force: true });
+      } catch (error) {
+        throw translateFsError(error, `Could not delete ${link.relative}.`);
+      }
+      deleted.push(link.relative);
+      continue;
+    }
+
     const resolved = await resolveServerPath(serverId, relPath);
     if (resolved.isRoot) throw badRequest('The server root cannot be deleted.');
     if (!resolved.exists) continue; // already gone: deleting is idempotent, not an error
@@ -532,16 +591,38 @@ export async function extractServerArchive(
     if (!destStat.isDirectory()) throw conflict('The destination is not a folder.');
   }
 
+  // Staged inside the server root, never straight into the destination.
+  //
+  // `strict: true` turns every warning the parser would otherwise swallow into a thrown
+  // error — including the ones tar raises for an entry that contains `..`, is absolute, or
+  // would resolve through a symlink out of `cwd`. That is the zip-slip defence, and it
+  // holds. But tar streams, so it raises that error partway through: by the time a hostile
+  // member is rejected, every member before it is already on disk. Extracting somewhere
+  // disposable and only merging on success is what makes the refusal mean "nothing was
+  // written" rather than "we stopped halfway".
+  const staging = path.join(serverDataDir(serverId), `.platter-extract-${randomUUID()}`);
   try {
-    // `strict: true` turns every warning the parser would otherwise swallow into a thrown
-    // error — including the ones tar raises for an entry that contains `..`, is absolute,
-    // or would resolve through a symlink out of `cwd`. That is the zip-slip defence: a
-    // hostile archive fails the whole extraction rather than writing anything past it.
-    await pipeline(createReadStream(archive.absolute), tarExtract({ cwd: dest.absolute, strict: true }));
-  } catch {
-    throw badRequest(
-      'That archive could not be extracted. It may be corrupt, or contain paths that escape the destination.',
-    );
+    await mkdir(staging, { recursive: true });
+    try {
+      await pipeline(createReadStream(archive.absolute), tarExtract({ cwd: staging, strict: true }));
+    } catch {
+      throw badRequest(
+        'That archive could not be extracted. It may be corrupt, or contain paths that escape the destination.',
+      );
+    }
+
+    // `force` so an archive may overwrite files that are already there, which is what
+    // extracting over an existing folder has always meant here.
+    for (const name of await readdir(staging)) {
+      await cp(path.join(staging, name), path.join(dest.absolute, name), {
+        recursive: true,
+        force: true,
+      });
+    }
+  } catch (error) {
+    throw translateFsError(error, 'Could not extract that archive.');
+  } finally {
+    await rm(staging, { recursive: true, force: true }).catch(() => undefined);
   }
   return buildEntry(dest);
 }

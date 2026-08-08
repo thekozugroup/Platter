@@ -101,7 +101,10 @@ export const TabsTrigger = (
     <ArkTabs.Trigger
       className={cn(
         "relative",
-        "h-9 sm:h-8",
+        // Shark shrinks this to 32px from `sm` up. A tab is a primary navigation control and
+        // 44px is this product's floor (DESIGN.md §5) — and because the shrink is a `sm:`
+        // variant, a call site passing `h-11` only ever won below 640px.
+        "h-11",
         "flex shrink-0 grow items-center justify-center gap-1.5",
         "px-[calc(--spacing(2.5)-1px)]",
         "whitespace-nowrap font-medium text-sm",

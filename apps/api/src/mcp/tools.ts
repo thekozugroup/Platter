@@ -257,45 +257,6 @@ async function findBlueprint(key: string): Promise<Blueprint | null> {
   return hasBlueprint(key) ? getBlueprint(key) : null;
 }
 
-/**
- * Replaces the values of `password`-typed blueprint variables before they leave the process.
- *
- * A human reading the settings page has already chosen to look at one secret at a time. An
- * agent reading `get_server` would pull every RCON password into a third-party model's
- * context in one call, and that is not the same trade — so the keys are reported and the
- * values are not.
- */
-export function redactVariables(
-  variables: Record<string, string>,
-  blueprint: Blueprint | null,
-): { variables: Record<string, string>; redacted: string[] } {
-  const secrets = new Set(
-    (blueprint?.variables ?? [])
-      .filter((variable) => variable.type === 'password')
-      .map((variable) => variable.key),
-  );
-
-  const safe: Record<string, string> = {};
-  const redacted: string[] = [];
-  for (const [key, value] of Object.entries(variables)) {
-    if (secrets.has(key) && value.length > 0) {
-      safe[key] = '[redacted]';
-      redacted.push(key);
-    } else {
-      safe[key] = value;
-    }
-  }
-  return { variables: safe, redacted };
-}
-
-function primaryAddressOf(
-  allocations: readonly { hostPort: number; primary: boolean }[],
-  publicHost: string,
-): string | null {
-  const primary = allocations.find((allocation) => allocation.primary) ?? allocations[0];
-  return primary ? formatAddress(publicHost, primary.hostPort) : null;
-}
-
 export interface LogRead {
   lines: DriverLogLine[];
   /** True when the tail did not fill before the read deadline — normal for a quiet server. */
@@ -560,18 +521,15 @@ const getServerTool = defineTool({
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   handler: async (args, context) => {
     const row = await authorizeServer(context.principal, args.serverId, 'server.view');
+    // Redaction and the connect string are both applied by the DTO itself now, so every
+    // reader — REST and MCP alike — gets the same answer without repeating the rule here.
     const dto = await loadServerDto(row.id, context.logger);
     const blueprint = await findBlueprint(row.blueprintKey);
-    const { variables, redacted } = redactVariables(dto.variables, blueprint);
-    const node = await prisma.node.findUnique({
-      where: { id: row.nodeId },
-      select: { publicHost: true },
-    });
 
     return {
-      server: { ...dto, variables },
-      redactedVariables: redacted,
-      primaryAddress: node ? primaryAddressOf(dto.allocations, node.publicHost) : null,
+      server: dto,
+      redactedVariables: dto.redactedVariables,
+      primaryAddress: dto.connectString,
       blueprint: blueprint
         ? {
             key: blueprint.key,

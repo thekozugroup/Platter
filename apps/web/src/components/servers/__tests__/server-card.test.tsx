@@ -43,7 +43,9 @@ const MINECRAFT_FULL: Blueprint = {
   ...MINECRAFT,
   description: 'Minecraft on the itzg image.',
   image: 'itzg/minecraft-server:2026.8.0-java21',
-  ports: [{ name: 'game', label: 'Game', containerPort: 25565, protocol: 'tcp', primary: true }],
+  ports: [
+    { name: 'game', label: 'Game', containerPort: 25565, protocol: 'tcp', primary: true, bindLocal: false },
+  ],
   variables: [
     {
       key: 'EULA',
@@ -126,6 +128,7 @@ const MINECRAFT_FULL: Blueprint = {
   signals: { ready: [], crash: [], playerJoin: [], playerLeave: [] },
   command: null,
   stop: { strategy: 'command', command: 'stop', signal: 'SIGTERM', timeoutSeconds: 60 },
+  saveCommands: { flush: ['save-off', 'save-all flush'], resume: ['save-on'] },
   dataPath: '/data',
   docsUrl: null,
 };

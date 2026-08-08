@@ -62,7 +62,7 @@ function SectionHeading({
       <h2 className="text-title-2 text-label">{title}</h2>
       {action ? (
         <Link
-          className="rounded-xs text-subhead font-medium text-label-secondary underline-offset-4 hover:text-label hover:underline"
+          className="hit-target -me-2 inline-flex min-h-11 items-center rounded-xs px-2 text-subhead font-medium text-label-secondary underline-offset-4 hover:text-label hover:underline"
           to={action.to}
         >
           {action.label}

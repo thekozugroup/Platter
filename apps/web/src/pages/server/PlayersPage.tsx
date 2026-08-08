@@ -7,10 +7,11 @@ import {
   ROSTER_UNAVAILABLE_FIX,
   ROSTER_UNAVAILABLE_TITLE,
   blockedReasonFor,
+  rosterDetailFor,
 } from '@/components/players/player-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { usePlayerRoster } from '@/hooks/use-players.js';
-import { useServerScope } from '@/pages/server/ServerLayout';
+import { SECTION_HEADING, useServerScope } from '@/pages/server/ServerLayout';
 
 /**
  * Players: who is on the server now, who has ever been, and who is allowed to be.
@@ -25,8 +26,6 @@ import { useServerScope } from '@/pages/server/ServerLayout';
  * No `PageHeader`: this is a child of `ServerLayout`, which owns the server's name, status
  * and tabs, and supplies both to this screen through `useServerScope`.
  */
-
-const SECTION_HEADING = 'text-title-2 text-label';
 
 export function PlayersPage() {
   const { server, status } = useServerScope();
@@ -55,6 +54,7 @@ export function PlayersPage() {
   const blockedReason = blockedReasonFor(unavailable);
   const players = data?.players ?? [];
   const onlineCount = data?.onlineCount ?? 0;
+  const upstreamDetail = rosterDetailFor(unavailable, data?.unavailableMessage);
 
   return (
     <PageBody>
@@ -83,10 +83,8 @@ export function PlayersPage() {
               <AlertTitle className="font-sans">{ROSTER_UNAVAILABLE_TITLE[unavailable]}</AlertTitle>
               <AlertDescription>
                 <p>{ROSTER_UNAVAILABLE_FIX[unavailable]}</p>
-                {data?.unavailableMessage ? (
-                  <p className="font-mono text-caption text-label-tertiary">
-                    {data.unavailableMessage}
-                  </p>
+                {upstreamDetail ? (
+                  <p className="font-mono text-caption text-label-tertiary">{upstreamDetail}</p>
                 ) : null}
               </AlertDescription>
             </Alert>

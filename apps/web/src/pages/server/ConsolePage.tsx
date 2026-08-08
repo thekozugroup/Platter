@@ -126,7 +126,10 @@ export function ConsolePage() {
       </div>
 
       <ConsoleView
-        className="h-[clamp(20rem,56vh,44rem)]"
+        /* `svh`, not `vh`: on a phone `vh` measures the viewport with the browser chrome
+           hidden, so the panel is taller than what is actually on screen and the command
+           input lands under the address bar. */
+        className="h-[clamp(18rem,56svh,44rem)]"
         connectionState={live.connectionState}
         lines={live.lines}
         onClear={live.clear}

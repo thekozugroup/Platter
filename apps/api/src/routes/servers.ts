@@ -17,7 +17,7 @@ import {
   type ServerPermission,
 } from '@platter/shared';
 import { forbidden, unauthenticated } from '../lib/errors.js';
-import { requireServer, type AuthenticatedUser } from '../plugins/auth.js';
+import { assertRequestScope, requireServer, type AuthenticatedUser } from '../plugins/auth.js';
 import { recordAuditFromRequest } from '../services/audit.js';
 import {
   deleteServer,
@@ -89,7 +89,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
   app.get(
     '/',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireScope('server.view'),
       schema: {
         tags: ['servers'],
         summary: 'List servers visible to the caller',
@@ -103,7 +103,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
   app.post(
     '/',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireScope('server.create'),
       schema: {
         tags: ['servers'],
         summary: 'Create a server',
@@ -245,9 +245,12 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
       const user = actor(request);
 
       // Re-checked against the action's own grant: `server.view` in the preHandler only
-      // got us far enough to read the body and learn which action was asked for.
-      const granted = await serverPermissionsFor(server, user, request.log);
+      // got us far enough to read the body and learn which action was asked for. Both the
+      // credential's scope and the account's permission have to allow it — an API key
+      // scoped for reads must not be able to stop a server just because its owner could.
       const needed = POWER_PERMISSIONS[action];
+      assertRequestScope(request, needed);
+      const granted = await serverPermissionsFor(server, user, request.log);
       if (!granted?.has(needed)) {
         throw forbidden(`You do not have permission to ${action} this server.`);
       }

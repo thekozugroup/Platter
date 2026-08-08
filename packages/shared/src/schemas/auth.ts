@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LIMITS, USER_ROLES } from '../domain.js';
+import { API_KEY_SCOPES, LIMITS, USER_ROLES } from '../domain.js';
 import { idSchema, isoDateSchema } from './common.js';
 
 /**
@@ -99,6 +99,8 @@ export const apiKeySchema = z.object({
   id: idSchema,
   name: z.string(),
   prefix: z.string(),
+  /** Empty means unrestricted — the key can do whatever its owner can. */
+  scopes: z.array(z.enum(API_KEY_SCOPES)),
   lastUsedAt: isoDateSchema.nullable(),
   expiresAt: isoDateSchema.nullable(),
   createdAt: isoDateSchema,
@@ -107,6 +109,13 @@ export type ApiKey = z.infer<typeof apiKeySchema>;
 
 export const createApiKeyRequestSchema = z.object({
   name: z.string().min(1).max(64),
+  /**
+   * Narrows what the key may do. The default is deliberately the empty array — an
+   * unrestricted key — because that is what every key minted before scopes existed is, and
+   * silently narrowing them on upgrade would break working agents. Callers that care pass
+   * a list.
+   */
+  scopes: z.array(z.enum(API_KEY_SCOPES)).max(API_KEY_SCOPES.length).default([]),
   expiresInDays: z.number().int().min(1).max(3650).nullable().default(null),
 });
 

@@ -40,6 +40,9 @@ model User {
   /// `totpEnabled` flips — an unconfirmed setup must not lock anyone out.
   totpSecret   String?
   totpEnabled  Boolean   @default(false)
+  /// Highest TOTP time step already spent. RFC 6238 §5.2: a code is single-use, so a
+  /// shoulder-surfed or proxied one must not still work for the rest of its window.
+  lastTotpStep Int?
   /// JSON `string[]` of SHA-256 hashes; a code is removed from the array when redeemed.
   recoveryCodes String   @default("[]")
   suspended    Boolean   @default(false)

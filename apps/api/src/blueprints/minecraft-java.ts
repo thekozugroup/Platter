@@ -674,7 +674,7 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
   ports: [
     { name: 'game', label: 'Game', containerPort: 25565, protocol: 'tcp', primary: true },
     { name: 'query', label: 'Query', containerPort: 25565, protocol: 'udp' },
-    { name: 'rcon', label: 'RCON', containerPort: 25575, protocol: 'tcp' },
+    { name: 'rcon', label: 'RCON', containerPort: 25575, protocol: 'tcp', bindLocal: true },
   ],
   variables: [
     {
@@ -1155,6 +1155,9 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     // Large modded worlds genuinely take a minute or more to flush.
     timeoutSeconds: 120,
   },
+  // `save-all flush` blocks until the chunks are on disk, so the archive that follows sees
+  // a consistent world rather than one mid-write.
+  saveCommands: { flush: ['save-off', 'save-all flush'], resume: ['save-on'] },
   dataPath: '/data',
   features: { console: true, rcon: true, mods: true, worldUpload: true, playerList: true },
   docsUrl: 'https://docker-minecraft-server.readthedocs.io/en/latest/',

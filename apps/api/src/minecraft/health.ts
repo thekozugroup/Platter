@@ -36,8 +36,14 @@ export interface MsptReading {
   fiveMinutes: MsptWindow;
 }
 
-/** Why there is no reading. `unsupported` is by far the most common and is not a fault. */
-export type HealthUnavailableReason = 'unsupported' | 'unreadable' | 'offline';
+/**
+ * Why there is no reading. `unsupported` is by far the most common and is not a fault.
+ *
+ * `unconfigured` is deliberately separate from `offline`: a running server whose RCON is
+ * switched off has a fix the operator can act on, and telling them to start a server that
+ * is already started is the kind of contradiction that makes people stop trusting a panel.
+ */
+export type HealthUnavailableReason = 'unsupported' | 'unconfigured' | 'unreadable' | 'offline';
 
 export interface MinecraftHealth {
   tps: TpsReading | null;

@@ -91,7 +91,7 @@ const auditRoutes: FastifyPluginAsync = async (fastify) => {
   app.get(
     '/',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireScope('audit.read'),
       schema: {
         tags: ['audit'],
         summary: 'List audit entries',
@@ -125,7 +125,7 @@ const auditRoutes: FastifyPluginAsync = async (fastify) => {
   app.get(
     '/export',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireScope('audit.read'),
       schema: {
         tags: ['audit'],
         summary: 'Export audit entries as newline-delimited JSON',

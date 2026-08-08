@@ -19,9 +19,6 @@ import { cn } from '@/lib/utils';
 
 export type StatTone = 'default' | 'warning' | 'danger';
 
-/** Which of `--chart-1..5` the sparkline draws in. All five are low-chroma by design. */
-export type StatSeriesColor = 1 | 2 | 3 | 4 | 5;
-
 export interface StatTileProps {
   label: string;
   /** Already formatted, with its unit. `null` when there is no reading to show. */
@@ -36,7 +33,6 @@ export interface StatTileProps {
   icon?: React.ReactNode;
   /** Oldest first. Two or more points draw a sparkline; fewer draw nothing. */
   history?: readonly number[] | undefined;
-  series?: StatSeriesColor;
   tone?: StatTone;
   isLoading?: boolean;
   className?: string;
@@ -48,13 +44,14 @@ const TONE_VALUE: Record<StatTone, string> = {
   danger: 'text-danger',
 };
 
-const SPARK_CONFIG: Record<StatSeriesColor, ChartConfig> = {
-  1: { value: { label: 'Recent', color: 'var(--chart-1)' } },
-  2: { value: { label: 'Recent', color: 'var(--chart-2)' } },
-  3: { value: { label: 'Recent', color: 'var(--chart-3)' } },
-  4: { value: { label: 'Recent', color: 'var(--chart-4)' } },
-  5: { value: { label: 'Recent', color: 'var(--chart-5)' } },
-};
+/**
+ * Always charcoal. A tile plots exactly one series, so hue here encodes nothing — and a row
+ * of tiles in three unrelated colours reads as a legend the reader keeps trying to decode.
+ * Worse, the sage `--chart-3` sat inches from the green `running` dot and diluted the one
+ * colour this system actually spends on meaning. `--chart-2..5` stay for the History charts,
+ * where several series genuinely share an axis and hue is the only thing separating them.
+ */
+const SPARK_CONFIG: ChartConfig = { value: { label: 'Recent', color: 'var(--chart-1)' } };
 
 export function StatTile({
   label,
@@ -63,14 +60,16 @@ export function StatTile({
   unavailable,
   icon,
   history,
-  series = 1,
   tone = 'default',
   isLoading = false,
   className,
 }: StatTileProps) {
   const gradientId = useId().replace(/:/g, '');
   const rows = (history ?? []).map((point, index) => ({ index, value: point }));
-  const showSpark = !isLoading && !unavailable && rows.length >= 2;
+  // An all-zero series draws a flat rule pinned to the baseline, which reads as a chart axis
+  // rather than as data. The value already says "0 B"; a line saying it again is decoration.
+  const showSpark =
+    !isLoading && !unavailable && rows.length >= 2 && rows.some((row) => row.value > 0);
 
   return (
     <div
@@ -120,7 +119,7 @@ export function StatTile({
         <ChartContainer
           aria-hidden
           className="mt-1 aspect-auto h-10 w-full"
-          config={SPARK_CONFIG[series]}
+          config={SPARK_CONFIG}
           id={`spark-${gradientId}`}
         >
           <AreaChart data={rows} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>

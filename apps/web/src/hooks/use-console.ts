@@ -3,9 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { LogLine, Server, ServerStats, ServerStatus } from '@platter/shared';
 import { ConsoleSocket, type ConnectionState } from '@/lib/console-socket.js';
 import { queryKeys } from '@/lib/query.js';
-// `throttle` does not exist yet in `lib/utils.ts` (owned outside this file's scope) — see
-// the assumptions in this hook's report. Everything here is written against the contract
-// the rest of the codebase already assumes for it: `throttle(fn, waitMs) => fn`.
 import { throttle } from '@/lib/utils.js';
 
 /**
@@ -33,6 +30,7 @@ export interface UseConsoleResult {
   dismissNotice: () => void;
   /** False when the socket cannot accept input right now (disconnected or read-only). */
   sendCommand: (command: string) => boolean;
+  /** Re-reads the API's scrollback and replaces the on-screen buffer with it. */
   requestBacklog: (lines?: number) => void;
   /** Clears the on-screen buffer without touching the connection. */
   clear: () => void;
@@ -84,8 +82,13 @@ export function useConsole(serverId: string): UseConsoleResult {
         flush();
       },
       onBacklog: (backlog) => {
-        pendingRef.current.push(...backlog);
-        flush();
+        // The API answers with the whole scrollback, not the part we are missing, so this
+        // replaces the buffer. Appending it is what puts every boot line on screen twice.
+        pendingRef.current = [];
+        if (!mountedRef.current) return;
+        setLines(
+          backlog.length > LINE_BUFFER_CAP ? backlog.slice(backlog.length - LINE_BUFFER_CAP) : backlog,
+        );
       },
       onStatus: (status, exitCode) => {
         setServerStatus(status);
@@ -95,7 +98,10 @@ export function useConsole(serverId: string): UseConsoleResult {
         queryClient.setQueryData<Server>(queryKeys.servers.detail(serverId), (previous) =>
           previous ? { ...previous, status } : previous,
         );
-        void queryClient.invalidateQueries({ queryKey: queryKeys.servers.all });
+        // Only the list views. `servers.all` is also a prefix of this server's files,
+        // backups, schedules and metric caches, and one boot emits four status changes —
+        // enough to refetch an open Files tab and every chart four times over.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.servers.lists });
       },
       onStats: (nextStats) => {
         setStats(nextStats);

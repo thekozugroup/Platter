@@ -77,7 +77,10 @@ export const PasswordInputTrigger = (
         asChild
         data-slot="password-input-visibility-trigger"
       >
-        <InputGroupButton size="icon-xs" variant="ghost" {...rest}>
+        {/* 24px is under the 44px this product promises, and this is the very first
+            control on the sign-in screen. `hit-target` grows the tappable box without
+            changing the layout the addon depends on. */}
+        <InputGroupButton className="hit-target" size="icon-xs" variant="ghost" {...rest}>
           {children ?? <PasswordInputIndicator />}
         </InputGroupButton>
       </ArkPasswordInput.VisibilityTrigger>

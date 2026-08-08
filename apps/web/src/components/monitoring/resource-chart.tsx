@@ -503,7 +503,11 @@ export function ResourceChart({
           variant="inline"
         />
       ) : built.pointCount === 0 ? (
-        <EmptyChart hint={emptyHint} label={definition.label} range={range} />
+        <EmptyChart
+          hint={emptyHint ?? emptyReasonFor(metric, live)}
+          label={definition.label}
+          range={range}
+        />
       ) : (
         <ChartContainer
           className="aspect-auto h-56 w-full sm:h-72"
@@ -673,6 +677,23 @@ function ChartReadout({ built, definition, range, isPending }: ChartReadoutProps
 }
 
 // ---------------------------------------------------------------------------------------
+
+/**
+ * Why this particular chart is empty.
+ *
+ * The default sentence — "start it, or widen the range" — is only true of a server that is
+ * stopped. On one that is visibly running it contradicts the status pill, and for the two
+ * metrics Platter can only read over RCON it names the wrong cause entirely.
+ */
+function emptyReasonFor(metric: ChartMetric, live: boolean): string | undefined {
+  if (metric === 'players' || metric === 'tps') {
+    return 'Platter reads this from the game over RCON. Turn RCON on in Settings and restart the server; points are recorded from then on.';
+  }
+  if (live) {
+    return 'Nothing has been sampled in this window yet. The first points appear within a minute or two of the server starting.';
+  }
+  return undefined;
+}
 
 function EmptyChart({
   label,

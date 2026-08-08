@@ -70,7 +70,9 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <header className={cn('border-b border-separator px-6 lg:px-12', className)}>
-      <div className="mx-auto flex w-full max-w-(--pl-container-max) flex-col gap-4 pt-10 pb-8 lg:pt-14">
+      {/* The generous rhythm is a desktop trait. On a phone 72px of header padding is the
+          difference between seeing the page and seeing only its title. */}
+      <div className="mx-auto flex w-full max-w-(--pl-container-max) flex-col gap-4 pt-6 pb-6 sm:pt-10 sm:pb-8 lg:pt-14">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
             {eyebrow ? (
@@ -96,15 +98,25 @@ export function PageHeader({
 
 export interface PageBodyProps {
   children: React.ReactNode;
-  /** Drops the centred max-width for screens that genuinely need the full width (console). */
+  /**
+   * Widens the column for screens that genuinely need it (the console). Still capped, and
+   * still centred: an uncapped body left the console 500px out of alignment with the page
+   * heading above it on a 2560px display, and drew log lines 2200px wide with text in the
+   * first 300px.
+   */
   fullWidth?: boolean;
   className?: string;
 }
 
 export function PageBody({ children, fullWidth = false, className }: PageBodyProps) {
   return (
-    <div className={cn('px-6 py-10 lg:px-12 lg:py-12', className)}>
-      <div className={cn('mx-auto w-full', fullWidth ? null : 'max-w-(--pl-container-max)')}>
+    <div className={cn('px-6 py-6 sm:py-10 lg:px-12 lg:py-12', className)}>
+      <div
+        className={cn(
+          'mx-auto w-full',
+          fullWidth ? 'max-w-(--pl-container-max-wide)' : 'max-w-(--pl-container-max)',
+        )}
+      >
         {children}
       </div>
     </div>

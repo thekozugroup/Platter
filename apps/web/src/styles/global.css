@@ -687,6 +687,50 @@
     transform: translate(-50%, -50%);
   }
 
+  /*
+   * A horizontal scroller that admits it scrolls.
+   *
+   * `animation-timeline: scroll(self inline)` drives the fades from the scroll position
+   * itself, so the leading fade is absent at the start, the trailing one disappears at the
+   * end, and a strip that fits needs no JavaScript to know it should show neither. Where
+   * scroll-driven animation is unsupported the `@supports` guard leaves a plain, unfaded
+   * scroller — the same thing shipped before, never a fade stuck over a tab.
+   */
+  .tab-scroller {
+    scrollbar-width: none;
+  }
+
+  .tab-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .tab-scroller {
+      animation: tab-scroller-fade linear both;
+      animation-timeline: scroll(self inline);
+      /* Only the first and last 40px of travel move the mask; the middle stays double-faded. */
+      animation-range: 0 40px, calc(100% - 40px) 100%;
+    }
+  }
+
+  @keyframes tab-scroller-fade {
+    0% {
+      mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 48px), transparent 100%);
+    }
+    50% {
+      mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 48px,
+        #000 calc(100% - 48px),
+        transparent 100%
+      );
+    }
+    100% {
+      mask-image: linear-gradient(to right, transparent 0, #000 48px, #000 100%);
+    }
+  }
+
   /* Hover styles that never stick on touch devices. */
   @media (hover: hover) and (pointer: fine) {
     .hoverable:hover {

@@ -6,7 +6,7 @@ import { prisma } from '../db.js';
 import { getBlueprint, hasBlueprint, listBlueprintSummaries } from '../services/blueprints.js';
 import { listServers, loadServerDto, presentStatus } from '../services/servers.js';
 import { authorizeServer } from './auth.js';
-import { readRecentLines, redactVariables, toLogEntries, type ToolContext } from './tools.js';
+import { readRecentLines, toLogEntries, type ToolContext } from './tools.js';
 
 /**
  * Read-only views an MCP client can subscribe to instead of calling a tool.
@@ -174,7 +174,6 @@ async function readServerConfig(serverId: string, context: ToolContext): Promise
   const row = await authorizeServer(context.principal, serverId, 'server.view');
   const dto = await loadServerDto(row.id, context.logger);
   const blueprint = hasBlueprint(row.blueprintKey) ? getBlueprint(row.blueprintKey) : null;
-  const { variables, redacted } = redactVariables(dto.variables, blueprint);
   const node = await prisma.node.findUnique({
     where: { id: row.nodeId },
     select: { name: true, publicHost: true },
@@ -194,8 +193,9 @@ async function readServerConfig(serverId: string, context: ToolContext): Promise
       ...allocation,
       address: node ? formatAddress(node.publicHost, allocation.hostPort) : null,
     })),
-    variables,
-    redactedVariables: redacted,
+    connectString: dto.connectString,
+    variables: dto.variables,
+    redactedVariables: dto.redactedVariables,
     autoStart: dto.autoStart,
     autoRestart: dto.autoRestart,
     installedAt: dto.installedAt,
