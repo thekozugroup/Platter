@@ -8,6 +8,7 @@ import authPlugin from './plugins/auth.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import openapiPlugin from './plugins/openapi.js';
 import securityPlugin, { BODY_LIMIT_BYTES } from './plugins/security.js';
+import consoleRoutes from './routes/console.js';
 import routes from './routes/index.js';
 import { httpMetricsPlugin } from './services/metrics.js';
 
@@ -59,6 +60,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(openapiPlugin);
   await app.register(authPlugin);
   await app.register(routes, { prefix: API_PREFIX });
+  // Outside the API prefix on purpose: `WS_PATH` is an absolute path, and the browser
+  // client builds its URL from the origin plus that constant, not from the REST base.
+  await app.register(consoleRoutes);
 
   return app;
 }

@@ -139,7 +139,10 @@ export class LogHub {
   }
 
   /** Oldest first, capped at what the ring still holds. */
-  backlog(limit = CAPACITY): LogLine[] {
+  // `limit: number` is explicit because `LIMITS` is a const assertion: inferring the
+  // parameter from the default would type it as the literal 500 and reject every other
+  // number a caller asks for.
+  backlog(limit: number = CAPACITY): LogLine[] {
     const wanted = Math.max(0, Math.min(Math.trunc(limit), this.stored));
     const lines: LogLine[] = [];
     for (let seq = this.nextSeq - wanted; seq < this.nextSeq; seq += 1) {
