@@ -4,7 +4,6 @@ import auditRoutes from './audit.js';
 import authRoutes from './auth.js';
 import backupRoutes from './backups.js';
 import blueprintRoutes from './blueprints.js';
-import consoleRoutes from './console.js';
 import fileRoutes from './files.js';
 import mcpRoutes from './mcp.js';
 import metricsRoutes from './metrics.js';
@@ -44,10 +43,13 @@ const routes: FastifyPluginAsync = async (app) => {
   // The MCP transport is not REST and carries its own JSON-RPC envelope; it lives under
   // the API prefix so a single base URL and API key cover both surfaces.
   await app.register(mcpRoutes, { prefix: '/mcp' });
-  // No prefix: these two mount their own paths. The console owns the websocket upgrade
-  // path, fixed by the shared WS_PATH constant; network spans both `/servers/:serverId`
-  // and the node-wide `/network/zone`, so it cannot sit under a single prefix.
-  await app.register(consoleRoutes);
+  // No prefix: `networkRoutes` spans both `/servers/:serverId/network` and the node-wide
+  // `/network/zone`, so it cannot sit under a single one.
+  //
+  // The console is NOT here — `WS_PATH` is an absolute path the web client hardcodes
+  // (`/ws/servers/:id/console`), and this whole plugin is mounted under `API_PREFIX`.
+  // Registering it here would serve it at `/api/v1/ws/...`, which nothing dials.
+  // `buildApp` registers it at the root instead.
   await app.register(networkRoutes);
 };
 
