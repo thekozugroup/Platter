@@ -4,7 +4,7 @@ import {
   PasswordInput as ArkPasswordInput,
   usePasswordInputContext,
 } from "@ark-ui/react/password-input";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon } from "@/components/common/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 import {

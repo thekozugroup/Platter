@@ -557,7 +557,14 @@ export async function reinstallServer(serverId: string, actorId: string | null =
   });
 }
 
-async function runInstall(serverId: string, options: { force: boolean }): Promise<void> {
+interface InstallOptions {
+  /** Re-render the blueprint's files over the operator's edits. Reinstall, not first boot. */
+  force: boolean;
+  /** Boot afterwards regardless of `autoStart` — a human asked for this install by name. */
+  startWhenDone?: boolean;
+}
+
+async function runInstall(serverId: string, options: InstallOptions): Promise<void> {
   const loaded = await loadServer(serverId);
   const { server, driver } = loaded;
   if (server.suspended) {
@@ -617,7 +624,7 @@ async function runInstall(serverId: string, options: { force: boolean }): Promis
 
   // The same check the restart makes: a kill during the install has already put the server
   // where the operator asked for it, and auto-start would immediately contradict them.
-  if (server.autoStart && !cancelledOperations.delete(serverId)) {
+  if ((server.autoStart || options.startWhenDone === true) && !cancelledOperations.delete(serverId)) {
     await startInternal(serverId, `Starting ${server.name}…`);
   }
 }
@@ -641,6 +648,16 @@ export async function startServer(serverId: string, actorId: string | null = nul
     // still counting down to is cancelled, and the crash loop cutoff is lifted.
     clearCrashRecord(serverId);
     const who = await actorLabel(actorId);
+
+    if (statusOf(server) === 'provisioning') {
+      // Created with `startOnCreate: false`: there is no image, no data directory and no
+      // container yet, so "start" means "install, then boot". `startWhenDone` rather than
+      // the row's `autoStart`, because the person pressing start has just said so.
+      getLogHub(serverId).system(withActor(`Setting ${server.name} up…`, who));
+      await runInstall(serverId, { force: false, startWhenDone: true });
+      return;
+    }
+
     await startInternal(serverId, withActor(`Starting ${server.name}…`, who));
   });
 }
@@ -687,6 +704,28 @@ async function startInternal(serverId: string, message: string): Promise<void> {
       message: `${server.name} could not be started: ${messageOf(error)}`,
     });
     throw error;
+  }
+
+  if (cancelledOperations.delete(serverId)) {
+    // Killed while this start was in flight. `killServer` runs outside the lock precisely so
+    // it can interrupt us, and it wrote `offline` — but the container it killed did not
+    // exist yet, and `driver.start` has since brought one up. Leaving it there is how the
+    // panel ends up reporting a stopped server that players are still connected to, with
+    // nothing to correct it: the supervisor only looks at rows that claim to be live.
+    try {
+      await driver.kill(serverId);
+    } catch (error) {
+      if (!(error instanceof PlatterError && error.code === 'not_found')) {
+        report('warn', { err: error, serverId }, 'could not stop a container a kill superseded');
+      }
+    }
+    const state = await driver.inspect(serverId);
+    await setStatus(serverId, 'offline', {
+      exitCode: state.exitCode,
+      startedAt: null,
+      message: `${server.name} was killed while it was starting.`,
+    });
+    return;
   }
 
   await armRunWatcher(serverId, blueprint, driver);
@@ -1185,8 +1224,16 @@ async function reconcileServer(
   if (statusOf(server) === 'installing') {
     // An install is resumable by construction, and resuming beats leaving a server that
     // will never finish one.
+    //
+    // Deliberately not awaited. `main.ts` waits for reconcile before it binds the HTTP
+    // port, and an install resumes by pulling an image: a restart in the middle of a first
+    // install would otherwise leave the panel refusing connections — to the operator and to
+    // every health check — for as long as a multi-gigabyte pull takes. Reconciling statuses
+    // is the part that has to finish before traffic arrives; the pull is not.
     result.resumed += 1;
-    await installServer(server.id);
+    void installServer(server.id).catch((error: unknown) => {
+      report('error', { err: error, serverId: server.id }, 'could not resume an interrupted install');
+    });
     return;
   }
 
@@ -1308,29 +1355,54 @@ async function recordCrash(server: ServerRow, state: ContainerState, now: number
   getLogHub(server.id).system(`Restarting ${server.name} in ${Math.round(waitMs / 1000)}s.`);
 }
 
+/** Statuses `checkLiveness` is entitled to act on. Anything else belongs to someone else. */
+const LIVENESS_STATUSES: readonly string[] = ['starting', 'running', 'restarting', 'stopping'];
+
+/**
+ * Decides whether a container that is no longer up exited on purpose.
+ *
+ * Everything here reads the row it re-fetches under the lock, never the one `superviseOnce`
+ * scanned. That row is a snapshot taken before this pass began working through the list
+ * sequentially, and a stop that *completed* in the meantime leaves it still saying
+ * `running` — which made a deliberate shutdown look like a crash, wrote a crash record, and
+ * had the next pass start the server back up under a user who had just turned it off. The
+ * caller's `operations.has` guard does not cover that case: it only sees a stop still in
+ * flight, not one that has already finished.
+ *
+ * The lock is taken with no `await` between the check above it and the call, so an idle
+ * server never queues behind anything; a server that is busy is left for the next pass
+ * rather than blocking supervision of every server after it.
+ */
 async function checkLiveness(server: ServerRow, now: number): Promise<void> {
-  const driver = await getDriver(server.nodeId);
-  const state = await driver.inspect(server.id);
-  if (state.running || state.restarting) return;
+  if (operations.has(server.id)) return;
+  await withServerLock(server.id, async () => {
+    const fresh = await prisma.server.findUnique({ where: { id: server.id } });
+    if (!fresh || fresh.suspended) return;
+    if (!LIVENESS_STATUSES.includes(fresh.status)) return;
 
-  // A stop or a restart already asked for this exit; it is not a crash.
-  const expected = server.status === 'stopping' || server.status === 'restarting';
+    const driver = await getDriver(fresh.nodeId);
+    const state = await driver.inspect(fresh.id);
+    if (state.running || state.restarting) return;
 
-  if (!state.exists) {
-    await setStatus(server.id, 'offline', {
-      containerId: null,
-      startedAt: null,
-      ...(expected ? {} : { message: `The container for ${server.name} is gone.` }),
-    });
-    return;
-  }
+    // A stop or a restart already asked for this exit; it is not a crash.
+    const expected = fresh.status === 'stopping' || fresh.status === 'restarting';
 
-  if (expected) {
-    await setStatus(server.id, 'offline', { exitCode: state.exitCode, startedAt: null });
-    return;
-  }
+    if (!state.exists) {
+      await setStatus(fresh.id, 'offline', {
+        containerId: null,
+        startedAt: null,
+        ...(expected ? {} : { message: `The container for ${fresh.name} is gone.` }),
+      });
+      return;
+    }
 
-  await recordCrash(server, state, now);
+    if (expected) {
+      await setStatus(fresh.id, 'offline', { exitCode: state.exitCode, startedAt: null });
+      return;
+    }
+
+    await recordCrash(fresh, state, now);
+  });
 }
 
 async function maybeRestart(server: ServerRow, now: number): Promise<void> {

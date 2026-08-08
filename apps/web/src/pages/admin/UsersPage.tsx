@@ -12,6 +12,7 @@ import {
 import { Crown } from 'pixelarticons/react/Crown.js';
 import { MoreVertical } from 'pixelarticons/react/MoreVertical.js';
 import { Pencil } from 'pixelarticons/react/Pencil.js';
+import { Plus } from 'pixelarticons/react/Plus.js';
 import { Search } from 'pixelarticons/react/Search.js';
 import { Shield } from 'pixelarticons/react/Shield.js';
 import { Trash } from 'pixelarticons/react/Trash.js';
@@ -21,6 +22,7 @@ import { Users as UsersIcon } from 'pixelarticons/react/Users.js';
 import { avatarStyle } from '@/components/common/avatar-ink';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
+import { StatusCapsule } from '@/components/common/status-pill';
 import { PageAction, PageBody, PageHeader } from '@/components/layout/page-header';
 import {
   UserForm,
@@ -123,22 +125,17 @@ function RoleTag({ role }: { role: UserRole }) {
 }
 
 /** Active/suspended is not a server-lifecycle status, so it does not borrow `StatusPill` —
- *  the same visual capsule, built for the two states this screen actually has. */
+ *  it borrows the capsule underneath it, which keeps the word near-black. Painting "Active"
+ *  `text-success` measured 3.31:1 on the pill at 12px, under AA. */
 function AccountStatusBadge({ suspended }: { suspended: boolean }) {
   return (
-    <span
-      className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill',
-        'border border-pill-border bg-pill px-2 text-caption font-medium',
-        suspended ? 'text-label-secondary' : 'text-success',
-      )}
+    <StatusCapsule
+      data-status={suspended ? 'suspended' : 'active'}
+      pulse={!suspended}
+      tone={suspended ? 'neutral' : 'success'}
     >
-      <span
-        aria-hidden
-        className={cn('size-2 rounded-full', suspended ? 'bg-neutral-status' : 'bg-success-dot status-pulse')}
-      />
       {suspended ? 'Suspended' : 'Active'}
-    </span>
+    </StatusCapsule>
   );
 }
 
@@ -402,7 +399,10 @@ export function UsersPage() {
     <>
       <PageHeader
         actions={
-          <PageAction onClick={openCreate}>+ New user</PageAction>
+          <PageAction onClick={openCreate}>
+            <Plus aria-hidden />
+            New user
+          </PageAction>
         }
         description="Every account on this installation, and what it can do."
         title="Users"

@@ -7,7 +7,7 @@ import {
   type MenuContentProps,
   useMenuContext,
 } from "@ark-ui/react/menu";
-import { CheckIcon, ChevronRight } from "lucide-react";
+import { CheckIcon, ChevronRight } from "@/components/common/icons";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";

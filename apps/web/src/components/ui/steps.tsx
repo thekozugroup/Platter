@@ -2,7 +2,7 @@
 
 import { ark } from "@ark-ui/react/factory";
 import { Steps as ArkSteps, useStepsContext } from "@ark-ui/react/steps";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon } from "@/components/common/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 

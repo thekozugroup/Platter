@@ -47,6 +47,14 @@
   --color-pill: var(--pl-pill-bg);
   --color-pill-border: var(--pl-pill-border);
 
+  /* The signature frosted pill, as utilities. The `.frost` component class below is the
+     same material; these exist because the one place that needs it — the floating phone
+     nav — composes over a vendored component whose own `bg-*`/`backdrop-blur-*` utilities
+     can only be displaced by utilities of the same group. */
+  --color-frost: var(--pl-frost-tint);
+  --color-frost-border: var(--pl-frost-border);
+  --blur-nav: var(--pl-blur-nav);
+
   --color-success: var(--pl-success);
   --color-success-dot: var(--pl-success-dot);
   --color-success-subtle: var(--pl-success-subtle);
@@ -56,6 +64,7 @@
   --color-danger: var(--pl-danger);
   --color-danger-dot: var(--pl-danger-dot);
   --color-danger-subtle: var(--pl-danger-subtle);
+  --color-danger-on: var(--pl-danger-on);
   --color-info: var(--pl-info);
   --color-info-subtle: var(--pl-info-subtle);
   --color-neutral-status: var(--pl-neutral-status);
@@ -674,7 +683,14 @@
    * Expand a visually small control to the 44px HIG minimum without changing its box.
    * Applied to icon buttons, which are otherwise the most common hit-target violation.
    */
-  .hit-target {
+  /*
+   * The pseudo-element needs a positioned ancestor, and for a static control that has to be
+   * the control itself. An `absolute`/`fixed`/`sticky` control already is one, and a blanket
+   * `position: relative` here would silently *unposition* it — Shark's dialog and sheet close
+   * buttons are `absolute inset-e-2 top-2`, and adding `.hit-target` dropped them out of
+   * their corner and onto the end of the flow. Skip those; they need nothing.
+   */
+  .hit-target:not([class~='absolute']):not([class~='fixed']):not([class~='sticky']) {
     position: relative;
   }
 
@@ -784,6 +800,11 @@
    * defined (it runs 2xs/xs/sm/md/lg/…). Every one of those declarations was invalid and
    * therefore dropped, so the first control a keyboard user reaches had no position and no
    * padding. It is a 44px-tall target on the real scale now.
+   *
+   * Kept for a hand-rolled skip link, but note that `components/ui/skip-nav.tsx` — the one
+   * `AppShell` renders — carries its own `focus:` utilities and does *not* take this class.
+   * Its 44px floor lives there. If you point the shell at this rule instead, delete the
+   * utilities rather than letting the two disagree.
    */
   .skip-link:focus-visible {
     position: fixed;

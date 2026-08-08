@@ -568,11 +568,38 @@ export async function compressServerPaths(
   return buildEntry(dst);
 }
 
+export interface ExtractOptions {
+  /**
+   * Ceiling on the *uncompressed* bytes an archive may unpack to. The caller passes the
+   * server's own disk allowance, so an extraction can never outgrow the thing it belongs to.
+   */
+  maxTotalBytes?: number;
+}
+
+/**
+ * Absolute fallback when a caller does not name a budget, so no code path is uncapped.
+ * Matches the upload ceiling: an archive that arrived through the file manager cannot have
+ * been larger than this to begin with.
+ */
+const DEFAULT_EXTRACT_LIMIT_BYTES = LIMITS.maxUploadBytes;
+
+/** Thrown from the entry filter to tear the read stream down mid-archive. */
+class ArchiveTooLarge extends Error {}
+
+function tooLargeError(maxTotalBytes: number): PlatterError {
+  return new PlatterError(
+    'payload_too_large',
+    `That archive unpacks to more than ${Math.round(maxTotalBytes / 1024 / 1024)} MB, which is more than this server is allowed to use. Nothing was extracted.`,
+  );
+}
+
 export async function extractServerArchive(
   serverId: string,
   relPath: string,
   destinationRelPath: string,
+  options: ExtractOptions = {},
 ): Promise<FileEntry> {
+  const maxTotalBytes = Math.max(1, options.maxTotalBytes ?? DEFAULT_EXTRACT_LIMIT_BYTES);
   const archive = await resolveServerPath(serverId, relPath);
   if (!archive.exists) throw notFound('archive');
   const archiveStat = await lstat(archive.absolute);
@@ -603,13 +630,39 @@ export async function extractServerArchive(
   const staging = path.join(serverDataDir(serverId), `.platter-extract-${randomUUID()}`);
   try {
     await mkdir(staging, { recursive: true });
+
+    // The size cap.
+    //
+    // node-tar aborts a gzip member past a 1000:1 ratio, which bounds *amplification* but
+    // not the absolute figure: a 100 MB upload sitting just under that ratio still unpacks
+    // to ~100 GB and fills the node's disk for every server co-located on it. The budget is
+    // checked against each member's declared size *before* the member is written — a tar
+    // reader cannot read more bytes for an entry than its header claims — so the run total
+    // is exact and nothing over budget ever reaches the disk. Destroying the source is what
+    // stops us decompressing the rest of a bomb we have already refused.
+    const source = createReadStream(archive.absolute);
+    let extracted = 0;
+    let tooLarge = false;
+    const withinBudget = (_entryPath: string, entry: { size?: number }): boolean => {
+      if (tooLarge) return false;
+      extracted += entry.size ?? 0;
+      if (extracted <= maxTotalBytes) return true;
+      tooLarge = true;
+      source.destroy(new ArchiveTooLarge());
+      return false;
+    };
+
     try {
-      await pipeline(createReadStream(archive.absolute), tarExtract({ cwd: staging, strict: true }));
-    } catch {
+      await pipeline(source, tarExtract({ cwd: staging, strict: true, filter: withinBudget }));
+    } catch (error) {
+      if (tooLarge || error instanceof ArchiveTooLarge) throw tooLargeError(maxTotalBytes);
       throw badRequest(
         'That archive could not be extracted. It may be corrupt, or contain paths that escape the destination.',
       );
     }
+    // An overflow on the very last member leaves the pipeline resolving normally: the
+    // stream ended before the destroy landed. The flag is what decides, not the throw.
+    if (tooLarge) throw tooLargeError(maxTotalBytes);
 
     // `force` so an archive may overwrite files that are already there, which is what
     // extracting over an existing folder has always meant here.

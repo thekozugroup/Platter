@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "@/components/common/icons";
 import { cn } from "@/lib/utils";
 
 export const Spinner = (props: React.ComponentProps<"svg">) => {

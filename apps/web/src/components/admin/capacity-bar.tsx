@@ -140,7 +140,15 @@ export function CapacityBar({
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      {/*
+        Label and figures stack, always — they do not share a line even when they would fit.
+        Three of these sit side by side on a node card, and "3.5 GB used · 9.5 GB allocated ·
+        6.5 GB free" is long enough to wrap where "0 B used · 16 GB allocated · 236 GB free"
+        is not. Inline, that pushed one bar 26px below its neighbours and the row read as a
+        mistake. A fixed two-line header keeps every bar, caption and legend on one baseline
+        regardless of how the numbers format.
+      */}
+      <div className="flex flex-col gap-0.5">
         <p className="flex items-center gap-1.5 text-subhead font-medium text-label" id={labelId}>
           {level === 'normal' ? null : (
             <WarningDiamond aria-hidden className={cn('size-4 shrink-0', TEXT_TONE[level])} />

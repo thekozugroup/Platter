@@ -611,12 +611,19 @@ export function ConsoleView({
         ) : null}
       </div>
 
-      {/* ---- status line ---- */}
+      {/*
+        ---- status line ----
+
+        Deliberately NOT a live region as a whole. Its first child is the line count, which
+        changes on every arriving line, so `role="status"` here re-announced "24 lines ·
+        Following the latest output", "25 lines · …" on top of the `role="log"` region
+        already announcing the lines themselves — on a busy server a screen reader never
+        stopped talking. The live region is now scoped to the two things that change on a
+        *user action*: whether the view is following, and whether a copy landed.
+      */}
       <p
-        aria-live="polite"
         className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-console-dim/25 px-3 py-2 text-caption-2 text-console-dim"
         id={statusId}
-        role="status"
       >
         <span className="tabular">
           {filtering
@@ -624,13 +631,17 @@ export function ConsoleView({
             : formatCount(prepared.length, 'line')}
         </span>
         <span aria-hidden>·</span>
-        <span>{following ? 'Following the latest output' : 'Paused while you scroll'}</span>
-        {copyState === 'copied' ? <span className="text-console-fg">Copied to clipboard</span> : null}
-        {copyState === 'failed' ? (
-          <span className="text-console-stderr">
-            Couldn’t reach the clipboard. Select the text and press Ctrl+C.
-          </span>
-        ) : null}
+        <span aria-live="polite" className="contents" role="status">
+          <span>{following ? 'Following the latest output' : 'Paused while you scroll'}</span>
+          {copyState === 'copied' ? (
+            <span className="text-console-fg">Copied to clipboard</span>
+          ) : null}
+          {copyState === 'failed' ? (
+            <span className="text-console-stderr">
+              Couldn’t reach the clipboard. Select the text and press Ctrl+C.
+            </span>
+          ) : null}
+        </span>
       </p>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { ark } from "@ark-ui/react/factory";
 import { Field as ArkField } from "@ark-ui/react/field";
-import { ChevronsUpDownIcon } from "lucide-react";
+import { ChevronsUpDownIcon } from "@/components/common/icons";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";

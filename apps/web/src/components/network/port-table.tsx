@@ -390,7 +390,9 @@ function ChangePortForm({
 
         <DialogBody>
           {change.isSuccess ? (
-            <Alert variant="success">
+            /* Monochrome: this reports what happened, not the state of anything. Status
+               colour is reserved for status. */
+            <Alert variant="info">
               <AlertTitle className="font-sans">
                 Port changed to {change.data.allocation.hostPort}
               </AlertTitle>

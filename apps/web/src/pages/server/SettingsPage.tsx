@@ -80,6 +80,17 @@ import { cn } from '@/lib/utils';
  * asks for the server's name rather than a click.
  */
 
+/**
+ * The CPU limit inside a sentence.
+ *
+ * `formatCpu` answers "Unlimited" for zero, which is right on its own line in the limits form
+ * and produces "and unlimited of CPU" in prose. A limit and the absence of one are different
+ * shapes of sentence, so they are written as different sentences.
+ */
+function cpuPhrase(cores: number): string {
+  return cores <= 0 ? 'no CPU limit' : `${formatCpu(cores).toLowerCase()} of CPU`;
+}
+
 const SECTION_TITLE = 'font-sans text-title-3 font-semibold';
 const ACTION = 'h-11 rounded-button px-5 text-subhead font-medium';
 const FIELD = 'h-11';
@@ -385,7 +396,7 @@ function LimitsCard() {
         <CardDescription>
           What the container is allowed to use. Currently {formatMegabytes(server.limits.memoryMb)}{' '}
           of memory, {formatMegabytes(server.limits.diskMb)} of disk and{' '}
-          {formatCpu(server.limits.cpuCores).toLowerCase()} of CPU.
+          {cpuPhrase(server.limits.cpuCores)}.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">

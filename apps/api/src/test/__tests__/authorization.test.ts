@@ -267,6 +267,28 @@ describe('secret blueprint variables', () => {
     expect(body.redactedVariables).toContain('RCON_PASSWORD');
   });
 
+  it('still redacts when the blueprint that declared the secret is gone', async () => {
+    const owner = await createTestUser('owner');
+    const serverId = await createServer(owner);
+
+    // An operator removing a blueprint file, or an upgrade dropping one, used to turn the
+    // whole variable map back into cleartext: the "which variables are secret" question was
+    // answered from the blueprint, and a missing blueprint answered "none of them".
+    await prisma.server.update({
+      where: { id: serverId },
+      data: { blueprintKey: 'blueprint-that-was-removed' },
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: authHeaders(owner),
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().variables.RCON_PASSWORD).toBe('[redacted]');
+    expect(JSON.stringify(response.json())).not.toContain('SUPERSECRET-RCON');
+  });
+
   it('does not let the redaction placeholder overwrite the real secret', async () => {
     const owner = await createTestUser('owner');
     const serverId = await createServer(owner);

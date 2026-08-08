@@ -284,7 +284,12 @@ const fileRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) =>
-      extractServerArchive(request.params.serverId, request.body.path, request.body.destination),
+      extractServerArchive(request.params.serverId, request.body.path, request.body.destination, {
+        // The server's own disk allowance is the budget. Without it a `files.write`
+        // collaborator can loop an archive that unpacks a thousand times over and fill the
+        // node for every server sharing it.
+        maxTotalBytes: requireServer(request).diskMb * 1024 * 1024,
+      }),
   );
 
   app.post(

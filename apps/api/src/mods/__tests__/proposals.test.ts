@@ -458,6 +458,57 @@ describe('approve', () => {
     expect(await readModManifest(SERVER_ID)).toEqual([]);
   });
 
+  it('catches a dependency whose version moved, not just the mod that was proposed', async () => {
+    const proposal = await propose();
+    expect(proposal.snapshot.resolution.install.map((entry) => entry.version.versionId)).toContain(
+      'fapi-1',
+    );
+
+    // Carpet is untouched: only its dependency published a new jar. The dependency was
+    // recorded as `modrinth:fabric-api@*` — an identity, not a version — so nothing in the
+    // digest used to cover it, and approval re-resolved to the newest match and installed
+    // bytes the reviewer had never been shown, with `status: 'installed'`, `changes: []`.
+    graph.versions.set(
+      'fapi-2',
+      version('fabric-api', 'fapi-2', { publishedAt: '2026-03-01T00:00:00Z' }),
+    );
+
+    const outcome = await proposals.approve(await server(), proposal.id, REVIEWER);
+    expect(outcome.status).toBe('changed');
+    expect(outcome.installed).toEqual([]);
+    expect(await readModManifest(SERVER_ID)).toEqual([]);
+    const planChange = outcome.changes.find((change) => change.field === 'plan');
+    expect(planChange?.before).toContain('fapi-1');
+    expect(planChange?.after).toContain('fapi-2');
+
+    // And the reviewer can still consent to the new plan, by acknowledging the new digest.
+    const second = await proposals.approve(await server(), proposal.id, {
+      ...REVIEWER,
+      acknowledgedDigest: outcome.digest,
+    });
+    expect(second.status).toBe('installed');
+    expect(second.installed.map((entry) => entry.versionId)).toContain('fapi-2');
+  });
+
+  it('does not fire drift when a dependency was installed by hand at the same version', async () => {
+    const proposal = await propose();
+    // Approving a proposal for Fabric API on its own leaves Carpet's dependency `satisfied`
+    // rather than pending — the same bytes, a different bucket. A gate that fires on that
+    // is one reviewers learn to click through.
+    const sibling = await proposals.propose({
+      server: await server(),
+      source: 'modrinth',
+      projectRef: 'fabric-api',
+      rationale: 'Needed by everything.',
+      proposedById: null,
+      proposedByName: 'Assistant',
+    });
+    await proposals.approve(await server(), sibling.id, REVIEWER);
+
+    const outcome = await proposals.approve(await server(), proposal.id, REVIEWER);
+    expect(outcome.status).toBe('installed');
+  });
+
   it('reports a plan that no longer resolves against the server', async () => {
     const proposal = await propose();
     // The operator switched the server to Paper while the proposal sat in the queue.

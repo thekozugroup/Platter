@@ -11,11 +11,13 @@ import {
   type ServerStatus,
   type ServerSummary,
 } from '@platter/shared';
+import { Plus } from 'pixelarticons/react/Plus.js';
 import { Server as ServerIcon } from 'pixelarticons/react/Server.js';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { SERVER_STATUS_HINTS, StatusPill } from '@/components/common/status-pill';
 import { PageAction, PageBody, PageHeader } from '@/components/layout/page-header';
+import { StatTile } from '@/components/monitoring/stat-tile';
 import { useSidebarServers } from '@/components/layout/sidebar';
 import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
 import { PowerControls } from '@/components/servers/power-controls';
@@ -68,24 +70,6 @@ function SectionHeading({
           {action.label}
         </Link>
       ) : null}
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail?: string | undefined;
-}) {
-  return (
-    <div className={cn(cardSurface, 'flex flex-col gap-1 p-4')}>
-      <span className="text-caption font-medium text-label-secondary">{label}</span>
-      <span className="tabular text-title-2 font-medium text-label">{value}</span>
-      {detail ? <span className="text-caption text-label-secondary">{detail}</span> : null}
     </div>
   );
 }
@@ -254,7 +238,10 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        actions={<PageAction to="/servers/new">+ New server</PageAction>}
+        actions={<PageAction to="/servers/new">
+            <Plus aria-hidden />
+            New server
+          </PageAction>}
         description={
           greeting
             ? `${greeting} Everything you are running, and anything that needs you.`
@@ -330,15 +317,17 @@ export function DashboardPage() {
               <StatTile
                 detail={summary.total === 0 ? 'None yet' : `${summary.running} running`}
                 label="Servers"
+                size="sm"
                 value={servers.isPending ? '—' : String(summary.total)}
               />
               <StatTile
                 detail={
                   summary.total === 0
-                    ? undefined
+                    ? 'Nothing created yet'
                     : `${summary.total - summary.running} not running`
                 }
                 label="Running"
+                size="sm"
                 value={servers.isPending ? '—' : String(summary.running)}
               />
               <StatTile
@@ -348,11 +337,13 @@ export function DashboardPage() {
                     : 'Crashed, failed or suspended'
                 }
                 label="Needs attention"
+                size="sm"
                 value={servers.isPending ? '—' : String(summary.attention.length)}
               />
               <StatTile
                 detail={summary.playersKnown ? 'Across every server' : 'No server reports players'}
                 label="Players online"
+                size="sm"
                 value={servers.isPending || !summary.playersKnown ? '—' : String(summary.playersOnline)}
               />
             </div>
@@ -374,6 +365,7 @@ export function DashboardPage() {
                 <StatTile
                   detail="Reserved for your servers, whether or not they are running"
                   label="Memory allocated"
+                  size="sm"
                   value={servers.isPending ? '—' : formatMegabytes(summary.memoryMb)}
                 />
               )}
@@ -398,6 +390,7 @@ export function DashboardPage() {
                       : 'Quota across your servers'
                   }
                   label="CPU allocated"
+                  size="sm"
                   value={
                     servers.isPending
                       ? '—'

@@ -5,7 +5,7 @@ import {
   FileUpload as ArkFileUpload,
   useFileUploadContext as useArkFileUploadContext,
 } from "@ark-ui/react/file-upload";
-import { UploadIcon, XIcon } from "lucide-react";
+import { UploadIcon, XIcon } from "@/components/common/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -194,6 +194,7 @@ export const FileUploadList = (props: FileUploadListProps) => {
             >
               <Button
                 className={cn(
+                  "hit-target",
                   "rounded-lg",
                   "hover:bg-destructive/10 hover:text-destructive",
                   "dark:hover:bg-destructive-foreground/10 dark:hover:text-destructive-foreground"

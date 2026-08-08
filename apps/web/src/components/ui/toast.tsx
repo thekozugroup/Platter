@@ -13,7 +13,7 @@ import {
   InfoIcon,
   TriangleAlertIcon,
   XIcon,
-} from "lucide-react";
+} from "@/components/common/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,17 @@ import { Spinner } from "@/components/ui/spinner";
 
 export const useToast = useToastContext;
 
+/*
+ * Platter change: `top-end`, not the registry default `bottom-end`.
+ *
+ * The bottom-right corner of this app is occupied on the screens where toasts fire most. On
+ * the console tab it is the command composer and the last lines of live output — measured at
+ * 1440px, the toast box covered the Send button outright — and under 768px it is the floating
+ * bottom navigation. A toast that hides the control you just used, at the moment you are
+ * watching for its effect, is worse than no toast.
+ */
 export const toast = createToaster({
-  placement: "bottom-end",
+  placement: "top-end",
   overlap: true,
   max: 3,
 });
@@ -157,7 +166,7 @@ export const ToastItem = (props: ToastItemProps) => {
           <ArkToast.CloseTrigger asChild data-slot="toast-close-trigger">
             <Button
               aria-label="Close"
-              className="opacity-64 hover:opacity-100"
+              className="hit-target opacity-64 hover:opacity-100"
               size="icon-xs"
               variant="ghost"
             >

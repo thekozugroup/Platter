@@ -1,4 +1,4 @@
-import { Fragment, useId, useMemo, useState } from 'react';
+import { Fragment, useId, useMemo, useRef, useState } from 'react';
 import { formatBytes, formatRelativeTime } from '@platter/shared';
 import { ExternalLink } from 'pixelarticons/react/ExternalLink.js';
 import { ModIcon, formatDownloads } from '@/components/mods/mod-card';
@@ -415,20 +415,43 @@ export function ModDependencyList({
 
   return (
     <ul className={cn('flex flex-col gap-1.5', className)}>
-      {dependencies.map((dependency, index) => (
-        <li
-          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-label-secondary"
-          key={`${dependency.source}-${dependency.projectId ?? 'x'}-${dependency.versionId ?? 'x'}-${index}`}
-        >
-          <span className="font-medium text-label">{DEPENDENCY_LABEL[dependency.kind]}</span>
-          <code className="font-mono text-caption">
-            {dependency.fileName ?? dependency.projectId ?? dependency.versionId ?? 'unnamed'}
-          </code>
-          {dependency.versionId !== null ? (
-            <span className="text-label-tertiary">pinned to one version</span>
-          ) : null}
-        </li>
-      ))}
+      {dependencies.map((dependency, index) => {
+        /*
+         * Registries name a dependency by file where they can and by opaque id where they
+         * cannot — `P7dR8mSH` is Fabric API on Modrinth, and nothing on screen said so. The
+         * project titles are not in this payload, so the honest fix is to label the string
+         * for what it is rather than to let it read like a name.
+         */
+        const named = dependency.fileName;
+        const id = dependency.projectId ?? dependency.versionId;
+
+        return (
+          <li
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-label-secondary"
+            key={`${dependency.source}-${dependency.projectId ?? 'x'}-${dependency.versionId ?? 'x'}-${index}`}
+          >
+            <span className="font-medium text-label">{DEPENDENCY_LABEL[dependency.kind]}</span>
+            {named !== null ? (
+              <code className="font-mono text-caption">{named}</code>
+            ) : id !== null ? (
+              <>
+                <code className="font-mono text-caption">{id}</code>
+                <span className="text-label-tertiary">
+                  ({dependency.source === 'modrinth' ? 'Modrinth' : 'CurseForge'} project id — the
+                  project is not named in this listing)
+                </span>
+              </>
+            ) : (
+              <span className="text-label-tertiary">
+                a project this listing does not identify
+              </span>
+            )}
+            {dependency.versionId !== null ? (
+              <span className="text-label-tertiary">pinned to one version</span>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -736,18 +759,38 @@ function ProposeForm({
   const [touched, setTouched] = useState(false);
   const propose = useCreateProposal(serverId);
   const hintId = useId();
+  // Submitting an empty rationale used to look like a broken button: the handler returned and
+  // the only feedback was red text further up the sheet, easily below the fold on a phone.
+  const rationaleRef = useRef<HTMLTextAreaElement | null>(null);
 
   const trimmed = rationale.trim();
   const tooShort = trimmed.length < MIN_RATIONALE;
   const invalid = touched && tooShort;
 
   if (propose.isSuccess) {
+    const proposalId = propose.data.id;
     return (
       <Alert variant="success">
         <AlertTitle className="font-sans">Queued for review</AlertTitle>
-        <AlertDescription>
-          Nothing has been installed. It waits in this server’s review queue until someone
-          approves it.
+        <AlertDescription className="flex flex-col items-start gap-3">
+          <span>
+            Nothing has been installed. It waits in this server’s review queue, which lists
+            every file installing it would write — dependencies included — before anyone
+            approves it.
+          </span>
+          {/*
+            "Then find the queue" was the friction here: the queue is behind this sheet, at
+            the top of the same page, and nothing said so or took you there.
+          */}
+          {onProposed ? (
+            <Button
+              className="h-11 rounded-button px-5 text-subhead font-medium"
+              onClick={() => onProposed(proposalId)}
+              variant="outline"
+            >
+              Review it now
+            </Button>
+          ) : null}
         </AlertDescription>
       </Alert>
     );
@@ -756,10 +799,16 @@ function ProposeForm({
   return (
     <form
       className="flex flex-col gap-3"
+      // Our own validation, not the browser's: `required` alone cannot express "a few words",
+      // and a native validation bubble would suppress the message written for this field.
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
         setTouched(true);
-        if (tooShort || propose.isPending) return;
+        if (tooShort || propose.isPending) {
+          if (tooShort) rationaleRef.current?.focus();
+          return;
+        }
         propose.mutate(
           {
             source,
@@ -767,18 +816,21 @@ function ProposeForm({
             rationale: trimmed,
             ...(versionId === '' ? {} : { version: versionId }),
           },
-          { onSuccess: (proposal) => onProposed?.(proposal.id) },
         );
       }}
     >
-      <Field invalid={invalid}>
-        <FieldLabel>Why this mod?</FieldLabel>
+      <Field invalid={invalid} required>
+        <FieldLabel>
+          Why this mod?
+          <span className="font-normal text-label-tertiary">(required)</span>
+        </FieldLabel>
         <Textarea
           maxLength={MAX_RATIONALE}
           name="rationale"
           onBlur={() => setTouched(true)}
           onChange={(event) => setRationale(event.target.value)}
           placeholder="What it adds, and why this server wants it."
+          ref={rationaleRef}
           rows={3}
           value={rationale}
         />
@@ -842,6 +894,12 @@ export interface ModDetailSheetProps {
   onClose: () => void;
   /** Hides the propose form for a reader who cannot use it. */
   canPropose?: boolean;
+  /**
+   * Take the reader to the proposal they just raised. Called when they ask for it, not the
+   * instant the request succeeds — closing the sheet out from under the confirmation would
+   * hide the one sentence that says nothing was installed. Omit it and the confirmation
+   * simply has no action.
+   */
   onProposed?: (proposalId: string) => void;
 }
 

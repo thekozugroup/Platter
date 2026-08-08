@@ -9,6 +9,8 @@ import {
   roleAtLeast,
   DEFAULT_SUBUSER_PERMISSIONS,
   isApiKeyScope,
+  type PowerAction,
+  type ServerStatus,
 } from '../domain.js';
 import {
   formatBytes,
@@ -42,14 +44,24 @@ describe('server lifecycle', () => {
     }
   });
 
-  it('permits no power action while locked', () => {
+  it('permits no power action while locked, beyond the two that unwedge a server', () => {
+    // `installing` must stay interruptible, or a bad image download leaves the server
+    // unrecoverable without database surgery; `provisioning` must accept a start, or a
+    // server created with `startOnCreate: false` can never be installed at all.
+    const exceptions: Partial<Record<ServerStatus, PowerAction[]>> = {
+      installing: ['kill'],
+      provisioning: ['start'],
+    };
     for (const status of SERVER_STATUSES) {
       if (!isLocked(status)) continue;
-      // `installing` is the one exception: a stuck install must be interruptible, or a bad
-      // image download leaves the server unrecoverable without database surgery.
-      const expected = status === 'installing' ? ['kill'] : [];
-      expect([...ALLOWED_POWER_ACTIONS[status]]).toEqual(expected);
+      expect([...ALLOWED_POWER_ACTIONS[status]]).toEqual(exceptions[status] ?? []);
     }
+  });
+
+  it('offers a start out of provisioning, and nothing else', () => {
+    expect(canPerformPowerAction('provisioning', 'start')).toBe(true);
+    expect(canPerformPowerAction('provisioning', 'stop')).toBe(false);
+    expect(canPerformPowerAction('provisioning', 'kill')).toBe(false);
   });
 
   it('offers start only from a stopped state, and stop only from a live one', () => {

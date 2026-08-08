@@ -11,12 +11,14 @@ import { SERVER_STATUS_HINTS, StatusPill } from '@/components/common/status-pill
 import { PageBody, PageHeader } from '@/components/layout/page-header';
 import { PendingProposalsBadge } from '@/components/mods/proposal-review';
 import { PowerControls } from '@/components/servers/power-controls';
+import { blueprintSubtitle } from '@/components/servers/server-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBlueprint, useConsole, useMediaQuery, useServer, useServerAddress } from '@/hooks';
 import type { UseConsoleResult } from '@/hooks/use-console.js';
 import { ApiError } from '@/lib/api-client.js';
+import { describeExitCode } from '@/lib/exit-code.js';
 
 /**
  * The frame every per-server screen sits in.
@@ -169,11 +171,9 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
     (tab) => !tab.feature || !blueprintQuery.data || blueprintQuery.data.features[tab.feature],
   );
   const blueprint = blueprintQuery.data;
-  const subtitle = blueprint
-    ? blueprint.game === blueprint.name
-      ? blueprint.name
-      : `${blueprint.game} · ${blueprint.name}`
-    : server.blueprintKey;
+  // The same helper the card one click away uses, so the header does not read
+  // "Minecraft · Minecraft: Java Edition" beside a card that reads "Minecraft · Java Edition".
+  const subtitle = blueprintSubtitle(server.blueprintKey, blueprint);
 
   return (
     <ServerScopeContext.Provider value={scope}>
@@ -276,11 +276,21 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
           </div>
         </PageHeader>
 
-        {tabs.map((tab) => (
-          <TabsContent className="min-h-0" key={tab.value} value={tab.value}>
-            {tab.value === activeValue ? <Outlet /> : null}
-          </TabsContent>
-        ))}
+        {/*
+          Only the open panel is rendered, and the router decides what goes in it.
+
+          Mapping every tab to its own `TabsContent` looks harmless because the inactive ones
+          render `null` — but the *element* still exists, and `TabsContent` carries `flex-1`
+          inside this `flex flex-col` root. An empty panel therefore claims an equal share of
+          the column instead of collapsing, and Ark leaves it visible (`data-state="closed"`
+          without `hidden`). Worse, `lazyMount` means each panel is created the first time you
+          open its tab and then kept, so the dead space *accumulates*: after clicking through
+          to Network there were seven empty panels holding 2086px above the real content, and
+          a 900px viewport showed nothing but white until you scrolled.
+        */}
+        <TabsContent className="min-h-0" key={activeValue} value={activeValue}>
+          <Outlet />
+        </TabsContent>
       </Tabs>
     </ServerScopeContext.Provider>
   );
@@ -338,19 +348,42 @@ function ServerBanner({
   }
 
   if (status === 'crashed') {
+    const code = exitCode ?? server.lastExitCode;
+    const explained = describeExitCode(code);
+
     return (
       <Alert variant="destructive">
         <AlertTitle className="font-sans">It exited unexpectedly</AlertTitle>
-        <AlertDescription>
-          {exitCode !== null || server.lastExitCode !== null ? (
-            <>
-              The process stopped with exit code{' '}
-              <code className="font-mono">{exitCode ?? server.lastExitCode}</code>. The last lines
-              in the console usually name the cause.
-            </>
-          ) : (
-            'The process stopped on its own. The last lines in the console usually name the cause.'
-          )}
+        <AlertDescription className="flex flex-col gap-2">
+          <p>
+            {explained?.summary ?? 'The process stopped on its own.'}
+            {code === null ? null : (
+              <>
+                {' '}
+                Docker reported exit code <code className="font-mono">{code}</code>.
+              </>
+            )}{' '}
+            The last lines in the console name the cause.
+          </p>
+          {explained?.fix ? <p>{explained.fix}</p> : null}
+          {/*
+            A crash banner without a next step leaves the person who is most worried with
+            nowhere to go, so the two things that actually fix a crash are one click away.
+          */}
+          <p className="flex flex-wrap gap-x-4 gap-y-1">
+            {explained?.outOfMemory ? (
+              <Link className={BANNER_LINK} to={`/servers/${server.id}/settings`}>
+                Give it more memory
+              </Link>
+            ) : (
+              <Link className={BANNER_LINK} to={`/servers/${server.id}/settings`}>
+                Check its settings
+              </Link>
+            )}
+            <Link className={BANNER_LINK} to={`/servers/${server.id}/backups`}>
+              Restore a backup
+            </Link>
+          </p>
         </AlertDescription>
       </Alert>
     );
@@ -358,6 +391,8 @@ function ServerBanner({
 
   return null;
 }
+
+const BANNER_LINK = 'font-medium underline underline-offset-2';
 
 // ---------------------------------------------------------------------------------------
 

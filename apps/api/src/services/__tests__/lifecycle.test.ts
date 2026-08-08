@@ -123,6 +123,8 @@ interface SeedOptions {
   autoRestart?: boolean;
   status?: string;
   id?: string;
+  /** Distinct per server: the allocation table is unique on (node, ip, port, protocol). */
+  hostPort?: number;
 }
 
 async function seed(options: SeedOptions = {}): Promise<string> {
@@ -148,7 +150,7 @@ async function seed(options: SeedOptions = {}): Promise<string> {
       id: `alc_${id}`,
       nodeId: NODE_ID,
       hostIp: '0.0.0.0',
-      hostPort: 25000,
+      hostPort: options.hostPort ?? 25000,
       protocol: 'tcp',
       serverId: id,
       portName: 'game',
@@ -353,6 +355,21 @@ describe('power actions', () => {
   });
 });
 
+describe('a server created without starting it', () => {
+  it('installs and boots on the first start, rather than being stuck forever', async () => {
+    // `startOnCreate: false` leaves the row at `provisioning` with no image, no data
+    // directory and no container. Start is the only way out of it — reinstall refuses the
+    // status outright — so without this the row is unrecoverable and only delete works.
+    await seed({ status: 'provisioning' });
+
+    await lifecycle.startServer(SERVER_ID, OWNER_ID);
+
+    const row = await prisma.server.findUnique({ where: { id: SERVER_ID } });
+    expect(row?.status).toBe('running');
+    expect(row?.installedAt).not.toBeNull();
+  });
+});
+
 describe('boot signals', () => {
   it('holds a server at starting until the blueprint ready line appears', async () => {
     await seed({ blueprintKey: WATCHED.key });
@@ -385,6 +402,42 @@ describe('kill versus an operation already in flight', () => {
     // The most emphatic thing a user can press must not lose to the operation it is
     // documented to interrupt.
     expect(await statusOf()).toBe('offline');
+    expect((await (await driverFor()).inspect(SERVER_ID)).running).toBe(false);
+  });
+
+  it('does not report a container as offline while it is still running', async () => {
+    await seed();
+    await lifecycle.installServer(SERVER_ID);
+
+    // The kill has to land *during* `driver.start`: the container does not exist yet when
+    // the kill runs, so the kill has nothing to stop, and the start brings one up behind
+    // it. `killServer` deliberately runs outside the lock, so nothing else notices.
+    const driver = await driverFor();
+    const realStart = driver.start.bind(driver);
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let gated = false;
+    driver.start = async (id: string): Promise<void> => {
+      if (!gated) {
+        gated = true;
+        await gate;
+      }
+      await realStart(id);
+    };
+
+    const starting = lifecycle.startServer(SERVER_ID, OWNER_ID);
+    await waitForStatus('starting');
+    await lifecycle.killServer(SERVER_ID, OWNER_ID);
+    release?.();
+    await starting;
+
+    // The row and the runtime have to agree. An operator reading `offline` for a container
+    // that is still serving players has no way to find out, and nothing corrects it: the
+    // supervisor only inspects rows that claim to be live.
+    expect(await statusOf()).toBe('offline');
+    expect((await driverFor()).runningCount).toBe(0);
     expect((await (await driverFor()).inspect(SERVER_ID)).running).toBe(false);
   });
 
@@ -511,6 +564,40 @@ describe('crash supervision', () => {
     const row = await prisma.server.findUnique({ where: { id: SERVER_ID } });
     expect(row?.status).toBe('offline');
     expect(row?.lastCrashAt).toBeNull();
+  });
+
+  it('does not call a stop that completed mid-pass a crash', async () => {
+    // Two servers, so the pass has somewhere to be while the stop lands. The rows the pass
+    // works from were read before it started; the second one still says `running` long
+    // after the operator's stop finished, and deciding "crash or expected exit" from that
+    // snapshot turned a deliberate shutdown into a crash — with an automatic restart of a
+    // server somebody had just turned off.
+    const other = await seed({ id: 'srv_other', hostPort: 25001 });
+    await lifecycle.installServer(other);
+    await lifecycle.startServer(other, OWNER_ID);
+
+    const driver = await driverFor();
+    const realInspect = driver.inspect.bind(driver);
+    let stopped = false;
+    driver.inspect = async (id: string) => {
+      if (!stopped) {
+        stopped = true;
+        await lifecycle.stopServer(other, OWNER_ID);
+      }
+      return realInspect(id);
+    };
+
+    driver.crash(SERVER_ID, { exitCode: 1 });
+    await lifecycle.superviseOnce(Date.now());
+    driver.inspect = realInspect;
+
+    const row = await prisma.server.findUnique({ where: { id: other } });
+    expect(row?.status).toBe('offline');
+    expect(row?.lastCrashAt).toBeNull();
+
+    // And the next pass leaves it alone rather than starting it back up.
+    await lifecycle.superviseOnce(Date.now() + 60_000);
+    expect(await statusOf(other)).toBe('offline');
   });
 
   it('leaves a crashed server alone when autoRestart is off', async () => {

@@ -82,7 +82,10 @@ export type PowerAction = (typeof POWER_ACTIONS)[number];
  * orchestrator into an impossible transition (e.g. starting a server mid-install).
  */
 export const ALLOWED_POWER_ACTIONS: Record<ServerStatus, readonly PowerAction[]> = {
-  provisioning: [],
+  // A server created with `startOnCreate: false` sits here with no container and no data
+  // directory. `start` is what installs it and boots it — without that this status is a
+  // dead end reachable straight from the create endpoint, with only `delete` out of it.
+  provisioning: ['start'],
   installing: ['kill'],
   install_failed: [],
   offline: ['start'],

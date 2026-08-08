@@ -14,7 +14,14 @@ import { Moon } from 'pixelarticons/react/Moon.js';
 import { Plus } from 'pixelarticons/react/Plus.js';
 import { Search } from 'pixelarticons/react/Search.js';
 import { Server } from 'pixelarticons/react/Server.js';
-import { SettingsCog } from 'pixelarticons/react/SettingsCog.js';
+/*
+ * `Settings2`, not `SettingsCog`. Two of pixelarticons' 877 React components — `SettingsCog`
+ * and `Frame` — hit a codegen bug where the `<clipPath>` rect from the source SVG was
+ * flattened into a painted `<path fill="currentColor" d="M0 0h24v24H0z"/>`, so the glyph
+ * renders as a solid filled 24×24 block. This one sits in the primary chrome on every
+ * screen, which made it the loudest broken asset in the product.
+ */
+import { Settings2 } from 'pixelarticons/react/Settings2.js';
 import { User } from 'pixelarticons/react/User.js';
 import { Users } from 'pixelarticons/react/Users.js';
 import { avatarStyle } from '@/components/common/avatar-ink';
@@ -94,7 +101,7 @@ export const ADMIN_NAV: readonly NavItem[] = [
   {
     to: '/admin/settings',
     label: 'Settings',
-    icon: SettingsCog,
+    icon: Settings2,
     match: (p) => p.startsWith('/admin/settings'),
   },
 ];
@@ -365,7 +372,9 @@ export function AppSidebar({ onSearch, searchShortcut }: AppSidebarProps) {
         <div className="flex h-11 items-center justify-between gap-2">
           <Link
             className={cn(
-              'rounded-xs font-heading text-headline font-medium tracking-title text-label',
+              // The wordmark is a real navigation target, so it takes the 44px floor like
+              // every other one — its 30px line box was the last sub-minimum hit area left.
+              'hit-target rounded-xs font-heading text-headline font-medium tracking-title text-label',
               COLLAPSED_LABEL,
             )}
             to="/"

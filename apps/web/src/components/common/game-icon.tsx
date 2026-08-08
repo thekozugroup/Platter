@@ -27,8 +27,15 @@ const SIZE_CLASS: Record<GameIconSize, string> = {
   lg: 'size-16 rounded-none text-title-3 font-heading font-medium',
 };
 
-/** How many characters of the monogram fit without crowding the mark. */
-const SIZE_CHARS: Record<GameIconSize, number> = { xs: 1, sm: 2, md: 3, lg: 3 };
+/**
+ * How many characters of the monogram fit without crowding the mark.
+ *
+ * `xs` takes two, not one: it is the sidebar size, and the sidebar sits directly beside the
+ * server cards. One letter made the same server wear `M` in the rail and `MC` on its card,
+ * and collapsed two Minecraft servers to an identical `M`. Two characters at 11px measure
+ * ~13px inside a 20px mark.
+ */
+const SIZE_CHARS: Record<GameIconSize, number> = { xs: 2, sm: 2, md: 3, lg: 3 };
 
 export interface GameIconProps {
   /** From `blueprint.icon`. Falls back to initials derived from `name` or `blueprintKey`. */

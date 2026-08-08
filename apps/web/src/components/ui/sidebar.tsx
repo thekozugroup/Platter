@@ -1,7 +1,7 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { PanelLeftIcon } from "lucide-react";
+import { PanelLeftIcon } from "@/components/common/icons";
 import React from "react";
 import type { VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";

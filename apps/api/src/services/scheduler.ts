@@ -209,8 +209,6 @@ export async function runScheduleNow(id: string, actorId: string | null = null):
  * second one.
  */
 async function claimAndRun(row: ScheduleRow): Promise<void> {
-  if (running.has(row.id)) return; // a manual run already has it
-
   let nextRunAt: Date;
   try {
     nextRunAt = computeNextRun(row.cron, row.timezone, new Date());
@@ -237,6 +235,18 @@ async function claimAndRun(row: ScheduleRow): Promise<void> {
     data: { nextRunAt },
   });
   if (claimed.count === 0) return;
+
+  // The overlap check happens *after* the claim, not before it.
+  //
+  // A run that outlives its own next occurrence — a 90-minute backup on an hourly schedule
+  // — used to return here with `nextRunAt` still in the past, so `armTimer` computed a zero
+  // delay and `tick` re-entered immediately: a busy loop hammering SQLite for the rest of
+  // the run. Advancing first means the occurrence is skipped, which is what "one schedule
+  // never runs twice concurrently" has always meant, and the loop goes back to sleep.
+  if (running.has(row.id)) {
+    report('warn', { scheduleId: row.id }, 'skipping an occurrence: the previous run is still going');
+    return;
+  }
 
   running.add(row.id);
   // Not awaited, mirroring `runScheduleNow`: a backup takes as long as a backup takes, and

@@ -32,7 +32,12 @@ import type {
   Resolution,
   ResolutionProblem,
 } from '@/hooks';
-import { useApproveProposal, useProposals, useRejectProposal } from '@/hooks';
+import {
+  useApproveProposal,
+  useCreateProposal,
+  useProposals,
+  useRejectProposal,
+} from '@/hooks';
 import { errorMessage } from '@/lib/api-client.js';
 import { cn } from '@/lib/utils';
 
@@ -111,7 +116,24 @@ const REASON_LABEL: Record<PlannedInstall['reason'], string> = {
   update: 'Replaces the installed version',
 };
 
-function PlannedRow({ entry }: { entry: PlannedInstall }) {
+/**
+ * Project ids, resolved to the names on the cards above them.
+ *
+ * `requiredBy` carries registry ids (`resolve.ts` fills it from the graph's keys), so an
+ * unresolved list reads "Required by AAAA1111" — or, against real Modrinth data, "Required by
+ * P7dR8mSH". Every id in it is also a node in this same resolution, which means the plan the
+ * reviewer is looking at already contains the title for each one.
+ */
+function titleIndex(resolution: Resolution): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const entry of [...resolution.install, ...resolution.satisfied]) {
+    index.set(entry.projectId, entry.title);
+    index.set(`${entry.source}:${entry.projectId}`, entry.title);
+  }
+  return index;
+}
+
+function PlannedRow({ entry, names }: { entry: PlannedInstall; names: Map<string, string> }) {
   return (
     <li className="flex items-start gap-3 border-t border-separator py-3 first:border-t-0 first:pt-0">
       <ModIcon iconUrl={entry.iconUrl} size="sm" title={entry.title} />
@@ -133,7 +155,7 @@ function PlannedRow({ entry }: { entry: PlannedInstall }) {
         </p>
         {entry.requiredBy.length > 0 ? (
           <p className="mt-0.5 text-caption text-label-tertiary">
-            Required by {entry.requiredBy.join(', ')}
+            Required by {entry.requiredBy.map((id) => names.get(id) ?? id).join(', ')}
           </p>
         ) : null}
         {entry.replacesVersionId !== null ? (
@@ -174,6 +196,8 @@ function ProblemList({ problems }: { problems: readonly ResolutionProblem[] }) {
 
 /** Exactly what pressing Approve writes to disk. Nothing here has happened yet. */
 function PlannedChanges({ resolution }: { resolution: Resolution }) {
+  const names = titleIndex(resolution);
+
   return (
     <section className="flex flex-col gap-3">
       <h4 className="font-sans text-subhead font-semibold text-label">
@@ -187,7 +211,7 @@ function PlannedChanges({ resolution }: { resolution: Resolution }) {
       ) : (
         <ul className={cn(modSurface, 'flex flex-col px-4 py-3')}>
           {resolution.install.map((entry) => (
-            <PlannedRow entry={entry} key={`${entry.source}:${entry.projectId}`} />
+            <PlannedRow entry={entry} key={`${entry.source}:${entry.projectId}`} names={names} />
           ))}
         </ul>
       )}
@@ -314,7 +338,7 @@ export function ProposalReview({
   const approve = useApproveProposal(serverId);
   const submitApproval = (acknowledgedDigest: string | null) =>
     approve.mutate(
-      { proposalId: proposal.id, acknowledgedDigest },
+      { proposalId: proposal.id, acknowledgedDigest, title: proposal.title },
       {
         onSuccess: (result) => {
           setOutcome(result);
@@ -325,6 +349,7 @@ export function ProposalReview({
     );
 
   const reject = useRejectProposal(serverId);
+  const repropose = useCreateProposal(serverId);
 
   // The live re-resolution wins over the snapshot once an attempt has been made: after a
   // `blocked` or `changed` answer, the stored plan is no longer what would happen.
@@ -356,6 +381,21 @@ export function ProposalReview({
           onAcknowledge={() => submitApproval(outcome.digest)}
           pending={approve.isPending}
         />
+      ) : null}
+
+      {/*
+        A *retryable* install failure leaves the proposal pending with the reason recorded on
+        it (`services/proposals.ts`), so without this the second visit to this screen shows a
+        proposal that looks untouched and gives no hint that a download already fell over.
+      */}
+      {proposal.status === 'pending' && proposal.error !== null && outcome === null ? (
+        <Alert variant="destructive">
+          <AlertTitle className="font-sans">The last attempt did not finish</AlertTitle>
+          <AlertDescription>
+            {proposal.error} Nothing was installed and this proposal is still open, so approving
+            tries again.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {driftSuspected ? (
@@ -407,9 +447,38 @@ export function ProposalReview({
         />
       )}
 
+      {/*
+        A failed proposal is terminal — the API refuses to approve or reject one — so the only
+        way forward is a fresh proposal. Offering it here means the error names a next step
+        instead of leaving a dead card on the screen.
+      */}
+      {proposal.status === 'failed' ? (
+        <div className="flex flex-col gap-2 border-t border-separator pt-5">
+          <Button
+            className="h-11 w-fit rounded-button px-5 text-subhead font-medium"
+            isLoading={repropose.isPending}
+            onClick={() =>
+              repropose.mutate({
+                source: proposal.source,
+                project: proposal.slug,
+                rationale: proposal.rationale,
+              })
+            }
+            variant="outline"
+          >
+            Propose it again
+          </Button>
+          <p className="text-caption text-label-tertiary">
+            Puts a fresh proposal in the queue for the newest version this server can load, with
+            the same reason attached. It installs nothing on its own.
+          </p>
+        </div>
+      ) : null}
+
       <p aria-live="polite" className="text-caption text-danger" role="status">
         {approve.isError ? errorMessage(approve.error) : null}
         {reject.isError ? errorMessage(reject.error) : null}
+        {repropose.isError ? errorMessage(repropose.error) : null}
       </p>
 
       {/* Approve: the last chance to read what will be written, restated in one place. */}
@@ -591,7 +660,7 @@ function Standing({
         <AlertTitle className="font-sans">The install failed</AlertTitle>
         <AlertDescription>
           {proposal.error ?? 'The download or the write did not complete.'} Nothing usable was
-          left behind — propose it again once the cause is fixed.
+          left on the server, and this proposal cannot be approved again.
         </AlertDescription>
       </Alert>
     );
@@ -756,19 +825,49 @@ export interface ProposalQueueProps {
   className?: string;
 }
 
+/** A failure stops being news eventually; until then it is the loudest thing on this screen. */
+const FAILED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_FAILED_SHOWN = 3;
+
+function recentFailures(proposals: readonly ModProposal[], now: number): ModProposal[] {
+  return proposals
+    .filter((entry) => {
+      const at = entry.reviewedAt === null ? null : Date.parse(entry.reviewedAt);
+      return at === null || Number.isNaN(at) ? true : now - at < FAILED_WINDOW_MS;
+    })
+    .sort((left, right) => (right.reviewedAt ?? '').localeCompare(left.reviewedAt ?? ''))
+    .slice(0, MAX_FAILED_SHOWN);
+}
+
 /**
- * The review queue: every pending proposal, with the selected one opened in full.
+ * The review queue: everything waiting on a person, with the selected one opened in full.
  *
  * A proposal is never summarised down to a row and then approved from that row — selecting one
  * opens the whole panel, because the decision is only meaningful on complete information.
+ *
+ * **Recent failures are part of the queue, not a separate history.** An approval whose download
+ * or write fell over moves the proposal from `pending` to `failed`, which used to take the card
+ * off this screen mid-request: the reviewer pressed "Approve and install", the panel vanished,
+ * and what replaced it was "Nothing waiting for review" — the exact impression DESIGN §9
+ * forbids. A failed proposal now stays visible, carrying the reason the API recorded, until it
+ * is a week old.
  */
 export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
   const query = useProposals(serverId, 'pending');
+  const failedQuery = useProposals(serverId, 'failed');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const proposals = query.data?.data ?? [];
+
+  const pending = query.data?.data ?? [];
+  const failed = useMemo(
+    () => recentFailures(failedQuery.data?.data ?? [], Date.now()),
+    [failedQuery.data],
+  );
+  const proposals = [...pending, ...failed];
   const selected = proposals.find((entry) => entry.id === selectedId) ?? proposals[0] ?? null;
 
-  if (query.isPending) {
+  // Both halves, or neither: resolving the pending list first and rendering "Nothing waiting
+  // for review" while the failures are still in flight is the flash this screen must not have.
+  if (query.isPending || failedQuery.isPending) {
     return (
       <div className={cn('flex flex-col gap-3', className)}>
         <span className="sr-only" role="status">
@@ -779,13 +878,17 @@ export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
     );
   }
 
-  if (query.isError) {
+  if (query.isError || failedQuery.isError) {
+    const failing = query.isError ? query : failedQuery;
     return (
       <ErrorState
         className={className}
-        error={query.error}
-        isRetrying={query.isFetching}
-        onRetry={() => void query.refetch()}
+        error={failing.error}
+        isRetrying={failing.isFetching}
+        onRetry={() => {
+          void query.refetch();
+          void failedQuery.refetch();
+        }}
         title="Couldn’t read the review queue"
         variant="inline"
       />
@@ -823,6 +926,9 @@ export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
                     variant="outline"
                   >
                     {entry.title}
+                    {entry.status === 'failed' ? (
+                      <span className="text-label-tertiary"> · install failed</span>
+                    ) : null}
                   </Button>
                 </li>
               );

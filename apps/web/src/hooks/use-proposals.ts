@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
-import { api } from '@/lib/api-client.js';
+import { toast } from '@/components/ui/toast';
+import { api, errorMessage } from '@/lib/api-client.js';
 import type { InstalledMod, ModDetail, ModSource, ModVersion } from './use-mods.js';
 
 /**
@@ -153,6 +154,12 @@ export interface ApproveProposalInput {
    * rather than leaving the server to infer it from an absent field.
    */
   acknowledgedDigest: string | null;
+  /**
+   * The mod's name, for the failure toast only — never sent to the API. It is passed in
+   * rather than read back from the cache because by the time the failure lands the proposal
+   * has left the `pending` list the caller was reading it from.
+   */
+  title?: string;
 }
 
 /**
@@ -163,6 +170,14 @@ export interface ApproveProposalInput {
  * is the whole feature — it is what the reviewer reads before approving again, and passing
  * its `digest` back as `acknowledgedDigest` is how they say "I read the diff". So 409 is
  * declared expected and the outcome is switched on `status`, never on the HTTP code.
+ *
+ * A **real** failure — the download 403s, the volume is full, the node is unreachable — has to
+ * be reported from here rather than by the screen. `onSettled` refetches the queue, and the
+ * API has by then moved the proposal off `pending`; whichever card was rendering the mutation's
+ * inline error unmounts with it, so a screen-local message is gone before it can be read. A
+ * toast outlives the component that started the request, which is exactly the property this
+ * needs. DESIGN §9: never let a screen imply an agent action took effect when it did not — and
+ * silence after "Approve and install" implies precisely that.
  */
 export function useApproveProposal(
   serverId: string,
@@ -180,6 +195,13 @@ export function useApproveProposal(
       if (outcome.status === 'installed') {
         void queryClient.invalidateQueries({ queryKey: ['servers', serverId, 'mods', 'installed'] });
       }
+    },
+    onError: (error, { title }) => {
+      toast.create({
+        title: title ? `Couldn’t install ${title}` : 'The install didn’t finish',
+        description: `${errorMessage(error)} Nothing usable was left on the server.`,
+        type: 'error',
+      });
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: proposalsKeys.all(serverId) }),
   });

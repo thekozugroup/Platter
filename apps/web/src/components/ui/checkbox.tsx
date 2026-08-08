@@ -4,7 +4,7 @@ import {
   Checkbox as ArkCheckbox,
   useCheckboxContext,
 } from "@ark-ui/react/checkbox";
-import { CheckIcon, MinusIcon } from "lucide-react";
+import { CheckIcon, MinusIcon } from "@/components/common/icons";
 import type React from "react";
 import { tv } from "tailwind-variants";
 import { cn } from "@/lib/utils";
@@ -44,16 +44,47 @@ export const checkboxVariants = tv({
   ],
 });
 
-export const Checkbox = (
-  props: React.ComponentProps<typeof ArkCheckbox.Root>
-) => {
-  const { className, tabIndex, ...rest } = props;
+/**
+ * Ark renders the root as a real `<label htmlFor>` wrapping a visually-hidden
+ * `<input type="checkbox">` — the input is the control, the root is its label.
+ *
+ * Three things had to change for that to reach assistive tech:
+ *
+ * 1. **`role="checkbox"` is gone from the root.** It turned the label into a *second*,
+ *    permanently nameless checkbox in the accessibility tree, so every one of these
+ *    reported twice — once unnamed, once real.
+ * 2. **`id` is routed to the hidden input** via Ark's `ids`. Ark otherwise re-keys a bare
+ *    `id` to `checkbox:<id>`, which left every caller's `<label htmlFor={id}>` pointing at
+ *    an element that does not exist: no name, and clicking the word did nothing.
+ * 3. **`aria-label` / `aria-labelledby` / `aria-describedby` land on the input**, not on
+ *    the label, because that is the element a screen reader announces.
+ *
+ * Ark always sets `aria-labelledby` on the input pointing at its `Label` part. This
+ * component does not render one, so that reference dangles — which is fine and deliberate:
+ * an `aria-labelledby` whose traversal is empty is skipped and the accessible name falls
+ * through to the associated `<label>`, verified in Chrome. Rendering an empty `Label` here
+ * would instead style a stray element into every call site.
+ */
+export interface CheckboxProps
+  extends React.ComponentProps<typeof ArkCheckbox.Root> {}
+
+export const Checkbox = (props: CheckboxProps) => {
+  const {
+    className,
+    tabIndex,
+    id,
+    ids,
+    "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledby,
+    "aria-describedby": ariaDescribedby,
+    ...rest
+  } = props;
 
   return (
     <ArkCheckbox.Root
       className={cn(checkboxVariants(), className)}
       data-slot="checkbox"
-      role="checkbox"
+      ids={{ ...(id === undefined ? {} : { hiddenInput: id }), ...ids }}
       {...rest}
     >
       <ArkCheckbox.Control data-slot="checkbox-control">
@@ -66,7 +97,12 @@ export const Checkbox = (
         </CheckboxIndicator>
       </ArkCheckbox.Control>
 
-      <ArkCheckbox.HiddenInput tabIndex={tabIndex} />
+      <ArkCheckbox.HiddenInput
+        aria-describedby={ariaDescribedby}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledby}
+        tabIndex={tabIndex}
+      />
     </ArkCheckbox.Root>
   );
 };

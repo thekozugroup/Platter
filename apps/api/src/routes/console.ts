@@ -160,8 +160,19 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
     // Frames
     // ---------------------------------------------------------------------
 
+    /**
+     * Every `await` below is a window in which the peer can vanish.
+     *
+     * `shutdown` runs on close, and it releases exactly what has been taken *so far* — so a
+     * handshake that resumes afterwards and carries on taking things leaks them permanently:
+     * the connection counter is incremented after `shutdown` already declined to decrement
+     * it (eight aborted handshakes and the user cannot open a console anywhere), and a stats
+     * interval assigned after `shutdown` cleared it queries the database every five seconds
+     * for the life of the process. Re-checking `closed` after each await is what makes
+     * "shutdown released everything" true.
+     */
     const handleAuth = async (token: string): Promise<void> => {
-      if (authed) return; // a second auth frame is a no-op, not a re-key
+      if (authed || closed) return; // a second auth frame is a no-op, not a re-key
 
       let context: AuthContext;
       try {
@@ -170,6 +181,7 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
         shutdown(WS_CLOSE.unauthorized, 'invalid token');
         return;
       }
+      if (closed) return;
 
       if (typeof serverId !== 'string' || serverId.length === 0) {
         shutdown(WS_CLOSE.gone, 'no such server');
@@ -177,6 +189,7 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const access = await resolveAccess(serverId, context, log);
+      if (closed) return;
       if (!access) {
         shutdown(WS_CLOSE.gone, 'no such server');
         return;
@@ -211,6 +224,9 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
       // with no producer until someone looks at it. `attach` is idempotent and reference
       // counted, so this joins the existing stream when there is one.
       await attachStream(serverId, hub, log);
+      // `shutdown` has already run and cleared `statsTimer` if the socket closed in there;
+      // assigning a fresh interval now would outlive the socket with nothing left to clear it.
+      if (closed) return;
 
       statsTimer = setInterval(() => {
         void pushStats(serverId, send, log);

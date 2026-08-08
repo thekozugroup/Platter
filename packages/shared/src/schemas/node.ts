@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { NODE_DRIVERS, NODE_STATUSES } from '../domain.js';
-import { idSchema, isoDateSchema, portSchema } from './common.js';
+import { idSchema, isoDateSchema, patchShape, portSchema } from './common.js';
 
 /**
  * A node is a host that can run containers. v1 ships with the local Docker socket
@@ -55,8 +55,8 @@ export const createNodeRequestSchema = nodeInputSchema.refine(
 );
 export type CreateNodeRequest = z.infer<typeof createNodeRequestSchema>;
 
-export const updateNodeRequestSchema = nodeInputSchema
-  .partial()
+export const updateNodeRequestSchema = z
+  .object(patchShape(nodeInputSchema))
   .refine((body) => Object.keys(body).length > 0, 'Nothing to update');
 
 /** Live capacity snapshot used by the admin dashboard and the placement algorithm. */

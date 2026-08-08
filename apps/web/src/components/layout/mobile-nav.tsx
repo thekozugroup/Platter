@@ -13,14 +13,29 @@ import {
 import type { NavItem } from '@/components/layout/sidebar';
 
 /**
- * The phone navigation bar.
+ * The phone navigation bar — the one glass surface in the product.
+ *
+ * DESIGN §4 names this specifically: "a fully-round floating pill — white at 80% over
+ * `backdrop-filter: blur(8px)` with a 1px `rgba(0,0,0,0.06)` edge", lifted on
+ * `--pl-shadow-nav`. Shark's `BottomNavigationList` ships a square, opaque bar welded to
+ * three screen edges, so the pill is composed here rather than by editing the registry
+ * component: DESIGN §1 keeps `components/ui/` generic and puts screen composition in
+ * `components/<feature>/`.
+ *
+ * `.frost` (global.css) is the material — tint, hairline and blur in one class, already
+ * wired to `prefers-reduced-transparency` and to a solid fallback where `backdrop-filter`
+ * is unsupported. `w-auto` is what lets the inset-x-0 list take margins instead of spanning
+ * the viewport; `border-t-0` drops the registry's top rule, which a floating pill must not
+ * carry.
  *
  * Four destinations, thumb-reachable, each a full-height 56px target that clears the 44px
  * minimum on its own. It sits below 768px only; above that the sidebar is always visible
  * and a second navigation would just be a second place to look.
  *
  * The bar's own box stays in the flow while its list is fixed, so it reserves exactly the
- * space it covers and the last row of a list is never trapped under it.
+ * space it covers and the last row of a list is never trapped under it — now
+ * `--pl-nav-clearance`, the token that exists for this, because the pill also has to clear
+ * its own bottom margin and the home-indicator inset.
  */
 const MOBILE_NAV: readonly NavItem[] = [
   { to: '/', label: 'Home', icon: Home, match: (p) => p === '/' },
@@ -47,8 +62,12 @@ export function MobileNav() {
      * sidebar's "Main" for anyone listing landmarks, even though only one is ever visible.
      */
     <nav aria-label="Primary" className="md:hidden">
-      <BottomNavigation onValueChange={({ value }) => void navigate(value)} value={active}>
-        <BottomNavigationList className="bg-bg">
+      <BottomNavigation
+        className="min-h-[calc(var(--pl-nav-clearance)+env(safe-area-inset-bottom,0px))]"
+        onValueChange={({ value }) => void navigate(value)}
+        value={active}
+      >
+        <BottomNavigationList className="mx-4 mb-[calc(var(--pl-space-md)+env(safe-area-inset-bottom,0px))] w-auto rounded-full border border-frost-border bg-frost px-2 pb-0 shadow-nav backdrop-blur-nav backdrop-saturate-[var(--pl-frost-saturate)]">
           {MOBILE_NAV.map((item) => {
             const Icon = item.icon;
             return (

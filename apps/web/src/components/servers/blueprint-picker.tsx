@@ -5,6 +5,7 @@ import { Search } from 'pixelarticons/react/Search.js';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { GameIcon } from '@/components/common/game-icon';
+import { blueprintEdition } from '@/components/servers/server-card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -177,9 +178,14 @@ export function BlueprintPicker({ value, onChange, className }: BlueprintPickerP
                       <span className="text-body font-semibold tracking-title text-label">
                         {blueprint.game}
                       </span>
-                      <span className="text-caption font-normal text-label-secondary">
-                        {blueprint.name}
-                      </span>
+                      {/* Only when the blueprint is a particular build of the game. Nine of
+                          the twelve shipped ones are the game itself, and printing both made
+                          the picker read "Valheim / Valheim". */}
+                      {blueprintEdition(blueprint) === null ? null : (
+                        <span className="text-caption font-normal text-label-secondary">
+                          {blueprintEdition(blueprint)}
+                        </span>
+                      )}
                     </span>
                   </span>
                   <span className="text-footnote font-normal text-balance text-label-secondary">

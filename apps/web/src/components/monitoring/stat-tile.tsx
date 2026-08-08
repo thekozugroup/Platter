@@ -19,6 +19,27 @@ import { cn } from '@/lib/utils';
 
 export type StatTone = 'default' | 'warning' | 'danger';
 
+/**
+ * `md` is the monitoring tile — three across, with a sparkline. `sm` is the dashboard's
+ * four-across row: the same object, read at a glance rather than watched.
+ *
+ * The dashboard used to declare its own tile, and the two drifted: 24px Geist **Sans** at
+ * weight 500 there against 36px Geist **Mono** at 600 here, one click apart. A reading is one
+ * role, so it gets one face, one weight and one alignment; only the size changes with the
+ * density.
+ */
+export type StatTileSize = 'sm' | 'md';
+
+const VALUE_SIZE: Record<StatTileSize, string> = {
+  sm: 'text-title-2',
+  md: 'text-title-1',
+};
+
+const LABEL_SIZE: Record<StatTileSize, string> = {
+  sm: 'text-caption',
+  md: 'text-subhead',
+};
+
 export interface StatTileProps {
   label: string;
   /** Already formatted, with its unit. `null` when there is no reading to show. */
@@ -34,6 +55,7 @@ export interface StatTileProps {
   /** Oldest first. Two or more points draw a sparkline; fewer draw nothing. */
   history?: readonly number[] | undefined;
   tone?: StatTone;
+  size?: StatTileSize;
   isLoading?: boolean;
   className?: string;
 }
@@ -61,6 +83,7 @@ export function StatTile({
   icon,
   history,
   tone = 'default',
+  size = 'md',
   isLoading = false,
   className,
 }: StatTileProps) {
@@ -74,7 +97,8 @@ export function StatTile({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-md border border-separator-strong bg-surface p-5',
+        'flex flex-col rounded-md border border-separator-strong bg-surface',
+        size === 'sm' ? 'gap-1.5 p-4' : 'gap-3 p-5',
         className,
       )}
     >
@@ -84,7 +108,9 @@ export function StatTile({
             {icon}
           </span>
         ) : null}
-        <h4 className="text-subhead font-medium text-label-secondary">{label}</h4>
+        {/* h3, under the h2 every screen that uses this tile puts above it. An h4 there left
+            the document outline reading h1 → h2 → h4. */}
+        <h3 className={cn('font-medium text-label-secondary', LABEL_SIZE[size])}>{label}</h3>
       </div>
 
       {isLoading ? (
@@ -105,7 +131,8 @@ export function StatTile({
           */}
           <p
             className={cn(
-              'font-mono text-title-1 font-semibold leading-none tabular',
+              'font-mono font-semibold leading-none tabular',
+              VALUE_SIZE[size],
               TONE_VALUE[tone],
             )}
           >
@@ -122,7 +149,19 @@ export function StatTile({
           config={SPARK_CONFIG}
           id={`spark-${gradientId}`}
         >
-          <AreaChart data={rows} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+          {/*
+            `accessibilityLayer` defaults on in Recharts 3 and puts `role="application"` and
+            `tabIndex={0}` on the chart's own <svg>. Inside an `aria-hidden` container that is
+            axe's `aria-hidden-focus`: a keyboard user hits a dead stop on every tile, and a
+            screen-reader user lands in an unnamed application region that is not in the
+            accessibility tree at all. The value and the detail line already say everything
+            this path says.
+          */}
+          <AreaChart
+            accessibilityLayer={false}
+            data={rows}
+            margin={{ top: 2, right: 0, bottom: 0, left: 0 }}
+          >
             <defs>
               <linearGradient id={`spark-fill-${gradientId}`} x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-value)" stopOpacity={0.28} />

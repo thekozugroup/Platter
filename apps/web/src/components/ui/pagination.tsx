@@ -4,7 +4,7 @@ import {
   Pagination as ArkPagination,
   usePaginationContext,
 } from "@ark-ui/react/pagination";
-import { ChevronLeft, ChevronRight, Ellipsis } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ellipsis } from "@/components/common/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export const PaginationPrevious = (
   props: React.ComponentProps<typeof ArkPagination.PrevTrigger>
 ) => (
   <ArkPagination.PrevTrigger asChild data-slot="pagination-previous" {...props}>
-    <Button variant="ghost">
+    <Button className="hit-target" variant="ghost">
       <ChevronLeft />
       Previous
     </Button>
@@ -46,7 +46,7 @@ export const PaginationNext = (
   props: React.ComponentProps<typeof ArkPagination.NextTrigger>
 ) => (
   <ArkPagination.NextTrigger asChild data-slot="pagination-next" {...props}>
-    <Button variant="ghost">
+    <Button className="hit-target" variant="ghost">
       Next
       <ChevronRight />
     </Button>
@@ -62,6 +62,7 @@ export const PaginationItem = (
     <ArkPagination.Item asChild data-slot="pagination-item" {...rest}>
       <Button
         className={cn(
+          "hit-target",
           "tabular-nums",
           "data-selected:not-[hover]:bg-transparent dark:data-selected:not-[hover]:bg-input/30",
           "data-selected:not-[hover]:text-foreground",

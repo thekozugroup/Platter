@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PendingProposalsBadge,
+  ProposalQueue,
   ProposalReview,
 } from '@/components/mods/proposal-review';
 import type {
@@ -125,7 +126,9 @@ const DEPENDENCY: PlannedInstall = plannedFixture({
   slug: 'fabric-language-kotlin',
   title: 'Fabric Language Kotlin',
   reason: 'dependency',
-  requiredBy: ['Fabric API'],
+  // As the API sends it: `resolve.ts` fills `requiredBy` from the graph's keys, which are
+  // registry project ids. The panel has to resolve them against the plan it is rendering.
+  requiredBy: ['P7dR8mSH'],
   version: versionFixture({
     versionId: 'ver_dep',
     versionNumber: '1.12.0',
@@ -295,7 +298,9 @@ describe('ProposalReview — informed decision', () => {
     expect(screen.getByText('mods/fabric-api-0.102.0.jar')).toBeInTheDocument();
     expect(screen.getByText('mods/fabric-language-kotlin-1.12.0.jar')).toBeInTheDocument();
     expect(screen.getByText('Pulled in as a dependency')).toBeInTheDocument();
+    // The name the reviewer read two rows above, never the registry id the API sends.
     expect(screen.getByText('Required by Fabric API')).toBeInTheDocument();
+    expect(screen.queryByText(/Required by P7dR8mSH/)).not.toBeInTheDocument();
   });
 
   it('disables approval when the plan does not resolve, and says why', () => {
@@ -495,6 +500,101 @@ describe('ProposalReview — settled proposals', () => {
     expect(
       screen.getByText(/The checksum did not match the download./),
     ).toBeInTheDocument();
+  });
+});
+
+describe('ProposalQueue — a failed install is not allowed to vanish', () => {
+  function renderQueue() {
+    return render(
+      <QueryClientProvider client={createQueryClient()}>
+        <MemoryRouter>
+          <ProposalQueue serverId="srv_1" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  const FAILURE = 'Downloading fabric-api-0.102.0.jar failed (403).';
+
+  function queueFetch(pending: ModProposal[], failed: ModProposal[]) {
+    return vi.fn(async (input: RequestInfo | URL) =>
+      json({ data: String(input).includes('status=failed') ? failed : pending }),
+    );
+  }
+
+  it('keeps a failed proposal on screen, with the reason, instead of an empty queue', async () => {
+    vi.stubGlobal(
+      'fetch',
+      queueFetch(
+        [],
+        [
+          proposalFixture({
+            status: 'failed',
+            reviewedAt: new Date().toISOString(),
+            error: FAILURE,
+          }),
+        ],
+      ),
+    );
+    renderQueue();
+
+    // Approving this is what put it here; "Nothing waiting for review" would say the
+    // opposite of what happened.
+    expect(await screen.findByText('The install failed')).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(FAILURE.replace(/[.()]/g, '\\$&')))).toBeInTheDocument();
+    expect(screen.queryByText('Nothing waiting for review')).not.toBeInTheDocument();
+    // Terminal on the API, so the way forward is a fresh proposal rather than a retry.
+    expect(screen.getByRole('button', { name: 'Propose it again' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve and install' })).not.toBeInTheDocument();
+  });
+
+  it('drops a failure once it is a week old', async () => {
+    const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    vi.stubGlobal(
+      'fetch',
+      queueFetch([], [proposalFixture({ status: 'failed', reviewedAt: old, error: FAILURE })]),
+    );
+    renderQueue();
+
+    expect(await screen.findByText('Nothing waiting for review')).toBeInTheDocument();
+  });
+
+  it('waits for both halves before claiming the queue is empty', async () => {
+    let releaseFailed: () => void = () => undefined;
+    const failedArrives = new Promise<void>((resolve) => {
+      releaseFailed = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes('status=failed')) {
+          await failedArrives;
+          return json({ data: [proposalFixture({ status: 'failed', error: FAILURE })] });
+        }
+        return json({ data: [] });
+      }),
+    );
+    renderQueue();
+
+    // The pending list is back and empty, but nothing may be asserted about the queue yet.
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Nothing waiting for review')).not.toBeInTheDocument();
+
+    releaseFailed();
+    expect(await screen.findByText('The install failed')).toBeInTheDocument();
+  });
+});
+
+describe('ProposalReview — a failure recorded on an open proposal', () => {
+  it('reports the last attempt rather than showing a proposal that looks untouched', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+    // A *retryable* failure leaves the proposal pending with the reason stored on it.
+    renderReview(proposalFixture({ error: 'The node did not answer in time.' }));
+
+    expect(screen.getByText('The last attempt did not finish')).toBeInTheDocument();
+    expect(screen.getByText(/The node did not answer in time./)).toBeInTheDocument();
+    // Still open, so the decision is still offered.
+    expect(screen.getByRole('button', { name: 'Approve and install' })).toBeEnabled();
   });
 });
 

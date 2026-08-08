@@ -6,7 +6,7 @@ import {
   useComboboxContext as useArkComboboxContext,
 } from "@ark-ui/react/combobox";
 import { Portal } from "@ark-ui/react/portal";
-import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, XIcon } from "@/components/common/icons";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";

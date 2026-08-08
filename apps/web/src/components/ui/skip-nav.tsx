@@ -22,6 +22,10 @@ export const SkipNavLink = (props: SkipNavLinkProps) => {
     <ark.a
       className={cn(
         "focus:fixed focus:inset-s-4 focus:top-4 focus:z-9999",
+        // The first control a keyboard user reaches, and it was 36px tall. Padding alone
+        // could not reach the 44px floor without pushing the label off-centre, so it becomes
+        // a centred flex box with an explicit minimum.
+        "focus:inline-flex focus:min-h-11 focus:items-center",
         "focus:px-4 focus:py-2",
         "focus:bg-primary",
         "focus:text-primary-foreground focus:text-sm",

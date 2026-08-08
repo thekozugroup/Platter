@@ -130,6 +130,54 @@ function assertAllowedUrl(source: ModSource, rawUrl: string): URL {
   return url;
 }
 
+/** A CDN may legitimately bounce a download between its own hosts; nobody needs more. */
+const MAX_DOWNLOAD_REDIRECTS = 5;
+
+const REDIRECT_STATUSES: readonly number[] = [301, 302, 303, 307, 308];
+
+/**
+ * Fetches `url`, following redirects **by hand** so every hop is re-checked.
+ *
+ * `redirect: 'follow'` validates only the first URL: the host allowlist above is then one
+ * open redirect on the CDN away from being a blind-GET primitive pointed at whatever an
+ * upstream response names — including link-local metadata addresses on the node. Following
+ * manually is what makes the allowlist a property of the whole transfer rather than of its
+ * first request.
+ */
+async function fetchAllowedUrl(
+  fetchImpl: (input: string, init?: RequestInit) => Promise<Response>,
+  source: ModSource,
+  url: URL,
+  signal: AbortSignal,
+): Promise<Response> {
+  let target = url;
+  for (let hop = 0; hop <= MAX_DOWNLOAD_REDIRECTS; hop += 1) {
+    const response = await fetchImpl(target.toString(), {
+      method: 'GET',
+      redirect: 'manual',
+      signal,
+    });
+    if (!REDIRECT_STATUSES.includes(response.status)) return response;
+
+    const location = response.headers.get('location');
+    if (location === null) return response;
+    // Relative locations are resolved against the hop that sent them, then re-validated
+    // like any other URL — a relative redirect can still change host via `//evil.example`.
+    let next: URL;
+    try {
+      next = new URL(location, target);
+    } catch {
+      throw new PlatterError('service_unavailable', 'That mod download redirected somewhere unusable.', {
+        retryable: false,
+      });
+    }
+    target = assertAllowedUrl(source, next.toString());
+  }
+  throw new PlatterError('service_unavailable', 'That mod download redirected too many times.', {
+    retryable: false,
+  });
+}
+
 function hexEquals(left: string, right: string): boolean {
   return left.toLowerCase() === right.toLowerCase();
 }
@@ -198,8 +246,9 @@ export async function installModFile(request: InstallFileRequest): Promise<Downl
 
   let response: Response;
   try {
-    response = await fetchImpl(url.toString(), { method: 'GET', redirect: 'follow', signal });
+    response = await fetchAllowedUrl(fetchImpl, source, url, signal);
   } catch (error) {
+    if (error instanceof PlatterError) throw error;
     if (request.signal?.aborted) throw error;
     throw new PlatterError('service_unavailable', `Could not download ${filename}.`, {
       retryable: true,

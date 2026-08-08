@@ -48,3 +48,24 @@ export const envKeySchema = z
   .regex(/^[A-Z][A-Z0-9_]*$/, 'Use SCREAMING_SNAKE_CASE');
 
 export const okSchema = z.object({ ok: z.literal(true) });
+
+/**
+ * Build the PATCH counterpart of a create schema, where an omitted key means "leave this
+ * alone".
+ *
+ * `.partial()` is the obvious tool and the wrong one: it yields
+ * `ZodOptional<ZodDefault<T>>`, and Zod still applies the inner default when the key is
+ * absent. A PATCH carrying only `{ memoryTotalMb }` would parse into every other field at
+ * its *create-time* default and the route would faithfully write them — silently
+ * repointing a node's driver and public host, so every server address on it goes wrong.
+ * Stripping the default first is what makes absence mean absence.
+ */
+export function patchShape<Shape extends z.ZodRawShape>(
+  schema: z.ZodObject<Shape>,
+): { [K in keyof Shape]: z.ZodOptional<Shape[K]> } {
+  const entries = Object.entries(schema.shape).map(([key, field]) => {
+    const undefaulted = field instanceof z.ZodDefault ? field.def.innerType : field;
+    return [key, (undefaulted as z.ZodTypeAny).optional()];
+  });
+  return Object.fromEntries(entries) as { [K in keyof Shape]: z.ZodOptional<Shape[K]> };
+}

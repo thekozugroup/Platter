@@ -76,9 +76,10 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
   return (
     <div className={cn('flex flex-col gap-6', className)}>
       <div className="flex flex-col gap-3">
-        <p className="text-caption font-medium tracking-caps text-label-tertiary">
-          Players type this
-        </p>
+        {/* Sentence case, matching the <dt>s eight lines below at the same size and role.
+            DESIGN §11 is sentence case everywhere; an all-caps eyebrow here split the
+            casing inside one panel. */}
+        <p className="text-caption font-medium text-label-tertiary">Players type this</p>
 
         {/*
           The headline reuses CopyField rather than growing a second copy button: the
@@ -119,7 +120,11 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
 
       {isMdnsZone ? (
         address.mdnsAvailable ? (
-          <Alert variant="success">
+          /* Not `success`: green in this system means a *running* server and nothing else
+             (DESIGN §2). A green panel under a green Running dot that meant something
+             different was the clearest way to teach a reader that the colour is
+             decorative. `info` is monochrome. */
+          <Alert variant="info">
             <AlertTitle className="font-sans">Advertised on this network</AlertTitle>
             <AlertDescription>
               <code className="font-mono">{address.fqdn}</code> is being announced over mDNS, so

@@ -61,7 +61,8 @@ export function ModsPage() {
               Waiting for review
             </h2>
             <p className="max-w-prose text-subhead text-label-secondary">
-              An agent can suggest a mod. Only a person can install one.
+              An agent can suggest a mod. Only a person can install one. An install that failed
+              stays here as well, with the reason it gave.
             </p>
           </div>
           <ProposalQueue serverId={server.id} />
@@ -114,6 +115,14 @@ export function ModsPage() {
 
       <ModDetailSheet
         onClose={() => setTarget(null)}
+        onProposed={() => {
+          // The queue is at the top of this same page, behind the sheet. Closing it and
+          // moving there is what "it waits in the review queue" actually means.
+          setTarget(null);
+          document
+            .getElementById('mods-review')
+            ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }}
         serverId={server.id}
         target={target}
       />

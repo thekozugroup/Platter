@@ -474,6 +474,14 @@ describe('CreateServerPage', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
     expect(await screen.findByRole('heading', { name: 'Mod loaders' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /^Paper/ })).toBeChecked();
+    /*
+     * A family with no recommended member — utility here, and hybrids on the real blueprint —
+     * collapses entirely instead of falling back to showing all of it, so the step never gives
+     * its largest block of space to the options it warns against. The disclosure names what it
+     * holds rather than assembling "Show 1 more utility servers option" from the title.
+     */
+    expect(screen.queryByRole('radio', { name: /Weird New/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show 1 utility server' }));
     // A type this client has no copy for still appears, in the family the blueprint declared.
     expect(screen.getByRole('radio', { name: /Weird New/ })).toBeInTheDocument();
 

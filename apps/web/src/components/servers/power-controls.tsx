@@ -225,10 +225,13 @@ export function PowerControls({
         const isThisPending = busy && power.variables === spec.action;
         const destructive = spec.action === 'kill';
 
+        // Kill stays monochrome in the row. Red here is an *action* wearing the colour this
+        // system spends only on *state* (DESIGN §2), sitting inches from a red `Crashed` dot
+        // that means something else entirely. What Kill costs is said in the confirmation
+        // it always opens — that dialog keeps the chroma, on its destructive confirm button.
         const shared = cn(
           'h-11 rounded-button font-medium',
           dense ? 'w-11 px-0' : 'px-4 text-subhead',
-          destructive && !reason && 'text-danger',
         );
 
         if (reason) {

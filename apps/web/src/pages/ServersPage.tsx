@@ -10,6 +10,7 @@ import {
 } from '@platter/shared';
 import { Grid3x3 } from 'pixelarticons/react/Grid3x3.js';
 import { ListBox } from 'pixelarticons/react/ListBox.js';
+import { Plus } from 'pixelarticons/react/Plus.js';
 import { Search } from 'pixelarticons/react/Search.js';
 import { Server } from 'pixelarticons/react/Server.js';
 import { connectAddress } from '@/components/common/connect-address';
@@ -234,7 +235,10 @@ export function ServersPage() {
   return (
     <>
       <PageHeader
-        actions={<PageAction to="/servers/new">+ New server</PageAction>}
+        actions={<PageAction to="/servers/new">
+            <Plus aria-hidden />
+            New server
+          </PageAction>}
         description="Everything running on this installation, with the address players connect to."
         title="Servers"
       >

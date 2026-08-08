@@ -163,10 +163,50 @@ interface MaterialFacts {
   gameVersions: string[];
   /** Required dependencies only; optional ones are never installed, so they cannot surprise. */
   requires: string[];
+  /**
+   * Every jar this approval would actually write, by identity and digest.
+   *
+   * `requires` above records only what the root version *declares* it needs —
+   * `modrinth:P7dR8mSH@*` — and a dependency pinned to `*` is re-resolved to the newest
+   * match at approval time. So a dependency that published a new jar between propose and
+   * approve used to install silently, with `changes: []`, because nothing in the digest
+   * covered it. ARCHITECTURE §4 stakes the whole review model on "the human cannot approve
+   * one thing and get another"; that is only true if the resolved file list is signed too.
+   */
+  plan: string[];
 }
 
-function materialFacts(detail: ModDetail, version: ModVersion): MaterialFacts {
+/**
+ * The resolved graph as material identities.
+ *
+ * Deliberately no titles, slugs or icons: a project renaming itself must not fire the drift
+ * gate, because a gate that fires on cosmetics is one reviewers learn to click through.
+ *
+ * `satisfied` is folded in alongside `install` so the fact is "which versions this plan
+ * resolves to", not "which files are left to write" — otherwise a reviewer who installed
+ * one of the dependencies by hand in the meantime would be asked to re-acknowledge a plan
+ * that resolves to exactly the same bytes.
+ */
+function planFacts(resolution: Resolution): string[] {
+  return [...resolution.install, ...resolution.satisfied]
+    .map((entry) =>
+      [
+        entry.source,
+        entry.projectId,
+        entry.target,
+        entry.version.versionId,
+        entry.version.file.filename,
+        entry.version.file.sha512 ?? '',
+        entry.version.file.sha1 ?? '',
+        entry.version.file.url,
+      ].join('|'),
+    )
+    .sort();
+}
+
+function materialFacts(detail: ModDetail, version: ModVersion, resolution: Resolution): MaterialFacts {
   return {
+    plan: planFacts(resolution),
     projectId: detail.projectId,
     slug: detail.slug,
     title: detail.title,
@@ -192,8 +232,12 @@ function materialFacts(detail: ModDetail, version: ModVersion): MaterialFacts {
 }
 
 /** Stable because the key order is the interface's, not an object literal's iteration order. */
-export function materialDigest(detail: ModDetail, version: ModVersion): string {
-  const facts = materialFacts(detail, version);
+export function materialDigest(
+  detail: ModDetail,
+  version: ModVersion,
+  resolution: Resolution,
+): string {
+  const facts = materialFacts(detail, version, resolution);
   const canonical = JSON.stringify(
     Object.keys(facts)
       .sort()
@@ -206,12 +250,39 @@ function describe(value: unknown): string {
   return Array.isArray(value) ? value.join(', ') : String(value);
 }
 
+/**
+ * The install list, written for a person.
+ *
+ * The digest is computed over the full tuples — full digests included — but a reviewer
+ * reading a diff of two 128-character hashes learns nothing, so the rendered form keeps
+ * enough of each to be recognisable.
+ */
+function describePlan(entries: readonly string[]): string {
+  return entries
+    .map((entry) => {
+      const [source, projectId, target, versionId, filename, sha512, sha1] = entry.split('|');
+      const digest = (sha512 ?? '') || (sha1 ?? '');
+      return `${source}:${projectId} → ${target}/${filename} (${versionId}, ${digest.slice(0, 12)}…)`;
+    })
+    .join('\n');
+}
+
+function render(key: keyof MaterialFacts, value: MaterialFacts[keyof MaterialFacts]): string {
+  return key === 'plan' ? describePlan(value as string[]) : describe(value);
+}
+
 function diffMaterial(before: MaterialFacts, after: MaterialFacts): ProposalChange[] {
   const changes: ProposalChange[] = [];
   for (const key of Object.keys(before) as Array<keyof MaterialFacts>) {
-    const left = describe(before[key]);
-    const right = describe(after[key]);
-    if (left !== right) changes.push({ field: key, before: left, after: right, material: true });
+    // Compared on the full values, rendered on the readable ones — so a difference that
+    // only shows past the truncation still counts as a difference.
+    if (describe(before[key]) === describe(after[key])) continue;
+    changes.push({
+      field: key,
+      before: render(key, before[key]),
+      after: render(key, after[key]),
+      material: true,
+    });
   }
   return changes;
 }
@@ -390,6 +461,9 @@ export async function propose(input: ProposeInput): Promise<ModProposal> {
   await prune(server.id, existing);
 
   const now = new Date().toISOString();
+  // Trimmed once: this is both what is stored and what the digest is taken over, so the
+  // approval path compares like with like instead of drifting against its own snapshot.
+  const resolution = trimResolution(plan.resolution);
   return save({
     id: newProposalId(),
     serverId: server.id,
@@ -411,8 +485,8 @@ export async function propose(input: ProposeInput): Promise<ModProposal> {
     snapshot: {
       detail: plan.detail,
       version: plan.version,
-      resolution: trimResolution(plan.resolution),
-      digest: materialDigest(plan.detail, plan.version),
+      resolution,
+      digest: materialDigest(plan.detail, plan.version, resolution),
     },
     driftDetectedAt: null,
     installedVersionId: null,
@@ -525,15 +599,31 @@ export async function approve(
     options.log,
   );
 
+  const resolution = trimResolution(plan.resolution);
   const changes = [
     ...diffMaterial(
-      materialFacts(proposal.snapshot.detail, proposal.snapshot.version),
-      materialFacts(plan.detail, plan.version),
+      materialFacts(proposal.snapshot.detail, proposal.snapshot.version, proposal.snapshot.resolution),
+      materialFacts(plan.detail, plan.version, resolution),
     ),
     ...diffPresentation(proposal.snapshot.detail, plan.detail),
   ];
-  const digest = materialDigest(plan.detail, plan.version);
+  const digest = materialDigest(plan.detail, plan.version, resolution);
   const drifted = digest !== proposal.snapshot.digest;
+
+  // Ahead of the drift check: a plan that no longer resolves against this server installs
+  // nothing either way, and "the loader changed under it" is a more useful thing to tell a
+  // reviewer than "re-acknowledge a digest". Nothing is skipped by the reorder — an
+  // unblocked retry still meets the drift gate before a byte is written.
+  if (!plan.resolution.installable) {
+    return {
+      status: 'blocked',
+      proposal,
+      installed: [],
+      resolution: plan.resolution,
+      changes,
+      digest,
+    };
+  }
 
   if (drifted && options.acknowledgedDigest !== digest) {
     const flagged = await save({
@@ -543,17 +633,6 @@ export async function approve(
     return {
       status: 'changed',
       proposal: flagged,
-      installed: [],
-      resolution: plan.resolution,
-      changes,
-      digest,
-    };
-  }
-
-  if (!plan.resolution.installable) {
-    return {
-      status: 'blocked',
-      proposal,
       installed: [],
       resolution: plan.resolution,
       changes,

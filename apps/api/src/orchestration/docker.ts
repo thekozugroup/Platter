@@ -2,7 +2,7 @@ import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import Docker from 'dockerode';
-import { PlatterError } from '@platter/shared';
+import { LIMITS, PlatterError } from '@platter/shared';
 import { withTimeout } from '../lib/async.js';
 import { DRIVER_LABELS, containerNameFor } from './driver.js';
 import type {
@@ -148,11 +148,26 @@ class LogDecoder {
     return lines;
   }
 
+  /**
+   * The partial tail is bounded.
+   *
+   * A container that emits a long newline-free run — `\r` progress bars, a binary dump, a
+   * stack trace written without line breaks — would otherwise grow this string for as long
+   * as it kept talking, in a process that also holds the Docker socket. `LogHub`'s own
+   * clamp does not help: it only applies to a line that has already been emitted, and this
+   * one never is. Flushing at the same ceiling turns unbounded growth into a wrapped line.
+   */
   private split(stream: 'stdout' | 'stderr', text: string, out: DriverLogLine[]): void {
     const combined = (this.partial.get(stream) ?? '') + text;
     const parts = combined.split('\n');
-    this.partial.set(stream, parts.pop() ?? '');
+    let tail = parts.pop() ?? '';
     for (const part of parts) out.push(decorate(stream, part));
+
+    while (tail.length > LIMITS.maxConsoleLineLength) {
+      out.push(decorate(stream, tail.slice(0, LIMITS.maxConsoleLineLength)));
+      tail = tail.slice(LIMITS.maxConsoleLineLength);
+    }
+    this.partial.set(stream, tail);
   }
 }
 

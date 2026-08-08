@@ -25,17 +25,21 @@ export const AUTH_RATE_LIMIT: RateLimitOptions = { max: 10, timeWindow: '1 minut
 export const SENSITIVE_RATE_LIMIT: RateLimitOptions = { max: 5, timeWindow: '1 minute' };
 
 /**
- * Buckets are keyed by API key where one is presented, so rotating source addresses does
- * not reset an automated caller's budget. Bearer tokens cannot be used here: this runs in
- * `onRequest`, long before `authenticate` has verified anything, and trusting an
- * unverified token as a bucket key would let a forged one share someone else's budget.
+ * Buckets are keyed by source address, and by nothing a client can choose.
+ *
+ * This hook runs in `onRequest`, long before `authenticate` has verified anything, so every
+ * credential visible here is unverified. Keying on one — an API key prefix, a bearer token —
+ * hands the caller control of their own bucket: send a different junk `X-API-Key` per
+ * request and every request lands in a fresh, empty bucket, which defeats the login
+ * brute-force budget, the key-minting budget and the flood ceiling all at once. Verifying
+ * the prefix here instead would mean a database lookup per request on the unauthenticated
+ * path, which is its own denial of service.
+ *
+ * `request.ip` is Fastify's, so it only reflects `X-Forwarded-For` when `TRUST_PROXY` is
+ * set — i.e. when an operator has said a proxy in front of us rewrites it. It is off by
+ * default, so the address cannot be spoofed either.
  */
-function rateLimitKey(request: FastifyRequest): string {
-  const apiKey = request.headers['x-api-key'];
-  if (typeof apiKey === 'string') {
-    const prefix = apiKey.split('.')[0];
-    if (prefix) return `key:${prefix}`;
-  }
+export function rateLimitKey(request: FastifyRequest): string {
   return `ip:${request.ip}`;
 }
 

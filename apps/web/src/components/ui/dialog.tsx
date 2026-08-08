@@ -3,7 +3,7 @@
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
 import { ark } from "@ark-ui/react/factory";
 import { Portal } from "@ark-ui/react/portal";
-import { XIcon } from "lucide-react";
+import { XIcon } from "@/components/common/icons";
 import React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";
@@ -175,6 +175,60 @@ export const DialogContent = (props: DialogContentProps) => {
     ...rest
   } = props;
 
+  /*
+   * A dialog that opens without moving focus is silent: a screen reader stays where it was,
+   * announces nothing, and the first Tab walks the page *behind* the overlay. Measured on
+   * this app's plain dialogs, focus was still on `<body>` 3.5s after open.
+   *
+   * The cause is not that Ark never focuses anything — it is that what it focuses goes away.
+   * A `focusin`/`focusout` trace on "New user" reads: trigger out, `scroll-area-viewport`
+   * in, `scroll-area-viewport` out, 16ms later. `DialogBody` wraps its children in a
+   * `ScrollArea`, whose viewport is tabbable only while it actually overflows; Ark's trap
+   * picks it as the first tabbable node, the ScrollArea then measures and drops its
+   * `tabindex`, and focus falls to `<body>` with nothing to catch it.
+   *
+   * So the panel itself is the floor. `tabIndex={-1}` makes it focusable without adding a
+   * tab stop, and the guard runs both when the dialog opens and any time focus is *lost* —
+   * `document.body` only, never a real element, so a menu or popover that portals out of
+   * the dialog is left alone.
+   */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const { open } = useDialogContext();
+  React.useEffect(() => {
+    if (!open) return;
+
+    let frame = 0;
+    let attempts = 0;
+    const claimFocus = () => {
+      const node = contentRef.current;
+      if (!node?.isConnected) {
+        // `lazyMount` means the panel's DOM does not exist on the tick the flag flips.
+        if (attempts++ < 30) frame = requestAnimationFrame(claimFocus);
+        return;
+      }
+      const active = document.activeElement;
+      if (active && active !== document.body && node.contains(active)) return;
+      node.focus();
+    };
+
+    const onFocusOut = () => {
+      // Read after the browser has settled on the next active element.
+      requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
+        attempts = 0;
+        claimFocus();
+      });
+    };
+
+    frame = requestAnimationFrame(claimFocus);
+    document.addEventListener('focusout', onFocusOut, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('focusout', onFocusOut, true);
+    };
+  }, [open]);
+
   return (
     <Portal>
       <DialogOverlay />
@@ -191,6 +245,8 @@ export const DialogContent = (props: DialogContentProps) => {
             className
           )}
           data-slot="dialog-content"
+          ref={contentRef}
+          tabIndex={-1}
           {...rest}
         >
           {children}
@@ -199,7 +255,7 @@ export const DialogContent = (props: DialogContentProps) => {
             <DialogClose asChild>
               <Button
                 aria-label="Close"
-                className="absolute inset-e-2 top-2 opacity-64 hover:opacity-100"
+                className="hit-target absolute inset-e-2 top-2 opacity-64 hover:opacity-100"
                 size="icon-sm"
                 variant="ghost"
               >

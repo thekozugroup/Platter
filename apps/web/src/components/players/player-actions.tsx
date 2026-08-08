@@ -134,7 +134,7 @@ export const ROSTER_UNAVAILABLE_FIX: Record<RosterUnavailableReason, string> = {
   not_enabled:
     'Turn on ENABLE_RCON in Settings and restart the server. Kicks, bans and the whitelist all travel over RCON.',
   no_password:
-    'Set an RCON password in Settings and restart. Platter generates one on first start, so this usually clears itself.',
+    'Platter generates one the first time a server starts, so starting it once usually fixes this. If it does not, set an RCON password in Settings and restart.',
   offline:
     'Start the server to manage players. Everything below is the history Platter already has.',
   unreachable:
@@ -534,13 +534,22 @@ export function PlayerActions({
     );
 
     if (variant === 'sheet') {
+      // The sheet's own description already carries `blockedReason` in full, so only a reason
+      // this control alone has — "They are not online right now." — is worth printing again.
+      const restated = action.blocked !== null && action.blocked === blockedReason;
       return (
         <div className="flex flex-col gap-1" key={action.id}>
           {button}
           {action.blocked ? (
-            <p className="text-caption text-label-tertiary" id={hintId}>
-              {action.blocked}
-            </p>
+            restated ? (
+              <span className="sr-only" id={hintId}>
+                {action.blocked}
+              </span>
+            ) : (
+              <p className="text-caption text-label-tertiary" id={hintId}>
+                {action.blocked}
+              </p>
+            )
           ) : null}
         </div>
       );

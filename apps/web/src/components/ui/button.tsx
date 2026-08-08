@@ -11,7 +11,12 @@ export const buttonVariants = tv({
     "whitespace-nowrap font-medium text-sm",
     "rounded-lg",
     "transition-all",
-    "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32",
+    // `outline-none` here beats the app's global `:focus-visible` outline (a utility outranks
+    // a base rule), so this ring is the *only* focus indicator on the most common control in
+    // the product. Shark's 32% put it at 2.03:1 against the page — below the 3:1 floor for a
+    // UI boundary, and on ghost/outline buttons the page is the only adjacent colour, so
+    // nothing else carried the signal. 72% measures ~6.9:1 on white and ~6.5:1 on #0d0d0d.
+    "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/72",
     // 40%, not Shark's 64%: at 64% a dark primary button still reads as enabled, so people
     // press it and nothing happens. See DESIGN.md §8.
     "disabled:pointer-events-none disabled:opacity-40",
@@ -41,10 +46,12 @@ export const buttonVariants = tv({
       ],
       destructive: [
         "bg-destructive",
-        "text-white",
+        // Not `text-white`: dark lightens the red to #e5726a, where white is 3.02:1. The
+        // token is white in light and ink in dark. See `--pl-danger-on`.
+        "text-danger-on",
         "border border-transparent shadow-destructive/24 shadow-sm",
         "hover:bg-destructive/90",
-        "focus-visible:border-background focus-visible:ring-destructive-foreground/32",
+        "focus-visible:border-background focus-visible:ring-destructive-foreground/72",
       ],
       secondary: [
         "bg-secondary",

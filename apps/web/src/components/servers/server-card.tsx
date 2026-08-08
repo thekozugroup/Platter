@@ -30,18 +30,29 @@ export interface ServerCardProps {
   className?: string;
 }
 
+/**
+ * `Java Edition` — which build of the game this is, or `null` when the blueprint is simply
+ * the game itself.
+ *
+ * Nine of the twelve shipped blueprints have `game === name`, so anything that prints both
+ * unconditionally reads "Valheim / Valheim". The two that differ spell the game out twice
+ * ("Minecraft" / "Minecraft: Java Edition"), so the prefix comes off as well.
+ */
+export function blueprintEdition(blueprint: BlueprintSummary): string | null {
+  if (blueprint.name === blueprint.game) return null;
+  return blueprint.name.startsWith(`${blueprint.game}: `)
+    ? blueprint.name.slice(blueprint.game.length + 2)
+    : blueprint.name;
+}
+
 /** `Minecraft · Java Edition` — the game first, then which build of it is running. */
 export function blueprintSubtitle(
   blueprintKey: string,
   blueprint?: BlueprintSummary | undefined,
 ): string {
   if (!blueprint) return blueprintKey;
-  if (blueprint.name === blueprint.game) return blueprint.game;
-
-  const edition = blueprint.name.startsWith(`${blueprint.game}: `)
-    ? blueprint.name.slice(blueprint.game.length + 2)
-    : blueprint.name;
-  return `${blueprint.game} · ${edition}`;
+  const edition = blueprintEdition(blueprint);
+  return edition === null ? blueprint.game : `${blueprint.game} · ${edition}`;
 }
 
 /**

@@ -5,7 +5,7 @@ import {
   SERVER_PERMISSIONS,
   SERVER_STATUSES,
 } from '../domain.js';
-import { idSchema, isoDateSchema, portSchema } from './common.js';
+import { idSchema, isoDateSchema, patchShape, portSchema } from './common.js';
 
 export const serverNameSchema = z
   .string()
@@ -106,7 +106,11 @@ export const updateServerRequestSchema = z
   .object({
     name: serverNameSchema.optional(),
     description: z.string().max(500).optional(),
-    limits: resourceLimitsSchema.partial().optional(),
+    /**
+     * `patchShape`, not `.partial()`: editing only `memoryMb` must not silently reset
+     * `swapMb` and `ioWeight` to their create-time defaults.
+     */
+    limits: z.object(patchShape(resourceLimitsSchema)).optional(),
     variables: z.record(z.string(), z.string()).optional(),
     autoStart: z.boolean().optional(),
     autoRestart: z.boolean().optional(),

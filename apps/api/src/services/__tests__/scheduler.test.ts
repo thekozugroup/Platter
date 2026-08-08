@@ -42,7 +42,7 @@ vi.mock('../blueprints.js', async (importOriginal) => {
 });
 
 const { prisma } = await import('../../db.js');
-const { resetDrivers } = await import('../../orchestration/registry.js');
+const { getDriver, resetDrivers } = await import('../../orchestration/registry.js');
 const { resetLogHubs } = await import('../../orchestration/log-buffer.js');
 const lifecycle = await import('../lifecycle.js');
 const scheduler = await import('../scheduler.js');
@@ -331,6 +331,70 @@ describe('automatic dispatch', () => {
     expect(updated?.enabled).toBe(false);
     expect(updated?.nextRunAt).toBeNull();
     expect(updated?.lastRunStatus).toBe('failed');
+  });
+});
+
+describe('a run that outlives its own next occurrence', () => {
+  it('advances nextRunAt and goes back to sleep instead of spinning', async () => {
+    await seedServer({ status: 'provisioning' });
+    await lifecycle.installServer(SERVER_ID);
+
+    // A run still going when the next occurrence falls due. The overlap guard used to
+    // return *before* the conditional claim, leaving `nextRunAt` in the past — so
+    // `armTimer` computed a zero delay and `tick` re-entered immediately, querying SQLite
+    // in a tight loop for as long as the run took (a 90-minute backup, hourly).
+    const driver = await getDriver(NODE_ID);
+    const realStart = driver.start.bind(driver);
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let gated = false;
+    driver.start = async (id: string): Promise<void> => {
+      if (!gated) {
+        gated = true;
+        await gate;
+      }
+      await realStart(id);
+    };
+
+    // Due shortly *after* the loop starts: `startScheduler` fast-forwards anything already
+    // overdue, which would hide the defect.
+    const dueAt = new Date(Date.now() + 400);
+    const row = await seedSchedule({
+      action: 'start',
+      payload: null,
+      cron: '* * * * *',
+      nextRunAt: dueAt,
+    });
+
+    let scans = 0;
+    const delegate = prisma.schedule as unknown as { findMany: (...args: never[]) => unknown };
+    const realFindMany = delegate.findMany.bind(prisma.schedule);
+
+    try {
+      await scheduler.runScheduleNow(row.id);
+      await scheduler.startScheduler({ intervalMs: 100 });
+      delegate.findMany = (...args: never[]): unknown => {
+        scans += 1;
+        return realFindMany(...args);
+      };
+
+      await waitFor(async () => {
+        const updated = await prisma.schedule.findUnique({ where: { id: row.id } });
+        return (updated?.nextRunAt?.getTime() ?? 0) > dueAt.getTime();
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      // At a 100 ms heartbeat a sleeping loop scans a handful of times; the busy loop was
+      // measured at roughly six milliseconds per iteration.
+      expect(scans).toBeLessThan(15);
+    } finally {
+      delegate.findMany = realFindMany;
+      release?.();
+      driver.start = realStart;
+    }
+
+    await waitForLastRun(row.id);
   });
 });
 

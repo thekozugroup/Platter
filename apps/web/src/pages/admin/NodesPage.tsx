@@ -10,6 +10,7 @@ import {
 import { Cpu } from 'pixelarticons/react/Cpu.js';
 import { MoreVertical } from 'pixelarticons/react/MoreVertical.js';
 import { Pencil } from 'pixelarticons/react/Pencil.js';
+import { Plus } from 'pixelarticons/react/Plus.js';
 import { Reload } from 'pixelarticons/react/Reload.js';
 import { Server as ServerIcon } from 'pixelarticons/react/Server.js';
 import { Trash } from 'pixelarticons/react/Trash.js';
@@ -25,6 +26,7 @@ import {
 } from '@/components/admin/node-form';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
+import { StatusCapsule, type StatusTone } from '@/components/common/status-pill';
 import { PageAction, PageBody, PageHeader } from '@/components/layout/page-header';
 import {
   AlertDialog,
@@ -82,32 +84,30 @@ const NODE_STATUS_LABEL: Record<NodeStatus, string> = {
   unknown: 'Not checked yet',
 };
 
-const NODE_STATUS_DOT: Record<NodeStatus, string> = {
-  online: 'bg-success-dot status-pulse',
-  degraded: 'bg-warning-dot',
-  offline: 'bg-danger-dot ring-2 ring-danger/30',
-  unknown: 'bg-neutral-status',
+const NODE_STATUS_TONE: Record<NodeStatus, StatusTone> = {
+  online: 'success',
+  degraded: 'warning',
+  offline: 'danger',
+  unknown: 'neutral',
 };
 
-const NODE_STATUS_TEXT: Record<NodeStatus, string> = {
-  online: 'text-success',
-  degraded: 'text-warning',
-  offline: 'text-danger',
-  unknown: 'text-label-secondary',
-};
-
+/**
+ * A node's health is not a `ServerStatus`, so it does not borrow `StatusPill` — but it is
+ * the same capsule, and the reason the word stays near-black is the same one: at 13px,
+ * `text-success` on the pill measures 3.51:1 and `text-warning` 3.77:1. The dot carries the
+ * colour, the pulse and the ring; the word carries the meaning.
+ */
 function NodeStatusPill({ status }: { status: NodeStatus }) {
   return (
-    <span
-      className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill',
-        'border border-pill-border bg-pill px-2.5 text-footnote font-medium',
-        NODE_STATUS_TEXT[status],
-      )}
+    <StatusCapsule
+      data-status={status}
+      pulse={status === 'online'}
+      ring={status === 'offline' ? 'danger' : undefined}
+      size="md"
+      tone={NODE_STATUS_TONE[status]}
     >
-      <span aria-hidden className={cn('size-2 rounded-full', NODE_STATUS_DOT[status])} />
       {NODE_STATUS_LABEL[status]}
-    </span>
+    </StatusCapsule>
   );
 }
 
@@ -405,7 +405,10 @@ export function NodesPage() {
   return (
     <>
       <PageHeader
-        actions={<PageAction onClick={openCreate}>+ Add node</PageAction>}
+        actions={<PageAction onClick={openCreate}>
+            <Plus aria-hidden />
+            Add node
+          </PageAction>}
         description="Where your servers run, and how much room is left on each host."
         title="Nodes"
       />

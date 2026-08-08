@@ -246,15 +246,40 @@ describe('server lifecycle over HTTP', () => {
     });
     const server = created.json();
 
-    // `provisioning` permits nothing at all — see ALLOWED_POWER_ACTIONS.
+    // `provisioning` permits only `start`, which installs — see ALLOWED_POWER_ACTIONS.
+    for (const action of ['stop', 'restart', 'kill'] as const) {
+      const response = await app.inject({
+        method: 'POST',
+        url: `${BASE}/servers/${server.id}/power`,
+        headers: authHeaders(user),
+        payload: { action },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().error.code).toBe('invalid_state');
+    }
+  });
+
+  it('installs and boots a server created with startOnCreate off', async () => {
+    const user = await createTestUser('owner');
+    const created = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers`,
+      headers: authHeaders(user),
+      payload: paperBody('Set Up Later'),
+    });
+    const server = created.json();
+    expect(server.status).toBe('provisioning');
+
+    // Without this, `provisioning` is a dead end reachable straight from the create
+    // endpoint: reinstall refuses the status outright and nothing else can install it.
     const response = await app.inject({
       method: 'POST',
       url: `${BASE}/servers/${server.id}/power`,
       headers: authHeaders(user),
       payload: { action: 'start' },
     });
-    expect(response.statusCode).toBe(409);
-    expect(response.json().error.code).toBe('invalid_state');
+    expect(response.statusCode).toBe(200);
+    expect(['starting', 'running']).toContain(response.json().status);
   });
 
   it('validates the blueprint variables it was given', async () => {

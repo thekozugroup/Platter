@@ -3,7 +3,7 @@
 import { Portal } from "@ark-ui/react";
 import { Combobox as ArkCombobox } from "@ark-ui/react/combobox";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon } from "@/components/common/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 import {

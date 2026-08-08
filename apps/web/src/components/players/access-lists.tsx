@@ -7,6 +7,7 @@ import {
   type BanEntry,
   type PlayerRecord,
 } from '@/components/players/player-actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,14 +32,27 @@ import { cn } from '@/lib/utils';
  *
  * The important behaviour here is that **a player who has never joined can be added**. That is
  * not an edge case, it is the normal way a whitelist gets set up — you collect names from six
- * friends on a Friday and put them in before anyone connects. A UI that only lets you tick
- * people who already appear in the roster makes the common case impossible, so every list
- * takes a free-text name.
+ * friends on a Friday and put them in. A UI that only lets you tick people who already appear
+ * in the roster makes the common case impossible, so every list takes a free-text name.
+ *
+ * What this screen must *not* do is promise more than the API can keep. Every write here is a
+ * console command sent over RCON (`apps/api/src/services/players.ts` — `setWhitelisted`,
+ * `setOperator`, `ban`, `pardon` all route through `runAdminCommand`), so a stopped server
+ * cannot be edited even though its lists can be *read* from `whitelist.json` and the ban files
+ * on disk. Earlier copy here said the opposite in three places — "you can do this before the
+ * server is even running", "changes are written when it next starts" — beside a disabled
+ * button whose own reason said "start the server to manage players". The wording now matches
+ * what happens, and says which side of that line each thing is on.
  *
  * Operators are derived from the roster rather than fetched: the API exposes `op` on each
  * player record and has no separate operators endpoint. That means an operator added directly
  * in `ops.json` while Platter was not watching will not appear until they next join, and the
  * card says so rather than implying the list is complete.
+ *
+ * The reason a control is disabled is stated **once per screen** — the banner at the top of
+ * this component — and reachable from every disabled control as a tooltip and an
+ * `aria-describedby` target. Printing the full sentence under each control put six copies of
+ * "RCON has no password yet…" on one viewport.
  */
 
 const ACTION = 'h-11 rounded-button px-4 text-subhead font-medium';
@@ -100,23 +114,34 @@ function AddByName({
           <FieldHelper>{helper}</FieldHelper>
         </Field>
 
-        <Button
-          {...(disabledReason ? { 'aria-describedby': hintId } : {})}
-          className={ACTION}
-          disabled={Boolean(disabledReason)}
-          isLoading={isPending}
-          size="lg"
-          type="submit"
-        >
-          {submitLabel}
-        </Button>
+        {/*
+          The reason travels with the control rather than under it: the wrapper keeps its
+          pointer events while the disabled button drops them, so it can carry the tooltip,
+          and the sr-only copy is what `aria-describedby` resolves to. The banner above the
+          cards states the same sentence once, in full.
+        */}
+        {disabledReason ? (
+          <span className="inline-flex" title={disabledReason}>
+            <Button
+              aria-describedby={hintId}
+              className={ACTION}
+              disabled
+              isLoading={isPending}
+              size="lg"
+              type="submit"
+            >
+              {submitLabel}
+            </Button>
+            <span className="sr-only" id={hintId}>
+              {disabledReason}
+            </span>
+          </span>
+        ) : (
+          <Button className={ACTION} isLoading={isPending} size="lg" type="submit">
+            {submitLabel}
+          </Button>
+        )}
       </div>
-
-      {disabledReason ? (
-        <p className="text-caption text-label-tertiary" id={hintId}>
-          {disabledReason}
-        </p>
-      ) : null}
     </form>
   );
 }
@@ -207,11 +232,11 @@ function WhitelistCard({
   const names = whitelist.data?.names ?? [];
   const enabled = whitelist.data?.enabled ?? null;
   const unknownState = enabled === null;
-  const toggleBlocked =
-    blockedReason ??
-    (unknownState
-      ? 'Platter cannot read whether the whitelist is on. It reads this from the running server.'
-      : null);
+  // Only the reason that is *not* already in the banner above is worth printing here.
+  const unknownStateReason = unknownState
+    ? 'Platter cannot read whether the whitelist is on. It reads this from the running server.'
+    : null;
+  const toggleBlocked = blockedReason ?? unknownStateReason;
 
   return (
     <Card>
@@ -221,6 +246,8 @@ function WhitelistCard({
         </CardTitle>
         <CardDescription>
           When the whitelist is on, only the names below can join. Operators can always join.
+          Platter changes this list by sending a command to the running server, so it has to be
+          up before you can add or remove anyone.
         </CardDescription>
       </CardHeader>
 
@@ -267,6 +294,7 @@ function WhitelistCard({
                   className="hit-target"
                   disabled={Boolean(toggleBlocked) || command.isPending}
                   ids={{ label: labelId }}
+                  title={toggleBlocked ?? undefined}
                   onCheckedChange={(details) =>
                     command.mutate({
                       id: `whitelist-enabled:${String(details.checked)}`,
@@ -276,20 +304,28 @@ function WhitelistCard({
                     })
                   }
                 />
+                {/* The banner already carries `blockedReason`; only the state Platter cannot
+                    read is new information, and only that is printed. */}
                 {toggleBlocked ? (
-                  <p
-                    className="max-w-56 text-right text-caption text-label-tertiary"
-                    id={toggleHintId}
-                  >
-                    {toggleBlocked}
-                  </p>
+                  unknownStateReason && !blockedReason ? (
+                    <p
+                      className="max-w-56 text-right text-caption text-label-tertiary"
+                      id={toggleHintId}
+                    >
+                      {toggleBlocked}
+                    </p>
+                  ) : (
+                    <span className="sr-only" id={toggleHintId}>
+                      {toggleBlocked}
+                    </span>
+                  )
                 ) : null}
               </div>
             </div>
 
             <AddByName
               blockedReason={blockedReason}
-              helper="They do not have to have joined before — this is the normal way to set a whitelist up ahead of a session."
+              helper="They do not have to have joined before. The name is sent to the running server, which writes it to whitelist.json straight away."
               isPending={
                 command.isPending && command.variables?.id.startsWith('whitelist-add') === true
               }
@@ -308,7 +344,7 @@ function WhitelistCard({
 
             <EntryList
               blockedReason={blockedReason}
-              emptyDescription="Add the names of everyone who should be able to join. You can do this before the server is even running."
+              emptyDescription="Add the names of everyone who should be able to join, whether or not they have played here before."
               emptyTitle="Nobody is whitelisted yet"
               rows={names.map((name) => ({
                 key: `wl-${name}`,
@@ -329,7 +365,8 @@ function WhitelistCard({
             {whitelist.data && !whitelist.data.live ? (
               <p className="text-caption text-label-tertiary">
                 Read from <code className="font-mono">whitelist.json</code> on disk, because the
-                server is not answering. Changes are written when it next starts.
+                server is not answering. This is the list it will load on its next start, but it
+                cannot be changed from here until it is running.
               </p>
             ) : null}
           </>
@@ -565,8 +602,8 @@ function BansCard({ serverId, blockedReason }: { serverId: string; blockedReason
 
             {!bans.data.live ? (
               <p className="text-caption text-label-tertiary">
-                Read from the ban files on disk, because the server is not answering. Changes are
-                applied when it next starts.
+                Read from the ban files on disk, because the server is not answering. Banning and
+                pardoning both need it running.
               </p>
             ) : null}
           </>
@@ -585,6 +622,12 @@ export interface AccessListsProps {
   players: readonly PlayerRecord[];
   /** Why nothing can be changed right now. Null when the server is answering. */
   blockedReason: string | null;
+  /**
+   * The same reason in a few words ("The server is not running"), for the one banner. The
+   * full sentence stays on the controls it disables and in the page's own alert; repeating
+   * all of it here would be the third copy of the same paragraph on one screen.
+   */
+  blockedTitle?: string | null;
   /** The roster is still in flight, so the derived operator list is not yet meaningful. */
   isLoading?: boolean;
   className?: string;
@@ -595,20 +638,38 @@ export function AccessLists({
   serverName,
   players,
   blockedReason,
+  blockedTitle = null,
   isLoading = false,
   className,
 }: AccessListsProps) {
   return (
-    <div className={cn('grid gap-6 xl:grid-cols-2', className)}>
-      <WhitelistCard blockedReason={blockedReason} serverId={serverId} />
-      <OperatorsCard
-        blockedReason={blockedReason}
-        isLoading={isLoading}
-        players={players}
-        serverId={serverId}
-        serverName={serverName}
-      />
-      <BansCard blockedReason={blockedReason} serverId={serverId} />
+    <div className={cn('flex flex-col gap-6', className)}>
+      {/*
+        Said once, here, rather than under each of the eleven controls it applies to. Every
+        disabled control still carries it as a tooltip and as its accessible description.
+      */}
+      {blockedReason ? (
+        <Alert variant="warning">
+          <AlertTitle className="font-sans">These lists cannot be changed right now</AlertTitle>
+          <AlertDescription>
+            {blockedTitle ? `${blockedTitle}. ` : ''}Every change here is a console command
+            Platter sends to the running server, so the three lists below can be read but not
+            edited. Each disabled control carries the reason.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <WhitelistCard blockedReason={blockedReason} serverId={serverId} />
+        <OperatorsCard
+          blockedReason={blockedReason}
+          isLoading={isLoading}
+          players={players}
+          serverId={serverId}
+          serverName={serverName}
+        />
+        <BansCard blockedReason={blockedReason} serverId={serverId} />
+      </div>
     </div>
   );
 }

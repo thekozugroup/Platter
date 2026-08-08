@@ -2,7 +2,7 @@
 
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { XIcon } from "lucide-react";
+import { XIcon } from "@/components/common/icons";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";
@@ -171,7 +171,7 @@ export const SheetContent = (props: SheetContentProps) => {
             <SheetClose asChild>
               <Button
                 aria-label="Close"
-                className="absolute inset-e-2 top-2 opacity-64 hover:opacity-100"
+                className="hit-target absolute inset-e-2 top-2 opacity-64 hover:opacity-100"
                 size="icon-sm"
                 variant="ghost"
               >

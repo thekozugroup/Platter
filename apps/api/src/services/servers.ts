@@ -156,12 +156,12 @@ export function redactVariables(
   variables: Record<string, string>,
   blueprint: Blueprint | null,
 ): { variables: Record<string, string>; redacted: string[] } {
-  const secrets = secretKeysOf(blueprint);
+  const secrets = isSecretKeyFor(blueprint);
 
   const safe: Record<string, string> = {};
   const redacted: string[] = [];
   for (const [key, value] of Object.entries(variables)) {
-    if (secrets.has(key) && value.length > 0) {
+    if (secrets(key) && value.length > 0) {
       safe[key] = REDACTED_VALUE;
       redacted.push(key);
     } else {
@@ -171,12 +171,22 @@ export function redactVariables(
   return { variables: safe, redacted };
 }
 
-function secretKeysOf(blueprint: Blueprint | null): Set<string> {
-  return new Set(
-    (blueprint?.variables ?? [])
-      .filter((variable) => variable.type === 'password')
-      .map((variable) => variable.key),
+/**
+ * Names that read as a secret regardless of what any blueprint says.
+ *
+ * Only consulted when the blueprint is *unknown* — a file an operator removed or an upgrade
+ * dropped. `isSecretKeyFor(null)` used to be the empty set, so a missing blueprint turned
+ * `GET /servers/:id` into a cleartext dump of the RCON and admin passwords for every
+ * `server.view` reader. Redaction has to fail towards hiding.
+ */
+const SECRET_KEY_PATTERN = /(PASSWORD|PASSWD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY)/i;
+
+function isSecretKeyFor(blueprint: Blueprint | null): (key: string) => boolean {
+  if (blueprint === null) return (key) => SECRET_KEY_PATTERN.test(key);
+  const declared = new Set(
+    blueprint.variables.filter((variable) => variable.type === 'password').map((variable) => variable.key),
   );
+  return (key) => declared.has(key);
 }
 
 function toLimits(row: ServerRecord): ResourceLimits {
@@ -792,10 +802,10 @@ function withoutEchoedSecrets(
   stored: Record<string, string>,
   blueprint: Blueprint,
 ): Record<string, string> {
-  const secrets = secretKeysOf(blueprint);
+  const secrets = isSecretKeyFor(blueprint);
   const kept: Record<string, string> = {};
   for (const [key, value] of Object.entries(submitted)) {
-    if (secrets.has(key) && value === REDACTED_VALUE && (stored[key] ?? '').length > 0) continue;
+    if (secrets(key) && value === REDACTED_VALUE && (stored[key] ?? '').length > 0) continue;
     kept[key] = value;
   }
   return kept;

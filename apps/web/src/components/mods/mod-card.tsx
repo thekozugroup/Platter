@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { hueFromString, initials } from '@platter/shared';
+import { GameIcon } from '@/components/common/game-icon';
 import type { ModSummary } from '@/hooks';
 import { cn } from '@/lib/utils';
 
@@ -46,22 +47,29 @@ export interface ModIconProps {
  *
  * Registry icons are remote, and a self-hosted panel on a locked-down network frequently
  * cannot reach them. A broken-image glyph in a grid of forty results looks like the product
- * is broken, so a failed load falls back to the same generated mark `GameIcon` uses.
+ * is broken, so a failed load falls back to the mark `GameIcon` draws — the component
+ * itself, not a copy of its formula.
+ *
+ * That matters twice over. Hand-rolling `hsl(hue 46% 48%)` under white text is exactly the
+ * bug `GameIcon` was rewritten to fix: lightness in HSL is not perceptual, so nine of the
+ * eighteen mods this panel ships against — Fabric API at 2.58:1, WorldEdit 2.54:1, Citizens
+ * 2.24:1 — printed their monogram below AA. `GameIcon.legibleLightness` solves the lightness
+ * per hue instead. And both marks are content imagery, which DESIGN §4 keeps square: the
+ * 6px `rounded-xs` here was the chrome's radius on artwork, the one contrast the system rests
+ * on.
  */
 export function ModIcon({ iconUrl, title, size = 'md', labelled = false, className }: ModIconProps) {
   const [failed, setFailed] = useState(false);
   const showImage = iconUrl !== null && iconUrl.length > 0 && !failed;
-  const naming = labelled ? { role: 'img' as const, 'aria-label': title } : { 'aria-hidden': true };
 
   if (showImage) {
+    const naming = labelled
+      ? { role: 'img' as const, 'aria-label': title }
+      : { 'aria-hidden': true };
     return (
       <img
         alt=""
-        className={cn(
-          'shrink-0 rounded-xs bg-fill-tertiary object-cover',
-          ICON_SIZE[size],
-          className,
-        )}
+        className={cn('shrink-0 bg-fill-tertiary object-cover', ICON_SIZE[size], className)}
         loading="lazy"
         onError={() => setFailed(true)}
         src={iconUrl}
@@ -71,20 +79,16 @@ export function ModIcon({ iconUrl, title, size = 'md', labelled = false, classNa
   }
 
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 select-none items-center justify-center rounded-xs',
-        'font-semibold leading-none tracking-title text-white',
-        ICON_SIZE[size],
-        className,
-      )}
-      style={{
-        backgroundImage: `linear-gradient(160deg, hsl(${hueFromString(title)} 46% 48%), hsl(${hueFromString(title)} 44% 38%))`,
-      }}
-      {...naming}
-    >
-      {initials(title)}
-    </span>
+    <GameIcon
+      // The mod's own size ramp, laid over `GameIcon`'s: `sm` is 32px here and 28px there,
+      // and the type scale differs with it.
+      className={cn(ICON_SIZE[size], className)}
+      hue={hueFromString(title)}
+      monogram={initials(title)}
+      name={title}
+      size={size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'md'}
+      {...(labelled ? { label: title } : {})}
+    />
   );
 }
 

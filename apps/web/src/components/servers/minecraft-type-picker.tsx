@@ -32,6 +32,12 @@ interface Family {
   title: string;
   /** One sentence, no jargon beyond the words this audience already uses. */
   blurb: string;
+  /**
+   * What the disclosure calls the options it hides, singular and plural. Built from the
+   * family title this read "Show 6 more plugins options" and "Show 1 more modpacks option",
+   * which is the one place on this screen that sounded machine-assembled.
+   */
+  more: { one: string; other: string };
 }
 
 /**
@@ -43,41 +49,48 @@ const FAMILIES: readonly Family[] = [
     key: 'vanilla',
     title: 'Vanilla',
     blurb: 'The official server from Mojang. No mods, no plugins — exactly the game as shipped.',
+    more: { one: 'vanilla option', other: 'vanilla options' },
   },
   {
     key: 'plugins',
     title: 'Plugins',
     blurb:
       'Vanilla gameplay plus server-side plugins: permissions, land claims, minigames, anti-grief. Much faster than vanilla, and players join with an unmodified client.',
+    more: { one: 'plugin server', other: 'plugin servers' },
   },
   {
     key: 'mods',
     title: 'Mod loaders',
     blurb:
       'For mods that add blocks, mobs and machines. Every player has to install the same mods and loader on their own client.',
+    more: { one: 'mod loader', other: 'mod loaders' },
   },
   {
     key: 'modpack',
     title: 'Modpacks',
     blurb:
       'Installs a published pack — CurseForge, Modrinth or Feed the Beast — and keeps it in sync on every restart. The pack chooses the loader and the version for you.',
+    more: { one: 'modpack source', other: 'modpack sources' },
   },
   {
     key: 'hybrid',
     title: 'Mods and plugins together',
     blurb:
       'Runs both at once. Powerful, and the least stable option here: expect bugs neither project will support.',
+    more: { one: 'hybrid server', other: 'hybrid servers' },
   },
   {
     key: 'utility',
     title: 'Utility servers',
     blurb:
       'Not a game world. A limbo holds players in a void room while the real server restarts.',
+    more: { one: 'utility server', other: 'utility servers' },
   },
   {
     key: 'custom',
     title: 'Custom jar',
     blurb: 'Runs a server jar you point at by URL or by path on the volume. You own what it does.',
+    more: { one: 'custom option', other: 'custom options' },
   },
 ];
 
@@ -366,8 +379,16 @@ function FamilySection({
   // A type chosen from the overflow list must not vanish behind a closed disclosure.
   const [showRest, setShowRest] = useState(() => rest.some((option) => option.value === value));
 
-  const shown = primary.length > 0 ? primary : rest;
-  const hidden = primary.length > 0 ? rest : [];
+  /*
+   * A family with no recommended member collapses *entirely* rather than falling back to
+   * showing all of it. Hybrids are the case that matters: eight jar names, none of them
+   * recommended, under a blurb that calls the family "the least stable option here" — so the
+   * old fallback gave the most screen space on the step to the thing it warns you against,
+   * while Plugins hid six behind a disclosure. The disclosure below still offers them by
+   * name, one click away.
+   */
+  const shown = primary;
+  const hidden = rest;
 
   return (
     <section className="flex flex-col gap-3">
@@ -377,20 +398,22 @@ function FamilySection({
         <p className="max-w-prose text-subhead text-balance text-label-secondary">{family.blurb}</p>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        {shown.map((option) => (
-          <OptionCard
-            key={option.value}
-            option={option}
-            recommended={option.value === RECOMMENDED_TYPE}
-          />
-        ))}
-        {showRest
-          ? hidden.map((option) => (
-              <OptionCard key={option.value} option={option} recommended={false} />
-            ))
-          : null}
-      </div>
+      {shown.length > 0 || showRest ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {shown.map((option) => (
+            <OptionCard
+              key={option.value}
+              option={option}
+              recommended={option.value === RECOMMENDED_TYPE}
+            />
+          ))}
+          {showRest
+            ? hidden.map((option) => (
+                <OptionCard key={option.value} option={option} recommended={false} />
+              ))
+            : null}
+        </div>
+      ) : null}
 
       {hidden.length > 0 && !showRest ? (
         <Button
@@ -399,7 +422,9 @@ function FamilySection({
           variant="ghost"
         >
           <ChevronDown aria-hidden />
-          {`Show ${hidden.length} more ${family.title.toLowerCase()} option${hidden.length === 1 ? '' : 's'}`}
+          {`Show ${hidden.length} ${shown.length > 0 ? 'more ' : ''}${
+            hidden.length === 1 ? family.more.one : family.more.other
+          }`}
         </Button>
       ) : null}
     </section>

@@ -254,6 +254,43 @@ describe('compress / extract', () => {
     expect(await readdir(root())).not.toContain('evil.txt');
   });
 
+  it('refuses an archive that unpacks past the budget, and writes none of it', async () => {
+    // Highly compressible: ~1 MB of zeros per member, well inside node-tar's 1000:1 ratio
+    // guard, which is exactly why that guard is not a size limit.
+    const staging = await mkdtemp(path.join(workdir, 'bomb-'));
+    const payload = Buffer.alloc(1024 * 1024);
+    for (const name of ['a.bin', 'b.bin', 'c.bin']) {
+      await writeFile(path.join(staging, name), payload);
+    }
+    const pack = tarCreate({ gzip: true, cwd: staging }, ['a.bin', 'b.bin', 'c.bin']);
+    const archivePath = path.join(root(), 'bomb.tar.gz');
+    await pipeline(pack, createWriteStream(archivePath));
+
+    await expect(
+      files.extractServerArchive(SERVER_ID, 'bomb.tar.gz', 'dest', {
+        maxTotalBytes: 2 * 1024 * 1024,
+      }),
+    ).rejects.toMatchObject({ code: 'payload_too_large' });
+
+    // Nothing over budget reaches the disk, and the refusal takes the whole archive with it.
+    expect(await readdir(path.join(root(), 'dest'))).toEqual([]);
+    expect((await readdir(root())).every((name) => !name.startsWith('.platter-extract-'))).toBe(
+      true,
+    );
+  });
+
+  it('extracts an archive that fits inside the budget', async () => {
+    const staging = await mkdtemp(path.join(workdir, 'small-'));
+    await writeFile(path.join(staging, 'a.bin'), Buffer.alloc(1024 * 1024));
+    const pack = tarCreate({ gzip: true, cwd: staging }, ['a.bin']);
+    await pipeline(pack, createWriteStream(path.join(root(), 'small.tar.gz')));
+
+    await files.extractServerArchive(SERVER_ID, 'small.tar.gz', 'fits', {
+      maxTotalBytes: 4 * 1024 * 1024,
+    });
+    expect(await readdir(path.join(root(), 'fits'))).toEqual(['a.bin']);
+  });
+
   it('leaves no staging directory behind after a successful extract', async () => {
     await mkdir(path.join(root(), 'world'), { recursive: true });
     await writeFile(path.join(root(), 'world', 'level.dat'), 'level-data');
