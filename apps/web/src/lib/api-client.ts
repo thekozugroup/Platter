@@ -72,6 +72,23 @@ export interface RequestOptions extends Omit<RequestInit, 'body' | 'method'> {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Skip the refresh-and-retry dance — used by the refresh call itself. */
   skipAuthRetry?: boolean;
+  /**
+   * Non-2xx statuses that are *outcomes*, not failures — their body is parsed and returned
+   * like a 200 instead of being thrown away as an error.
+   *
+   * Two routes need this today and both designed it deliberately.
+   * `POST /servers/:id/proposals/:id/approve` answers 409 with the full `ApprovalOutcome`
+   * — the diff, the new digest, the reason it was blocked. That body *is* the feature: it
+   * is what the reviewer reads before approving again. `GET /system/ready` answers 503
+   * carrying the per-check breakdown that says which dependency is down.
+   *
+   * Throwing those away leaves the UI unable to say anything more useful than "conflict",
+   * and in the proposal case leaves a drifted proposal permanently unapprovable.
+   *
+   * The caller's `T` must cover every listed status; switch on a discriminant in the body,
+   * not on the HTTP code, which is not returned here.
+   */
+  expect?: readonly number[];
 }
 
 class ApiClient {
@@ -100,7 +117,7 @@ class ApiClient {
   }
 
   async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
-    const { body, query, skipAuthRetry, headers, ...rest } = options;
+    const { body, query, skipAuthRetry, expect, headers, ...rest } = options;
     const url = buildUrl(path, query);
 
     const requestHeaders = new Headers(headers);
@@ -138,7 +155,10 @@ class ApiClient {
       }
     }
 
-    if (!response.ok) throw await toApiError(response);
+    // 401 is never "expected": it means the session is gone, and the refresh above already
+    // had its chance. Letting a caller opt out of that would hide a forced logout.
+    const expected = response.status !== 401 && (expect?.includes(response.status) ?? false);
+    if (!response.ok && !expected) throw await toApiError(response);
     if (response.status === 204) return undefined as T;
 
     const contentType = response.headers.get('content-type') ?? '';
@@ -159,8 +179,16 @@ class ApiClient {
         });
         this.setAccessToken(result.accessToken);
         return result.accessToken;
-      } catch {
-        this.setAccessToken(null);
+      } catch (error) {
+        /*
+         * Only an *auth* failure ends the session. A refresh can also fail because the API
+         * is rate-limiting (`/auth/login` and `/auth/refresh` share one ten-per-minute
+         * budget), because it restarted, or because the laptop's network dropped — and
+         * signing someone out over a transient 429 discards a session that is still
+         * perfectly valid. Those cases leave the current token alone and let the original
+         * request surface its own error, which is the one worth reading.
+         */
+        if (error instanceof ApiError && !error.retryable) this.setAccessToken(null);
         return null;
       } finally {
         // Cleared in a microtask so callers awaiting this promise all see the same result.

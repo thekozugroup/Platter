@@ -15,7 +15,8 @@ import {
   MenuSubTrigger,
 } from "@/components/ui/menu";
 
-export const useContextMenu = useMenuContext;
+/* Re-exported, not re-assigned — see the note in `menu.tsx` (TS2742 under pnpm). */
+export { useMenuContext as useContextMenu };
 
 export const ContextMenu = (props: React.ComponentProps<typeof Menu>) => (
   <Menu data-slot="context-menu" {...props} />

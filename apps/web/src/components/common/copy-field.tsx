@@ -4,44 +4,15 @@ import { Close } from 'pixelarticons/react/Close.js';
 import { Copy } from 'pixelarticons/react/Copy.js';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 
 /**
  * A monospace value with a copy button — addresses, ports, ids, tokens.
  *
  * Copying is the one interaction in this app that silently does nothing when it fails, so
- * the failure path is explicit: a clipboard write can be refused by permissions, by a
- * cross-origin iframe, or simply be unavailable because the panel is served over plain HTTP
- * on a LAN, which is exactly how a self-hosted install often runs. When that happens the
- * component says so and tells you what to do instead.
+ * the failure path is explicit. `copyToClipboard` (in `lib/utils.ts`) owns the mechanics and
+ * the `http://` fallback; this component owns saying so when they do not work.
  */
-
-async function writeToClipboard(value: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return true;
-    }
-  } catch {
-    // Permission denied, or a non-secure context. The legacy path below may still work.
-  }
-
-  const staging = document.createElement('textarea');
-  try {
-    staging.value = value;
-    staging.setAttribute('readonly', '');
-    staging.style.position = 'fixed';
-    staging.style.opacity = '0';
-    document.body.appendChild(staging);
-    staging.select();
-    // Deprecated, and the only clipboard API available over http://. Kept deliberately.
-    return document.execCommand('copy');
-  } catch {
-    return false;
-  } finally {
-    staging.remove();
-  }
-}
 
 type CopyState = 'idle' | 'copied' | 'failed';
 
@@ -75,7 +46,7 @@ export function CopyField({
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const copy = useCallback(async () => {
-    const ok = await writeToClipboard(value);
+    const ok = await copyToClipboard(value);
     setState(ok ? 'copied' : 'failed');
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setState('idle'), ok ? 2000 : 6000);

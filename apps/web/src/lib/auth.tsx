@@ -9,8 +9,9 @@ import {
   useState,
 } from 'react';
 import { roleAtLeast, type AuthResponse, type SessionUser, type UserRole } from '@platter/shared';
-import { api } from '@/lib/api-client.js';
+import { ApiError, NetworkError, api } from '@/lib/api-client.js';
 import { queryKeys } from '@/lib/query.js';
+import { backoffDelay } from '@/lib/utils.js';
 
 /**
  * Session state for the whole client.
@@ -57,6 +58,51 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** How many times a *retryable* refresh failure is given another go before giving up. */
+const RESTORE_ATTEMPTS = 3;
+
+/**
+ * Longest we will sit on the splash waiting out a rate limit.
+ *
+ * The auth limiter's window is a whole minute, so honouring a `Retry-After` in full would
+ * mean a blank screen for up to sixty seconds. Past this the app gives up and shows the
+ * sign-in screen, which at least offers a way forward.
+ */
+const RESTORE_MAX_WAIT_MS = 4_000;
+
+/**
+ * The silent refresh that turns an httpOnly cookie back into a session.
+ *
+ * The distinction that matters: a **rejected** refresh (401/403 — no cookie, expired,
+ * or replayed) genuinely means "not signed in". A **failed** one does not. `/auth/login`
+ * and `/auth/refresh` share one ten-per-minute budget per address, so a handful of quick
+ * reloads, or another tab reloading at the same moment, answers 429 — and treating that as
+ * a sign-out drops a valid session and the deep link with it. Same for a 502 while the API
+ * restarts, or a dropped connection.
+ *
+ * Those get a short backoff and another go. Only a real rejection, or exhausting the
+ * attempts, resolves to anonymous.
+ */
+async function restoreSession(): Promise<AuthResponse | null> {
+  for (let attempt = 0; attempt < RESTORE_ATTEMPTS; attempt += 1) {
+    try {
+      const session = await api.post<AuthResponse>('/auth/refresh', undefined, {
+        skipAuthRetry: true,
+      });
+      api.setAccessToken(session.accessToken);
+      return session;
+    } catch (error) {
+      const worthRetrying =
+        error instanceof NetworkError || (error instanceof ApiError && error.retryable);
+      if (!worthRetrying || attempt === RESTORE_ATTEMPTS - 1) return null;
+
+      const wait = Math.min(backoffDelay(attempt), RESTORE_MAX_WAIT_MS);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUserState] = useState<SessionUser | null>(null);
@@ -74,14 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    bootstrap.current ??= api
-      .post<AuthResponse>('/auth/refresh', undefined, { skipAuthRetry: true })
-      .then((session) => {
-        api.setAccessToken(session.accessToken);
-        return session;
-      })
-      // No cookie, an expired one, or a reused one. All three mean "not signed in".
-      .catch(() => null);
+    bootstrap.current ??= restoreSession();
 
     void bootstrap.current.then((session) => {
       if (!active) return;

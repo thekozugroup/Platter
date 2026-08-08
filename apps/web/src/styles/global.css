@@ -359,36 +359,29 @@
    ========================================================================== */
 
 @layer components {
+  /*
+   * Two frost surfaces, not four. `tokens.css` defines exactly two blur values — the 8px
+   * signature and a 16px overlay — and the `prefers-reduced-transparency` block zeroes
+   * exactly those two. Every extra variant is a blur value that block would have to know
+   * about, and a fifth chance to reach for glass where a hairline would do.
+   *
+   * `.frost` is the signature: chrome that floats over scrolling content. `.frost-overlay`
+   * is the heavier tint for a modal surface, where text sits directly on the material and
+   * needs the extra opacity to stay legible.
+   */
   .frost,
-  .frost-thin,
-  .frost-thick,
-  .frost-chrome {
+  .frost-overlay {
     position: relative;
     border: 1px solid var(--pl-frost-border);
     background-color: var(--pl-frost-tint);
+    backdrop-filter: blur(var(--pl-blur-nav)) saturate(var(--pl-frost-saturate));
+    -webkit-backdrop-filter: blur(var(--pl-blur-nav)) saturate(var(--pl-frost-saturate));
   }
 
-  .frost {
-    backdrop-filter: blur(var(--pl-blur-regular)) saturate(var(--pl-frost-saturate));
-    -webkit-backdrop-filter: blur(var(--pl-blur-regular)) saturate(var(--pl-frost-saturate));
-  }
-
-  .frost-thin {
-    background-color: var(--pl-frost-tint-thin);
-    backdrop-filter: blur(var(--pl-blur-thin)) saturate(var(--pl-frost-saturate));
-    -webkit-backdrop-filter: blur(var(--pl-blur-thin)) saturate(var(--pl-frost-saturate));
-  }
-
-  .frost-thick {
+  .frost-overlay {
     background-color: var(--pl-frost-tint-thick);
-    backdrop-filter: blur(var(--pl-blur-thick)) saturate(var(--pl-frost-saturate));
-    -webkit-backdrop-filter: blur(var(--pl-blur-thick)) saturate(var(--pl-frost-saturate));
-  }
-
-  .frost-chrome {
-    background-color: var(--pl-frost-tint);
-    backdrop-filter: blur(var(--pl-blur-chrome)) saturate(var(--pl-frost-saturate));
-    -webkit-backdrop-filter: blur(var(--pl-blur-chrome)) saturate(var(--pl-frost-saturate));
+    backdrop-filter: blur(var(--pl-blur-overlay)) saturate(var(--pl-frost-saturate));
+    -webkit-backdrop-filter: blur(var(--pl-blur-overlay)) saturate(var(--pl-frost-saturate));
   }
 
   /*
@@ -397,17 +390,15 @@
    */
   @supports not (backdrop-filter: blur(1px)) {
     .frost,
-    .frost-thin,
-    .frost-thick,
-    .frost-chrome {
+    .frost-overlay {
       background-color: var(--pl-surface);
     }
   }
 
   .scrim {
     background-color: var(--pl-frost-scrim);
-    backdrop-filter: blur(var(--pl-blur-thin));
-    -webkit-backdrop-filter: blur(var(--pl-blur-thin));
+    backdrop-filter: blur(var(--pl-blur-nav));
+    -webkit-backdrop-filter: blur(var(--pl-blur-nav));
   }
 
   /*
@@ -724,8 +715,8 @@
     mask-image: linear-gradient(
       to bottom,
       transparent 0,
-      black var(--pl-space-4),
-      black calc(100% - var(--pl-space-4)),
+      black var(--pl-space-md),
+      black calc(100% - var(--pl-space-md)),
       transparent 100%
     );
   }
@@ -742,18 +733,30 @@
     border-width: 0;
   }
 
-  /* Skip link: visually hidden until focused, then a real, visible control. */
+  /*
+   * Skip link: visually hidden until focused, then a real, visible control.
+   *
+   * The spacing here referenced `--pl-space-3`/`--pl-space-4`, which the token scale never
+   * defined (it runs 2xs/xs/sm/md/lg/…). Every one of those declarations was invalid and
+   * therefore dropped, so the first control a keyboard user reaches had no position and no
+   * padding. It is a 44px-tall target on the real scale now.
+   */
   .skip-link:focus-visible {
     position: fixed;
-    top: var(--pl-space-4);
-    left: var(--pl-space-4);
+    top: var(--pl-space-md);
+    left: var(--pl-space-md);
     z-index: var(--pl-z-tooltip);
+    display: inline-flex;
+    align-items: center;
     width: auto;
+    min-height: var(--pl-hit-target);
     height: auto;
     margin: 0;
-    padding: var(--pl-space-3) var(--pl-space-4);
+    padding: var(--pl-space-sm) var(--pl-space-md);
     clip-path: none;
     background-color: var(--pl-surface);
+    color: var(--pl-label);
+    font-weight: var(--pl-weight-label);
     border-radius: var(--pl-radius-sm);
     box-shadow: var(--pl-shadow-3);
   }
