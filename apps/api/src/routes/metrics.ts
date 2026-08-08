@@ -6,9 +6,8 @@ import { requireServer } from '../plugins/auth.js';
 import { METRIC_NAMES, RESOLUTIONS, querySeries, type Resolution } from '../services/timeseries.js';
 
 /**
- * Per-server monitoring charts. Mounted at `/servers/:serverId/metrics` — see
- * `routes/index.ts` for the prefix, which is not this file's to register (see the project
- * report: nobody has wired this module in yet).
+ * Per-server monitoring charts. Mounted at `/servers/:serverId/metrics` by
+ * `routes/index.ts`, which owns the prefix.
  *
  * One metric per request rather than a bundle: "network" is two independent counters
  * (`networkRx`/`networkTx`) a client fetches separately and plots together if it wants a
@@ -70,6 +69,19 @@ const seriesResponseSchema = z.object({
   points: z.array(seriesPointSchema),
 });
 
+/**
+ * `serverId` has to be declared here even though it comes from the mount prefix.
+ * fastify-type-provider-zod replaces `request.params` with the schema's *parsed* output,
+ * and a zod object strips keys it does not declare — so omitting it leaves
+ * `requireServerAccess` reading `undefined` and answering 404 for every server that
+ * exists. Deliberately loose, for the same reason as every other sub-route: a malformed id
+ * must 404, not 422.
+ */
+const metricParamSchema = z.object({
+  serverId: z.string().min(1).max(64),
+  metric: z.enum(METRIC_NAMES),
+});
+
 const metricsRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -83,7 +95,7 @@ const metricsRoutes: FastifyPluginAsync = async (fastify) => {
         description:
           '`players` and `tps` come back empty for blueprints that expose no way to read them ' +
           '(see the blueprints package) rather than erroring — an empty series is "no data yet", not a failure.',
-        params: z.object({ metric: z.enum(METRIC_NAMES) }),
+        params: metricParamSchema,
         querystring: metricsQuerySchema,
         response: { 200: seriesResponseSchema },
       },

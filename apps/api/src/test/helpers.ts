@@ -73,6 +73,10 @@ export async function ensureTestNode(): Promise<string> {
       publicHost: '127.0.0.1',
       portRangeStart: config.portRangeStart,
       portRangeEnd: config.portRangeEnd,
+      // Generous enough that no capacity check in `selectNode` is the reason a test fails.
+      memoryTotalMb: 65_536,
+      diskTotalMb: 1_048_576,
+      cpuCores: 8,
     },
   });
   return id;

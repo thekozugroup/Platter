@@ -26,6 +26,18 @@ import type {
 const DEFAULT_BASE_URL = 'https://api.modrinth.com/v2';
 
 /**
+ * Lets an operator point the client at a mirror, a caching proxy, or an internal instance —
+ * the same reason `PLATTER_CONTACT` is read here rather than added to `config.ts`, which
+ * belongs to another module and has no key for either. An install with no egress to
+ * api.modrinth.com is a real deployment, not a hypothetical, and without this the mod
+ * browser has no way to be pointed anywhere else.
+ */
+function defaultBaseUrl(): string {
+  const override = process.env['MODRINTH_BASE_URL']?.trim();
+  return override && override.length > 0 ? override : DEFAULT_BASE_URL;
+}
+
+/**
  * Read straight from the environment because `config.ts` belongs to another module and has no
  * key for this. `PLATTER_CONTACT` is the useful half: Modrinth asks for a way to reach the
  * operator of a busy client, and an install that sets it gets a warning instead of a block.
@@ -359,7 +371,7 @@ class ModrinthClient {
 
   constructor(options: ModrinthOptions) {
     this.fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = (options.baseUrl ?? defaultBaseUrl()).replace(/\/+$/, '');
     this.userAgent = options.userAgent ?? defaultUserAgent();
   }
 

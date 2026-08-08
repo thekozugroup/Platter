@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { API_PREFIX } from '@platter/shared';
 import {
   authHeaders,
@@ -8,7 +8,6 @@ import {
   createTestUser,
   ensureTestNode,
   resetDatabase,
-  type TestUser,
 } from '../helpers.js';
 
 /**
@@ -22,7 +21,6 @@ import {
  */
 
 let app: FastifyInstance;
-let owner: TestUser;
 let nodeId: string;
 
 const BASE = API_PREFIX;
@@ -36,14 +34,18 @@ afterAll(async () => {
   await closeTestHarness();
 });
 
+/**
+ * The node is recreated per test rather than once, because `resetDatabase` truncates it
+ * along with everything else — a `beforeAll` node would silently vanish after the first
+ * test in the file and every later create would fail on a missing node.
+ */
+beforeEach(async () => {
+  nodeId = await ensureTestNode();
+});
+
 afterEach(async () => {
   await resetDatabase();
 });
-
-async function setupOwner(): Promise<void> {
-  nodeId = await ensureTestNode();
-  owner = await createTestUser('owner');
-}
 
 /** The minimum a Paper server needs: the EULA, which has no default by design. */
 function paperBody(name = 'Test Paper') {
@@ -55,6 +57,32 @@ function paperBody(name = 'Test Paper') {
     limits: { memoryMb: 2048 },
     startOnCreate: false,
   };
+}
+
+/**
+ * Polls the real endpoint until the server reaches a status. The mock driver emits its
+ * boot lines on a wall-clock timer, so the transition to `running` is genuinely
+ * asynchronous — exactly as it is against Docker.
+ */
+async function waitForStatus(
+  user: { accessToken: string },
+  serverId: string,
+  wanted: string,
+  timeoutMs = 20_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let seen = 'unknown';
+  while (Date.now() < deadline) {
+    const response = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: authHeaders(user),
+    });
+    seen = response.json().status;
+    if (seen === wanted) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`server stayed at "${seen}" instead of reaching "${wanted}"`);
 }
 
 describe('route registration', () => {
@@ -82,8 +110,6 @@ describe('route registration', () => {
 });
 
 describe('authentication', () => {
-  beforeAll(setupOwner);
-
   it('refuses an unauthenticated list', async () => {
     const response = await app.inject({ method: 'GET', url: `${BASE}/servers` });
     expect(response.statusCode).toBe(401);
@@ -137,10 +163,7 @@ describe('blueprints', () => {
 });
 
 describe('server lifecycle over HTTP', () => {
-  beforeAll(setupOwner);
-
   it('creates, starts, commands and deletes a server', async () => {
-    nodeId = await ensureTestNode();
     const user = await createTestUser('owner');
 
     const created = await app.inject({
@@ -156,18 +179,22 @@ describe('server lifecycle over HTTP', () => {
     expect(server.allocations.length).toBeGreaterThan(0);
     expect(server.allocations.some((a: { primary: boolean }) => a.primary)).toBe(true);
 
-    // Install, then start, through the same lifecycle the routes use.
+    // Install through the same lifecycle the routes use. `autoStart` defaults to true, so
+    // a successful install starts the server itself — asking for a start on top of that is
+    // an `invalid_state`, which is the behaviour, not a bug.
     const lifecycle = await import('../../services/lifecycle.js');
     await lifecycle.installServer(server.id);
-    await lifecycle.startServer(server.id);
+    await waitForStatus(user, server.id, 'running');
 
-    const afterStart = await app.inject({
-      method: 'GET',
-      url: `${BASE}/servers/${server.id}`,
+    // A command only reaches the container once the game is up.
+    const command = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers/${server.id}/command`,
       headers: authHeaders(user),
+      payload: { command: 'say hello' },
     });
-    expect(afterStart.statusCode).toBe(200);
-    expect(['starting', 'running']).toContain(afterStart.json().status);
+    expect(command.statusCode).toBe(202);
+    expect(command.json()).toEqual({ accepted: true });
 
     const stats = await app.inject({
       method: 'GET',
@@ -176,6 +203,22 @@ describe('server lifecycle over HTTP', () => {
     });
     expect(stats.statusCode).toBe(200);
     expect(stats.json().serverId).toBe(server.id);
+
+    // Regression: minecraft-java stops with `stop` on stdin and a 120s timeout, and
+    // `stopInternal` polls `inspect` until the container exits. A driver that recorded the
+    // command without acting on it made every graceful stop block for the whole timeout —
+    // the request simply never came back. This must complete in seconds, not minutes.
+    const stopStarted = Date.now();
+    const stopped = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers/${server.id}/power`,
+      headers: authHeaders(user),
+      payload: { action: 'stop' },
+    });
+    expect(stopped.statusCode).toBe(200);
+    expect(stopped.json().status).toBe('offline');
+    expect(stopped.json().lastExitCode).toBe(0);
+    expect(Date.now() - stopStarted).toBeLessThan(15_000);
 
     const deleted = await app.inject({
       method: 'DELETE',
@@ -194,7 +237,6 @@ describe('server lifecycle over HTTP', () => {
   });
 
   it('rejects a power action the current status forbids', async () => {
-    nodeId = await ensureTestNode();
     const user = await createTestUser('owner');
     const created = await app.inject({
       method: 'POST',
@@ -216,7 +258,6 @@ describe('server lifecycle over HTTP', () => {
   });
 
   it('validates the blueprint variables it was given', async () => {
-    nodeId = await ensureTestNode();
     const user = await createTestUser('owner');
     const response = await app.inject({
       method: 'POST',
@@ -232,7 +273,6 @@ describe('server lifecycle over HTTP', () => {
 
 describe('per-server authorisation', () => {
   it('hides another member’s server behind a 404, not a 403', async () => {
-    nodeId = await ensureTestNode();
     const alice = await createTestUser('member');
     const bob = await createTestUser('member');
 
@@ -262,7 +302,6 @@ describe('per-server authorisation', () => {
   });
 
   it('enforces the power action’s own permission, not just server.view', async () => {
-    nodeId = await ensureTestNode();
     const alice = await createTestUser('member');
     const bob = await createTestUser('member');
 
@@ -323,5 +362,49 @@ describe('system', () => {
     });
     expect(allowed.statusCode).toBe(200);
     expect(allowed.body).toContain('platter_');
+  });
+});
+
+describe('error envelopes', () => {
+  /**
+   * Regression: `routes/proposals.ts` declares `409: approvalOutcomeSchema` and
+   * `/system/ready` declares `503: readinessSchema`. Fastify serialises a reply against
+   * `schema.response[statusCode]`, so before `sendError` bypassed that, every PlatterError
+   * mapping to one of those codes was validated against the route's *success* shape,
+   * failed, and came back as a 500 "internal error" with the real cause discarded.
+   */
+  it('returns a real error envelope on a route that declares a body for that status', async () => {
+    const user = await createTestUser('owner');
+    const created = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers`,
+      headers: authHeaders(user),
+      payload: paperBody('Proposal Host'),
+    });
+    const server = created.json();
+
+    // No such proposal -> notFound (404) through the same handler.
+    const missing = await app.inject({
+      method: 'POST',
+      url: `${BASE}/servers/${server.id}/proposals/mpr_does_not_exist/approve`,
+      headers: authHeaders(user),
+      payload: {},
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error.code).toBe('not_found');
+    expect(missing.json().error.message).not.toBe('Something went wrong on our side.');
+  });
+
+  it('keeps /system/ready readable even though it declares a 503 body', async () => {
+    const response = await app.inject({ method: 'GET', url: `${BASE}/system/ready` });
+    // Either the readiness report (200) or a proper envelope — never a serialisation 500.
+    expect([200, 503]).toContain(response.statusCode);
+    expect(response.statusCode).not.toBe(500);
+  });
+
+  it('answers an unknown route with the standard envelope', async () => {
+    const response = await app.inject({ method: 'GET', url: `${BASE}/nope` });
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error).toMatchObject({ code: 'not_found' });
   });
 });
