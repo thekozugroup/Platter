@@ -93,6 +93,13 @@ const MIB = 1024 * 1024;
 const HISTORY_LIMIT = 2000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
+/**
+ * Console words that shut a game server down, gathered from the blueprints that use a
+ * `command` stop strategy (`stop` for Minecraft, `quit` for Factorio and Terraria, `exit`
+ * for the Source-engine ones). Matched case-insensitively because a real console is.
+ */
+const GRACEFUL_STOP_COMMANDS: ReadonlySet<string> = new Set(['stop', 'quit', 'exit', 'end']);
+
 /** Ordered fractions of `readyDelayMs` at which each boot line lands. */
 const BOOT_SCRIPT: ReadonlyArray<{ at: number; content: string }> = [
   { at: 0, content: '[Server thread/INFO]: Starting server' },
@@ -101,7 +108,15 @@ const BOOT_SCRIPT: ReadonlyArray<{ at: number; content: string }> = [
   { at: 0.8, content: '[Server thread/INFO]: Preparing spawn area: 82%' },
 ];
 
-const DEFAULT_READY_LINE = '[Server thread/INFO]: Done (1.284s)! Server started, for help, type "help"';
+/**
+ * Byte-for-byte what a vanilla/Paper server prints when it finishes booting.
+ *
+ * This has to match `blueprints/minecraft-java.ts`'s ready pattern (`Done \([\d.,]+s\)!
+ * For help`) or a server started against this driver never leaves `starting` — it sits
+ * there until the lifecycle's five-minute boot timeout gives up and promotes it anyway.
+ * A mock whose output does not match the blueprint it is standing in for tests nothing.
+ */
+const DEFAULT_READY_LINE = '[Server thread/INFO]: Done (1.284s)! For help, type "help"';
 
 export class MockDriver implements OrchestrationDriver {
   readonly kind = 'mock' as const;
@@ -382,6 +397,19 @@ export class MockDriver implements OrchestrationDriver {
       throw new PlatterError('conflict', 'The container is not running.');
     }
     this.stdinWrites.push({ serverId, line });
+
+    // A real game server exits when it is told to. Every blueprint whose stop strategy is
+    // `command` writes that word to stdin and then polls `inspect` until the container is
+    // gone (`lifecycle.ts#stopInternal`), so a mock that only recorded the line would sit
+    // there until the blueprint's full stop timeout expired — two minutes for
+    // minecraft-java — before falling back to the signal. Honouring it here is what makes
+    // a graceful stop against this driver behave like a graceful stop against Docker.
+    if (GRACEFUL_STOP_COMMANDS.has(line.trim().toLowerCase())) {
+      this.emit(container, 'stdout', '[Server thread/INFO]: Stopping the server');
+      this.emit(container, 'stdout', '[Server thread/INFO]: Saving worlds');
+      container.uptimeMs += this.stopDelayMs;
+      this.finish(container, 0, false);
+    }
   }
 
   async exec(

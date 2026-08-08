@@ -262,7 +262,11 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
 
         const result = clientMessageSchema.safeParse(parsed);
         if (!result.success) {
-          send({ type: 'error', code: 'validation_failed', message: 'That frame was not understood.' });
+          send({
+            type: 'error',
+            code: 'validation_failed',
+            message: 'That frame was not understood.',
+          });
           return;
         }
         const message = result.data;

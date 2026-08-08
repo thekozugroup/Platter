@@ -1,7 +1,10 @@
-import type { FastifyError, FastifyPluginAsync } from 'fastify';
-import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } from 'fastify-type-provider-zod';
+import type { FastifyError, FastifyPluginAsync, FastifyReply } from 'fastify';
+import {
+  hasZodFastifySchemaValidationErrors,
+  isResponseSerializationError,
+} from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { ERROR_MESSAGES, PlatterError, type ErrorCode } from '@platter/shared';
+import { ERROR_MESSAGES, PlatterError, type ApiErrorBody, type ErrorCode } from '@platter/shared';
 import { REQUEST_ID_HEADER } from '../logger.js';
 import { isPrismaKnownError, fromPrismaError, zodDetails } from '../lib/errors.js';
 
@@ -35,6 +38,28 @@ function statusCodeOf(error: unknown): number | null {
   return typeof status === 'number' && status >= 400 && status < 600 ? status : null;
 }
 
+/**
+ * Sends an error envelope, bypassing whatever response schema the route declared.
+ *
+ * This is not a shortcut — it is required for correctness. Fastify serialises a reply
+ * against `schema.response[statusCode]`, and a handful of routes legitimately declare a
+ * body for a 4xx/5xx status (`proposals` returns the approval outcome with 409;
+ * `/system/ready` returns the readiness report with 503). Without this, a `PlatterError`
+ * that maps to one of those codes gets validated against that route's *success* shape,
+ * fails, and is rewritten into a 500 — turning "that proposal was already failed" into
+ * "internal error" and hiding the real cause.
+ *
+ * The envelope's shape is owned by `PlatterError.toBody`, is identical on every route, and
+ * is already typed, so there is nothing a route schema could usefully check about it.
+ */
+function sendError(reply: FastifyReply, status: number, body: ApiErrorBody): FastifyReply {
+  return reply
+    .status(status)
+    .type('application/json')
+    .serializer((payload: unknown) => JSON.stringify(payload))
+    .send(body);
+}
+
 const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
   // Set on the way in rather than in the handler, so a successful response carries the
   // same correlation id the client would have seen on a failure.
@@ -60,7 +85,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
       const platterError = new PlatterError('validation_failed', ERROR_MESSAGES.validation_failed, {
         details,
       });
-      return reply.status(platterError.status).send(platterError.toBody(requestId));
+      return sendError(reply, platterError.status, platterError.toBody(requestId));
     }
 
     // Schema validation on the way out is *our* bug, not the caller's: the handler
@@ -70,7 +95,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
     if (error.code === 'FST_ERR_RESPONSE_SERIALIZATION' && isResponseSerializationError(error)) {
       request.log.error({ err: error, issues: error.cause.issues }, 'response failed its schema');
       const platterError = new PlatterError('internal_error', ERROR_MESSAGES.internal_error);
-      return reply.status(500).send(platterError.toBody(requestId));
+      return sendError(reply, 500, platterError.toBody(requestId));
     }
 
     if (error instanceof PlatterError) {
@@ -79,14 +104,14 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
       const context = { err: error, code: error.code };
       if (error.status >= 500) request.log.error(context, error.message);
       else request.log.warn(context, error.message);
-      return reply.status(error.status).send(error.toBody(requestId));
+      return sendError(reply, error.status, error.toBody(requestId));
     }
 
     if (error instanceof z.ZodError) {
       const platterError = new PlatterError('validation_failed', ERROR_MESSAGES.validation_failed, {
         details: zodDetails(error),
       });
-      return reply.status(platterError.status).send(platterError.toBody(requestId));
+      return sendError(reply, platterError.status, platterError.toBody(requestId));
     }
 
     // Narrowed through a separate binding: the Prisma guard is structural, and letting it
@@ -99,7 +124,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
         { err: unknownError, prismaCode: unknownError.code },
         'database constraint rejected a write',
       );
-      return reply.status(platterError.status).send(platterError.toBody(requestId));
+      return sendError(reply, platterError.status, platterError.toBody(requestId));
     }
 
     const status = statusCodeOf(error);
@@ -109,14 +134,14 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
       // Fastify's own messages are safe and specific ("Request body is too large"), so
       // they are worth passing through where they exist.
       const message = error.message.length > 0 ? error.message : ERROR_MESSAGES[code];
-      return reply.status(status).send(new PlatterError(code, message).toBody(requestId));
+      return sendError(reply, status, new PlatterError(code, message).toBody(requestId));
     }
 
     // Anything left is unexpected. The real error is logged; the client gets a request id
     // to quote and nothing that describes our internals.
     request.log.error({ err: error }, 'unhandled error');
     const platterError = new PlatterError('internal_error', ERROR_MESSAGES.internal_error);
-    return reply.status(500).send(platterError.toBody(requestId));
+    return sendError(reply, 500, platterError.toBody(requestId));
   });
 
   app.setNotFoundHandler((request, reply) => {
@@ -124,7 +149,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
       'not_found',
       `No route for ${request.method} ${request.url}.`,
     );
-    return reply.status(404).send(platterError.toBody(request.id));
+    return sendError(reply, 404, platterError.toBody(request.id));
   });
 };
 
