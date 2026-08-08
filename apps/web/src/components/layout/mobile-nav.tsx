@@ -41,28 +41,31 @@ export function MobileNav() {
   const active = MOBILE_NAV.find((item) => item.match(pathname))?.to ?? '';
 
   return (
-    <BottomNavigation
-      className="md:hidden"
-      onValueChange={({ value }) => void navigate(value)}
-      value={active}
-    >
-      <BottomNavigationList aria-label="Primary" className="bg-bg">
-        {MOBILE_NAV.map((item) => {
-          const Icon = item.icon;
-          return (
-            <BottomNavigationItem
-              className="min-h-14 gap-1 aria-selected:font-semibold aria-selected:text-label"
-              key={item.to}
-              value={item.to}
-            >
-              <BottomNavigationItemIcon>
-                <Icon aria-hidden />
-              </BottomNavigationItemIcon>
-              <BottomNavigationItemLabel>{item.label}</BottomNavigationItemLabel>
-            </BottomNavigationItem>
-          );
-        })}
-      </BottomNavigationList>
-    </BottomNavigation>
+    /*
+     * Shark's `BottomNavigation` renders divs, so the `<nav>` is added here — otherwise the
+     * phone layout has no navigation landmark either. The label distinguishes it from the
+     * sidebar's "Main" for anyone listing landmarks, even though only one is ever visible.
+     */
+    <nav aria-label="Primary" className="md:hidden">
+      <BottomNavigation onValueChange={({ value }) => void navigate(value)} value={active}>
+        <BottomNavigationList className="bg-bg">
+          {MOBILE_NAV.map((item) => {
+            const Icon = item.icon;
+            return (
+              <BottomNavigationItem
+                className="min-h-14 gap-1 aria-selected:font-semibold aria-selected:text-label"
+                key={item.to}
+                value={item.to}
+              >
+                <BottomNavigationItemIcon>
+                  <Icon aria-hidden />
+                </BottomNavigationItemIcon>
+                <BottomNavigationItemLabel>{item.label}</BottomNavigationItemLabel>
+              </BottomNavigationItem>
+            );
+          })}
+        </BottomNavigationList>
+      </BottomNavigation>
+    </nav>
   );
 }

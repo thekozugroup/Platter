@@ -12,7 +12,10 @@ import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";
 
-export const useMenu = useMenuContext;
+/* A re-export rather than `const useMenu = useMenuContext`: the assignment form makes
+ * TypeScript infer and then try to *name* Ark's return type, which lives in a transitive
+ * `@zag-js/*` package with no direct import path from here (TS2742 under pnpm). */
+export { useMenuContext as useMenu };
 
 export const Menu = (props: React.ComponentProps<typeof ArkMenu.Root>) => {
   const {

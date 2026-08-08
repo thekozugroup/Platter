@@ -40,5 +40,13 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    /*
+     * Only unit tests. `e2e/` holds Playwright specs, which use a different `test` global —
+     * collecting them here fails at import with "Playwright Test did not expect
+     * test.describe() to be called here", which looks like a broken test rather than the
+     * wrong runner. `pnpm test:e2e` runs those.
+     */
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
   },
 });

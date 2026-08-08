@@ -16,8 +16,11 @@ import {
   type InputGroupProps,
 } from "@/components/ui/input-group";
 
-export const useDateInput = useArkDateInput;
-export const useDateInputContext = useArkDateInputContext;
+/* Re-exported, not re-assigned — see the note in `menu.tsx` (TS2742 under pnpm). */
+export {
+  useArkDateInput as useDateInput,
+  useArkDateInputContext as useDateInputContext,
+};
 
 interface DateInputProps
   extends React.ComponentProps<typeof ArkDateInput.Root>,

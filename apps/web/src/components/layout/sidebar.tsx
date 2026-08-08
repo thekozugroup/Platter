@@ -285,9 +285,7 @@ function AccountMenu() {
           </Avatar>
 
           <span className={cn('flex min-w-0 flex-1 flex-col', COLLAPSED_LABEL)}>
-            <span className="truncate text-subhead font-medium text-label">
-              {user.displayName}
-            </span>
+            <span className="truncate text-subhead font-medium text-label">{user.displayName}</span>
             <span className="truncate text-caption font-normal text-label-tertiary">
               {user.email}
             </span>
@@ -365,56 +363,73 @@ export function AppSidebar({ onSearch, searchShortcut }: AppSidebarProps) {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-5 px-3">
-        <SidebarGroup className="p-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  className={NAV_ROW}
-                  onClick={onSearch}
-                  tooltip={`Search — ${searchShortcut}`}
-                >
-                  <Search aria-hidden />
-                  <span className={COLLAPSED_LABEL}>Search</span>
-                  <Kbd className={cn('ms-auto bg-transparent', COLLAPSED_LABEL)} variant="outline">
-                    {searchShortcut}
-                  </Kbd>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {PRIMARY_NAV.map((item) => (
-                <NavRow item={item} key={item.to} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="p-0">
-          <SidebarGroupLabel className="px-3 text-caption text-label-tertiary">
-            Servers
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              <ServerRows />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin ? (
+      {/*
+        Shark's `SidebarContent` is a plain div, so without this the app shipped with no
+        navigation landmark at all — a screen-reader user had no way to jump to the nav, and
+        "skip to content" had nothing to skip past. The `<nav>` goes inside rather than
+        around `SidebarContent` so its scroll and collapse behaviour are untouched.
+      */}
+      {/*
+        Shark's `SidebarContent` is a plain scrolling div, so without this the app shipped
+        with no navigation landmark at all — a screen-reader user had no way to jump to the
+        nav, and "skip to content" had nothing meaningful to skip past. The `<nav>` carries
+        the column spacing that was on `SidebarContent`, so the layout is unchanged.
+      */}
+      <SidebarContent className="px-3">
+        <nav aria-label="Main" className="flex flex-col gap-5">
           <SidebarGroup className="p-0">
-            <SidebarGroupLabel className="px-3 text-caption text-label-tertiary">
-              Administration
-            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
-                {ADMIN_NAV.map((item) => (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className={NAV_ROW}
+                    onClick={onSearch}
+                    tooltip={`Search — ${searchShortcut}`}
+                  >
+                    <Search aria-hidden />
+                    <span className={COLLAPSED_LABEL}>Search</span>
+                    <Kbd
+                      className={cn('ms-auto bg-transparent', COLLAPSED_LABEL)}
+                      variant="outline"
+                    >
+                      {searchShortcut}
+                    </Kbd>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                {PRIMARY_NAV.map((item) => (
                   <NavRow item={item} key={item.to} />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ) : null}
+
+          <SidebarGroup className="p-0">
+            <SidebarGroupLabel className="px-3 text-caption text-label-tertiary">
+              Servers
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                <ServerRows />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {isAdmin ? (
+            <SidebarGroup className="p-0">
+              <SidebarGroupLabel className="px-3 text-caption text-label-tertiary">
+                Administration
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-1">
+                  {ADMIN_NAV.map((item) => (
+                    <NavRow item={item} key={item.to} />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
+        </nav>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-separator p-3">
