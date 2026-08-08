@@ -9,6 +9,7 @@ import errorHandlerPlugin from './plugins/error-handler.js';
 import openapiPlugin from './plugins/openapi.js';
 import securityPlugin, { BODY_LIMIT_BYTES } from './plugins/security.js';
 import routes from './routes/index.js';
+import { httpMetricsPlugin } from './services/metrics.js';
 
 export interface BuildAppOptions {
   /** Tests pass false; `buildLoggerOptions` already silences NODE_ENV=test. */
@@ -49,6 +50,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // headers and limits cover them too; swagger before routes because it collects them
   // through an onRoute hook.
   await app.register(errorHandlerPlugin);
+  // At the root, and before the routes exist: an `onResponse` hook only observes traffic
+  // in the encapsulation context it was added to, so registering this inside any nested
+  // plugin would silently measure a fraction of the requests. It declares skip-override
+  // for exactly that reason.
+  if (config.metricsEnabled) await app.register(httpMetricsPlugin);
   await app.register(securityPlugin);
   await app.register(openapiPlugin);
   await app.register(authPlugin);
