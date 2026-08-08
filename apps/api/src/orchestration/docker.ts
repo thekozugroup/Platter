@@ -103,7 +103,10 @@ const FRAME_HEADER_BYTES = 8;
  * lines or half of one, and the partial tail has to survive until the rest arrives.
  */
 class LogDecoder {
-  private buffer = Buffer.alloc(0);
+  // Explicitly `Buffer` (i.e. `Buffer<ArrayBufferLike>`): dockerode hands us chunks whose
+  // backing store TypeScript widens to ArrayBufferLike, and `Buffer.alloc` infers the
+  // narrower `Buffer<ArrayBuffer>`, which the reassignment below would not satisfy.
+  private buffer: Buffer = Buffer.alloc(0);
   private readonly partial = new Map<'stdout' | 'stderr', string>();
 
   constructor(private readonly raw: boolean) {}

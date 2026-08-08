@@ -30,6 +30,7 @@ import { getDriver } from '../orchestration/registry.js';
 import { allocatePorts, releasePorts } from './allocations.js';
 import { getBlueprint } from './blueprints.js';
 import { installServer } from './lifecycle.js';
+import { getPlayerCount } from './players.js';
 import type { AuthenticatedUser, ServerRecord } from '../plugins/auth.js';
 
 /**
@@ -747,11 +748,15 @@ export async function getServerStats(server: ServerRecord): Promise<ServerStats>
   const status = presentStatus(server);
   const driver = await getDriver(server.nodeId);
 
-  const [usage, diskBytes] = await Promise.all([
+  const [usage, diskBytes, players] = await Promise.all([
     driver.usage(server.id),
     // A server that has never installed has no data directory yet. That is a zero, not a
     // failure of the whole stats call.
     driver.diskUsage(server.id).catch(() => 0),
+    // One live query (RCON, else the game's query port) against one server. Affordable
+    // here in a way it is not in the list endpoint. A failure means "we could not ask",
+    // which stays null rather than being reported as an empty server.
+    status === 'running' ? getPlayerCount(server.id).catch(() => null) : Promise.resolve(null),
   ]);
 
   const startedAt = server.startedAt;
@@ -770,8 +775,8 @@ export async function getServerStats(server: ServerRecord): Promise<ServerStats>
     networkRxBytes: usage?.networkRxBytes ?? 0,
     networkTxBytes: usage?.networkTxBytes ?? 0,
     uptimeSeconds,
-    playersOnline: null,
-    playersMax: null,
+    playersOnline: players?.online ?? null,
+    playersMax: players?.max ?? null,
     sampledAt: (usage?.sampledAt ?? new Date()).toISOString(),
   };
 }
