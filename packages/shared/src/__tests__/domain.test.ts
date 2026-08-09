@@ -64,6 +64,32 @@ describe('server lifecycle', () => {
     expect(canPerformPowerAction('provisioning', 'kill')).toBe(false);
   });
 
+  /**
+   * The invariant the previous version of this file was missing.
+   *
+   * It asserted "nothing is legal while locked, except these two", which is scoped exactly
+   * to the bug it was written for and is structurally blind to the same dead end one status
+   * over: `install_failed` is not locked, so the loop above skipped it, and it sat with no
+   * legal action at all. Stated as a property over every status instead, the next one
+   * cannot hide the same way.
+   */
+  it('leaves no non-terminal status without a way out', () => {
+    // The two genuinely terminal states. `suspended` is lifted by an admin unsuspending the
+    // server, `deleting` ends by the row ceasing to exist — neither is a power action.
+    const terminal: readonly ServerStatus[] = ['suspended', 'deleting'];
+    for (const status of SERVER_STATUSES) {
+      if (terminal.includes(status)) continue;
+      expect(
+        ALLOWED_POWER_ACTIONS[status].length,
+        `${status} has no legal power action, so a collaborator without server.update is stuck`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('offers a retry out of a failed install', () => {
+    expect(canPerformPowerAction('install_failed', 'start')).toBe(true);
+  });
+
   it('offers start only from a stopped state, and stop only from a live one', () => {
     expect(canPerformPowerAction('offline', 'start')).toBe(true);
     expect(canPerformPowerAction('crashed', 'start')).toBe(true);

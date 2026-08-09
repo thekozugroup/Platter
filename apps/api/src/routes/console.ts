@@ -12,6 +12,7 @@ import {
   type ServerStatus,
 } from '@platter/shared';
 import { prisma } from '../db.js';
+import { redactCommand } from '../lib/redact.js';
 import { getLogHub } from '../orchestration/log-buffer.js';
 import { getDriverForNode } from '../orchestration/registry.js';
 import { parseServerPermissions, presentStatus, getServerStats } from '../services/servers.js';
@@ -48,10 +49,21 @@ const STATS_INTERVAL_MS = 5_000;
  */
 const MAX_SOCKETS_PER_USER = 8;
 
+/**
+ * Sockets that have not authenticated yet, across the whole process.
+ *
+ * The per-user cap cannot apply before there is a user, so until this existed the only
+ * bound on unauthenticated sockets was the IP rate limit — and each one holds a live
+ * connection and a timer for ten seconds. This is deliberately generous compared with the
+ * per-user cap: it is a ceiling on abuse, not a limit anybody legitimate should meet.
+ */
+const MAX_PENDING_SOCKETS = 64;
+
 /** Frames a client may send before authenticating (just the one). */
 const MAX_FRAME_BYTES = 8 * 1024;
 
 const openSockets = new Map<string, number>();
+let pendingSockets = 0;
 
 function countSocket(userId: string, delta: 1 | -1): number {
   const next = (openSockets.get(userId) ?? 0) + delta;
@@ -117,6 +129,17 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
     let unsubscribe: (() => void) | null = null;
     let statsTimer: NodeJS.Timeout | null = null;
     let closed = false;
+    /** Cleared exactly once, by whichever happens first: authenticating, or shutdown. */
+    let counted = true;
+
+    pendingSockets += 1;
+    if (pendingSockets > MAX_PENDING_SOCKETS) {
+      pendingSockets -= 1;
+      counted = false;
+      closed = true;
+      socket.close(WS_CLOSE.tooManyConnections, 'too many connections');
+      return;
+    }
 
     const send = (message: ServerMessage): void => {
       // readyState is checked rather than caught: writing to a closing socket throws
@@ -129,6 +152,10 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
     const shutdown = (code?: number, reason?: string): void => {
       if (closed) return;
       closed = true;
+      if (counted) {
+        counted = false;
+        pendingSockets -= 1;
+      }
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
@@ -202,6 +229,12 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
 
       authed = context;
       canWrite = access.canWrite;
+      // Off the pending ledger and onto the per-user one, in that order and exactly once —
+      // `shutdown` decrements whichever the socket is currently counted against.
+      if (counted) {
+        counted = false;
+        pendingSockets -= 1;
+      }
       countSocket(context.user.id, 1);
       clearTimeout(authTimer);
 
@@ -250,7 +283,7 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
           actorName: authed.user.displayName,
           targetType: 'server',
           targetId: serverId,
-          metadata: { command, via: 'websocket' },
+          metadata: { command: redactCommand(command), via: 'websocket' },
           logger: log,
         });
       } catch (error) {

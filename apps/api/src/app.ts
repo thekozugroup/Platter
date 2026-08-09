@@ -10,6 +10,7 @@ import openapiPlugin from './plugins/openapi.js';
 import securityPlugin, { BODY_LIMIT_BYTES } from './plugins/security.js';
 import consoleRoutes from './routes/console.js';
 import routes from './routes/index.js';
+import spaPlugin from './plugins/spa.js';
 import { httpMetricsPlugin } from './services/metrics.js';
 
 export interface BuildAppOptions {
@@ -63,6 +64,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // Outside the API prefix on purpose: `WS_PATH` is an absolute path, and the browser
   // client builds its URL from the origin plus that constant, not from the REST base.
   await app.register(consoleRoutes);
+  // Last, so it can never shadow a route: the static handler and the client-router fallback
+  // both resolve only what nothing above claimed.
+  await app.register(spaPlugin);
 
   return app;
 }

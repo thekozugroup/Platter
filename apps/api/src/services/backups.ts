@@ -19,7 +19,7 @@ import { getLogHub } from '../orchestration/log-buffer.js';
 import { recordAudit } from './audit.js';
 import { serverDataDir } from '../lib/paths.js';
 import { getBlueprint } from './blueprints.js';
-import { sendCommand, stopServer } from './lifecycle.js';
+import { sendCommand, stopServerHeldLock, withServerLock } from './lifecycle.js';
 
 /**
  * Backups: a streamed `.tar.gz` of a server's data directory, hashed as it is written so
@@ -34,6 +34,17 @@ import { sendCommand, stopServer } from './lifecycle.js';
 /** Automatic backups beyond this many (per server, oldest first) are rotated away. Manual
  * backups are exempt — an operator who asked for one by hand did not ask for it to expire. */
 const MAX_AUTOMATIC_BACKUPS_PER_SERVER = 10;
+
+/**
+ * A hard ceiling on backups of one server, automatic and manual together.
+ *
+ * Retention only ever rotated *automatic* backups, so `backups.create` — a permission in
+ * the default-ish collaborator range — was an unbounded write primitive against the node's
+ * disk: nothing rotated a manual backup away and nothing refused the next one. This is not
+ * retention (it deletes nothing); it is the point at which Platter says no and asks the
+ * operator to choose what to remove.
+ */
+const MAX_BACKUPS_PER_SERVER = 50;
 
 /** Servers currently being backed up, in this process. The authoritative guard against
  * two backups of the same server running at once — the DB row exists before this is set,
@@ -52,27 +63,112 @@ function messageOf(error: unknown): string {
 // A deliberately minimal glob, for the `ignore` list
 // ---------------------------------------------------------------------------
 
-function escapeRegExpChar(ch: string): string {
-  return /[.+^${}()|[\]\\]/.test(ch) ? `\\${ch}` : ch;
-}
+/**
+ * Deliberately not a regular expression.
+ *
+ * The obvious compiler — `**` to `.*`, `*` to `[^/]*` — is a denial-of-service primitive.
+ * `ignore` is attacker-controlled (50 patterns of 200 characters each), and `**a**a**a…`
+ * compiles to `^.*a.*a.*a…$`, whose backtracking grows about 7x per repetition: 23
+ * characters already costs seconds against a 60-character filename, and the match runs
+ * synchronously inside tar's `filter`, so the event loop — HTTP, every console socket, the
+ * scheduler, the crash supervisor — stops with it.
+ *
+ * These four token kinds are simulated directly instead, one subject character at a time
+ * over the set of reachable token positions. That is O(pattern x subject) with no
+ * backtracking at all, so the worst case is bounded by the input sizes rather than
+ * exponential in them.
+ */
+type GlobToken =
+  /** A literal character. */
+  | { kind: 'char'; value: string }
+  /** `?` — exactly one character, but never a separator. */
+  | { kind: 'one' }
+  /** `*` — any run of characters within a single path segment. */
+  | { kind: 'star' }
+  /** `**` — any run of characters, separators included. */
+  | { kind: 'globstar' };
 
-function globToRegExp(pattern: string): RegExp {
+function tokenizeGlob(pattern: string): GlobToken[] {
   const chars = Array.from(pattern);
-  let out = '';
+  const tokens: GlobToken[] = [];
   for (let i = 0; i < chars.length; i += 1) {
     const ch = chars[i] ?? '';
     if (ch === '*' && chars[i + 1] === '*') {
-      out += '.*';
       i += 1;
+      // A run of wildcards collapses into one: `.*[^/]*` and `[^/]*.*` both accept exactly
+      // what `.*` accepts, so keeping them apart only costs states to walk.
+      const last = tokens[tokens.length - 1];
+      if (last?.kind === 'globstar') continue;
+      if (last?.kind === 'star') tokens[tokens.length - 1] = { kind: 'globstar' };
+      else tokens.push({ kind: 'globstar' });
     } else if (ch === '*') {
-      out += '[^/]*';
+      const last = tokens[tokens.length - 1];
+      if (last?.kind === 'star' || last?.kind === 'globstar') continue;
+      tokens.push({ kind: 'star' });
     } else if (ch === '?') {
-      out += '[^/]';
+      tokens.push({ kind: 'one' });
     } else {
-      out += escapeRegExpChar(ch);
+      tokens.push({ kind: 'char', value: ch });
     }
   }
-  return new RegExp(`^${out}$`);
+  return tokens;
+}
+
+/**
+ * `state[i]` means "the first `i` tokens can have consumed everything read so far".
+ * `close` follows the zero-width edges: a star may match nothing, so reaching it also
+ * reaches the position after it.
+ */
+function matchTokens(tokens: readonly GlobToken[], subject: string): boolean {
+  const width = tokens.length + 1;
+  const close = (state: Uint8Array): void => {
+    for (let i = 0; i < tokens.length; i += 1) {
+      if (!state[i]) continue;
+      const token = tokens[i];
+      if (token?.kind === 'star' || token?.kind === 'globstar') state[i + 1] = 1;
+    }
+  };
+
+  let current = new Uint8Array(width);
+  current[0] = 1;
+  close(current);
+
+  for (const ch of subject) {
+    const next = new Uint8Array(width);
+    let live = false;
+    for (let i = 0; i < tokens.length; i += 1) {
+      if (!current[i]) continue;
+      const token = tokens[i];
+      if (token === undefined) continue;
+      switch (token.kind) {
+        case 'char':
+          if (ch === token.value) next[i + 1] = 1;
+          break;
+        case 'one':
+          if (ch !== '/') next[i + 1] = 1;
+          break;
+        case 'star':
+          if (ch !== '/') next[i] = 1;
+          break;
+        case 'globstar':
+          next[i] = 1;
+          break;
+      }
+    }
+    close(next);
+    // Every position died, so no suffix can revive the match. Bailing out here is what
+    // makes a pattern with no wildcards cost its own length rather than the subject's.
+    for (let i = 0; i < width; i += 1) {
+      if (next[i]) {
+        live = true;
+        break;
+      }
+    }
+    if (!live) return false;
+    current = next;
+  }
+
+  return current[tokens.length] === 1;
 }
 
 /**
@@ -80,16 +176,18 @@ function globToRegExp(pattern: string): RegExp {
  * a `/`. Enough for what operators actually type (`*.log`, `cache/**`) without pulling in
  * a globbing dependency for four characters.
  */
-function compileIgnoreMatcher(patterns: readonly string[]): (entryPath: string) => boolean {
+export function compileIgnoreMatcher(patterns: readonly string[]): (entryPath: string) => boolean {
   const compiled = patterns
     .filter((pattern) => pattern.trim().length > 0)
-    .map((pattern) => ({ regex: globToRegExp(pattern), basenameOnly: !pattern.includes('/') }));
+    .map((pattern) => ({ tokens: tokenizeGlob(pattern), basenameOnly: !pattern.includes('/') }));
   if (compiled.length === 0) return () => false;
 
   return (entryPath: string): boolean => {
     const normalised = entryPath.replace(/^\.\/+/, '');
     const basename = normalised.slice(normalised.lastIndexOf('/') + 1);
-    return compiled.some(({ regex, basenameOnly }) => regex.test(basenameOnly ? basename : normalised));
+    return compiled.some(({ tokens, basenameOnly }) =>
+      matchTokens(tokens, basenameOnly ? basename : normalised),
+    );
   };
 }
 
@@ -138,6 +236,15 @@ export async function createBackup(serverId: string, options: CreateBackupOption
         where: { id: stuck.id },
         data: { status: 'failed', error: 'Interrupted by a restart.', completedAt: new Date() },
       });
+    }
+
+    // After the stuck-row sweep above, so a failed run left by a restart is not counted
+    // against the ceiling forever.
+    const existing = await prisma.backup.count({ where: { serverId } });
+    if (existing >= MAX_BACKUPS_PER_SERVER) {
+      throw conflict(
+        `${server.name} already has ${MAX_BACKUPS_PER_SERVER} backups, which is the most Platter keeps. Delete one before making another.`,
+      );
     }
 
     const row = await prisma.backup.create({
@@ -228,13 +335,18 @@ async function runBackup(row: BackupRow, ignore: readonly string[]): Promise<voi
   const temp = `${archivePath}.part`;
 
   try {
-    const resume = await quiesce(row.serverId);
-    let archived;
-    try {
-      archived = await writeArchive(dataDir, temp, ignore);
-    } finally {
-      await resume();
-    }
+    // Under the server's own lock, the same one `lifecycle.ts` uses. Without it a restore
+    // could be extracting into this directory while tar reads it, and the archive would
+    // still pass its checksum — the hash is of what was read. `backupsInFlight` only ever
+    // stopped a *second backup*, which is the collision that mattered least.
+    const archived = await withServerLock(row.serverId, async () => {
+      const resume = await quiesce(row.serverId);
+      try {
+        return await writeArchive(dataDir, temp, ignore);
+      } finally {
+        await resume();
+      }
+    });
     const { sizeBytes, checksum } = archived;
     await rename(temp, archivePath);
     await prisma.backup.update({
@@ -443,40 +555,52 @@ async function performRestore(row: BackupRow, options: RestoreOptions): Promise<
     throw conflict('That backup archive failed its checksum check and will not be restored.');
   }
 
-  const server = await prisma.server.findUnique({ where: { id: row.serverId } });
-  if (!server) throw notFound('server');
+  /**
+   * Everything from here holds the server's lifecycle lock.
+   *
+   * The status check, the stop and the extraction have to be one indivisible step. Claiming
+   * the *backup* row — which is all `restoreBackup` did — says nothing about the server, and
+   * `offline: ['start']` makes a concurrent start perfectly legal: a scheduled start, the
+   * crash supervisor's auto-restart or a second operator could boot the game onto a
+   * directory that had just been emptied and was being repopulated one file at a time.
+   */
+  return withServerLock(row.serverId, async () => {
+    const server = await prisma.server.findUnique({ where: { id: row.serverId } });
+    if (!server) throw notFound('server');
 
-  if (server.suspended) {
-    throw invalidState(`${server.name} is suspended, so this backup cannot be restored right now.`);
-  }
+    if (server.suspended) {
+      throw invalidState(`${server.name} is suspended, so this backup cannot be restored right now.`);
+    }
 
-  let stoppedServer = false;
-  if (RESTORE_STOPS.includes(server.status)) {
-    getLogHub(row.serverId).system(`Stopping ${server.name} to restore backup "${row.name}"…`);
-    await stopServer(row.serverId, options.actorId ?? null);
-    stoppedServer = true;
-  } else if (!RESTORE_READY.includes(server.status)) {
-    throw invalidState(`${server.name} is busy, so this backup cannot be restored right now.`);
-  }
+    let stoppedServer = false;
+    if (RESTORE_STOPS.includes(server.status)) {
+      getLogHub(row.serverId).system(`Stopping ${server.name} to restore backup "${row.name}"…`);
+      // The held-lock form: `stopServer` would queue behind the lock we are holding.
+      await stopServerHeldLock(row.serverId, options.actorId ?? null);
+      stoppedServer = true;
+    } else if (!RESTORE_READY.includes(server.status)) {
+      throw invalidState(`${server.name} is busy, so this backup cannot be restored right now.`);
+    }
 
-  const dataDir = serverDataDir(row.serverId);
-  await mkdir(dataDir, { recursive: true });
-  if (options.truncate) await emptyDirectory(dataDir);
+    const dataDir = serverDataDir(row.serverId);
+    await mkdir(dataDir, { recursive: true });
+    if (options.truncate) await emptyDirectory(dataDir);
 
-  try {
-    await pipeline(
-      createReadStream(backupArchivePath(row.serverId, row.id)),
-      tarExtract({ cwd: dataDir, strict: true }),
+    try {
+      await pipeline(
+        createReadStream(backupArchivePath(row.serverId, row.id)),
+        tarExtract({ cwd: dataDir, strict: true }),
+      );
+    } catch (error) {
+      throw internal('Could not extract that backup onto the server.', error);
+    }
+
+    getLogHub(row.serverId).system(
+      `Restored from backup "${row.name}"${options.truncate ? ' (existing files were removed first)' : ''}.`,
     );
-  } catch (error) {
-    throw internal('Could not extract that backup onto the server.', error);
-  }
 
-  getLogHub(row.serverId).system(
-    `Restored from backup "${row.name}"${options.truncate ? ' (existing files were removed first)' : ''}.`,
-  );
-
-  return { stoppedServer };
+    return { stoppedServer };
+  });
 }
 
 export async function restoreBackup(backupId: string, options: RestoreOptions = {}): Promise<RestoreResult> {

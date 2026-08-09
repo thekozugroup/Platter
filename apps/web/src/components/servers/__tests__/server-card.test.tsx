@@ -327,8 +327,11 @@ describe('powerBlockedReason', () => {
     expect(powerBlockedReason('suspended', 'start')).toMatch(/administrator/i);
   });
 
-  it('points a failed install at the fix', () => {
-    expect(powerBlockedReason('install_failed', 'start')).toMatch(/reinstall/i);
+  it('offers a retry after a failed install rather than a dead end', () => {
+    // Install is idempotent, so start *is* the retry. Blocking it left a collaborator with
+    // power permissions but no `server.update` unable to do anything at all with the server.
+    expect(powerBlockedReason('install_failed', 'start')).toBeNull();
+    expect(powerBlockedReason('install_failed', 'stop')).toMatch(/nothing is running/i);
   });
 
   it('does not offer restart to a server that is not running', () => {

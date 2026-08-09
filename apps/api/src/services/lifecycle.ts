@@ -17,7 +17,7 @@ import {
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { sleep } from '../lib/async.js';
-import { serverDataDir } from '../lib/paths.js';
+import { serverBackupDir, serverDataDir } from '../lib/paths.js';
 import { badRequest, conflict, internal, invalidState, notFound } from '../lib/errors.js';
 import { DRIVER_LABELS, deriveStatus } from '../orchestration/driver.js';
 import type {
@@ -179,7 +179,7 @@ function messageOf(error: unknown): string {
  * callers arriving in the same tick would otherwise both see an idle server and run
  * together, which is exactly the race this exists to prevent.
  */
-async function withServerLock<T>(serverId: string, fn: () => Promise<T>): Promise<T> {
+export async function withServerLock<T>(serverId: string, fn: () => Promise<T>): Promise<T> {
   const previous = operations.get(serverId) ?? Promise.resolve();
   // `fn` runs whether the predecessor resolved or rejected: one failed stop must not
   // wedge every later operation on that server.
@@ -649,11 +649,18 @@ export async function startServer(serverId: string, actorId: string | null = nul
     clearCrashRecord(serverId);
     const who = await actorLabel(actorId);
 
-    if (statusOf(server) === 'provisioning') {
+    const status = statusOf(server);
+    if (status === 'provisioning' || status === 'install_failed') {
       // Created with `startOnCreate: false`: there is no image, no data directory and no
       // container yet, so "start" means "install, then boot". `startWhenDone` rather than
       // the row's `autoStart`, because the person pressing start has just said so.
-      getLogHub(serverId).system(withActor(`Setting ${server.name} up…`, who));
+      //
+      // `install_failed` takes the same path — the install is idempotent and resumable, so
+      // retrying it is exactly what "start" should mean there. `force: false` so a retry
+      // never overwrites config the operator edited between attempts.
+      const verb = status === 'install_failed' ? 'Retrying the setup of' : 'Setting';
+      const tail = status === 'install_failed' ? '' : ' up';
+      getLogHub(serverId).system(withActor(`${verb} ${server.name}${tail}…`, who));
       await runInstall(serverId, { force: false, startWhenDone: true });
       return;
     }
@@ -881,22 +888,37 @@ export async function stopServer(
   actorId: string | null = null,
   options: StopOptions = {},
 ): Promise<void> {
-  await withServerLock(serverId, async () => {
-    const server = await requireServerRow(serverId);
-    assertAllowed(server, 'stop');
+  await withServerLock(serverId, () => stopServerHeldLock(serverId, actorId, options));
+}
 
-    const who = await actorLabel(actorId);
-    // A deliberate stop is not a crash and never has an automatic restart behind it.
-    clearCrashRecord(serverId);
-    cancelRunWatcher(serverId);
+/**
+ * The body of `stopServer`, for a caller that is already inside `withServerLock`.
+ *
+ * The lock is a promise chain, not a reentrant mutex, so a held-lock caller that reached
+ * for `stopServer` would queue behind itself and hang forever. `restoreBackup` is the one
+ * such caller: it has to stop the game and then keep holding the server for the whole
+ * extraction, or a scheduled start can boot the world back up onto a directory that has
+ * just been emptied.
+ */
+export async function stopServerHeldLock(
+  serverId: string,
+  actorId: string | null = null,
+  options: StopOptions = {},
+): Promise<void> {
+  const server = await requireServerRow(serverId);
+  assertAllowed(server, 'stop');
 
-    await setStatus(serverId, 'stopping', { message: withActor(`Stopping ${server.name}…`, who) });
-    const exitCode = await stopInternal(serverId, options);
-    await setStatus(serverId, 'offline', {
-      exitCode,
-      startedAt: null,
-      message: `${server.name} stopped.`,
-    });
+  const who = await actorLabel(actorId);
+  // A deliberate stop is not a crash and never has an automatic restart behind it.
+  clearCrashRecord(serverId);
+  cancelRunWatcher(serverId);
+
+  await setStatus(serverId, 'stopping', { message: withActor(`Stopping ${server.name}…`, who) });
+  const exitCode = await stopInternal(serverId, options);
+  await setStatus(serverId, 'offline', {
+    exitCode,
+    startedAt: null,
+    message: `${server.name} stopped.`,
   });
 }
 
@@ -1091,15 +1113,32 @@ export async function sendCommand(
 // Delete
 // ---------------------------------------------------------------------------
 
-async function removeDataDir(serverId: string): Promise<void> {
-  const dir = path.resolve(serverDataDir(serverId));
-  const root = path.resolve(config.serversDir) + path.sep;
+/** A recursive delete that refuses to run outside the root it was told to stay in. */
+async function removeUnder(root: string, dir: string, what: string): Promise<void> {
+  const resolved = path.resolve(dir);
+  const prefix = path.resolve(root) + path.sep;
   // The path is derived, not user input — but this is a recursive delete, and the cost of
   // being wrong once is the whole data directory.
-  if (!dir.startsWith(root)) {
-    throw internal('refusing to delete a path outside the server data root');
+  if (!resolved.startsWith(prefix)) {
+    throw internal(`refusing to delete a path outside the ${what} root`);
   }
-  await rm(dir, { recursive: true, force: true });
+  await rm(resolved, { recursive: true, force: true });
+}
+
+async function removeDataDir(serverId: string): Promise<void> {
+  await removeUnder(config.serversDir, serverDataDir(serverId), 'server data');
+}
+
+/**
+ * The archives, which the database is about to forget exist.
+ *
+ * `Backup` rows cascade off the server's foreign key, so without this the `.tar.gz` files
+ * survive with nothing pointing at them: unbounded disk growth, and a retention failure —
+ * a backup contains the world *and* the rendered blueprint files, which for Minecraft means
+ * `server.properties` with the RCON password in cleartext.
+ */
+async function removeBackupDir(serverId: string): Promise<void> {
+  await removeUnder(config.backupDir, serverBackupDir(serverId), 'backup');
 }
 
 export async function deleteServer(serverId: string, actorId: string | null = null): Promise<void> {
@@ -1121,6 +1160,7 @@ export async function deleteServer(serverId: string, actorId: string | null = nu
     }
 
     await removeDataDir(serverId);
+    await removeBackupDir(serverId);
     // Ports go back to the free pool before the row goes, so a failure here cannot strand
     // an allocation pointing at a server that no longer exists.
     await releasePorts(serverId);

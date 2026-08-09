@@ -111,7 +111,9 @@ export async function runStdioMcpServer(
     throw error;
   }
 
-  const server = createMcpServer({ principal, logger });
+  // A stdio process holds one key for its whole life and has no way to re-present it, so
+  // there is nothing to re-read: the constant is the honest answer here.
+  const server = createMcpServer({ principal: () => principal, logger });
   const transport = new StdioServerTransport(options.stdin, options.stdout);
 
   let settle: (() => void) | undefined;

@@ -31,6 +31,11 @@ fi
 
 cd /app
 
+# Off by default, and deliberately not advertised in .env.example or compose: the
+# production image cannot seed. Left in place so a development image built with tsx (or
+# one that compiles the seed) can opt in, without the default deployment logging a
+# "seeding"/"no runnable seed" pair on every single boot that means nothing to an
+# operator. First-run setup in the web client is the real path to the first account.
 if [ "${SEED_ON_START:-0}" = "1" ]; then
   echo "platter: seeding"
   # Seeding is a convenience, not a prerequisite: the API reports `needsSetup` while no

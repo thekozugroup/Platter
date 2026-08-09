@@ -15,6 +15,13 @@ import { getBlueprint, listBlueprintSummaries } from '../services/blueprints.js'
  * and no admin surface to protect. Authentication is still required — the catalogue names the
  * exact images and versions this deployment runs, which is not something to hand to anonymous
  * callers.
+ *
+ * `authenticate` rather than a scope, deliberately and on the record: the catalogue is
+ * identical on every Platter of the same version and says nothing about *this* install — no
+ * server, no node, no address. A scope here would also have to be invented (there is no
+ * `blueprints.read` in the vocabulary), and the MCP `list_blueprints` tool is open to any
+ * key for the same reason, so restricting one surface and not the other would be the worst
+ * of both.
  */
 
 const listQuerySchema = z.object({

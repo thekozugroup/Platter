@@ -49,6 +49,12 @@ interface McpSession {
   readonly server: McpServerInstance;
   /** The key that opened the session. A different key may not drive it. */
   readonly apiKeyId: string;
+  /**
+   * Re-resolved from the presented key on every request, so an operator who narrows a key's
+   * scopes does not have to wait out a half-hour idle timeout for it to take effect. The
+   * tools read this through the getter handed to `createMcpServer`.
+   */
+  principal: McpPrincipal;
   lastSeenAt: number;
   /** Latched by `destroySession`; closing a server closes its transport, which calls back in. */
   closing: boolean;
@@ -122,10 +128,15 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const server = createMcpServer({ principal, logger: app.log });
     // A box rather than a bare binding: the transport's callbacks need to reach the session,
     // and the session cannot be built until the transport exists.
     const held: { session?: McpSession } = {};
+    // Reads through the box so every tool call sees the principal the *latest* request
+    // resolved, not the one that happened to open the session.
+    const server = createMcpServer({
+      principal: () => held.session?.principal ?? principal,
+      logger: app.log,
+    });
 
     // Stateful mode: the transport mints the id, returns it on the initialize response and
     // validates it on every later request. Stateless mode would mean rebuilding and
@@ -151,6 +162,7 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
       transport,
       server,
       apiKeyId: principal.apiKeyId,
+      principal,
       lastSeenAt: Date.now(),
       closing: false,
     };
@@ -223,6 +235,10 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
       );
       throw new PlatterError('forbidden', 'That MCP session belongs to a different API key.');
     }
+    // Same key, freshly resolved: adopt whatever it may do *now*. `resolveApiKeyPrincipal`
+    // has already re-checked revocation, expiry and suspension; this is what makes a
+    // narrowed scope set take effect on the next call rather than the next session.
+    session.principal = principal;
     return session;
   }
 

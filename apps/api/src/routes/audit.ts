@@ -24,6 +24,13 @@ import { toAuditEntries, toAuditEntry } from '../services/audit.js';
  * (`createdAt`, `actorId`, `targetId`, `action`), so nothing here forces a table scan —
  * including the member restriction, which filters on the same `targetId` index everyone
  * else's `targetId` filter would use.
+ *
+ * That indexing is also the reason a member does *not* see `backup.*` or `schedule.*` rows
+ * for their own servers: those rows target the backup or the schedule, and name the server
+ * only inside `metadata`, which is a JSON text column with no index. Widening the member
+ * view to include them would mean either a scan of the whole log or a second denormalised
+ * column. This is a known and deliberate narrowness, not an oversight — a member who needs
+ * that history has it on the server's own backups and schedules pages.
  */
 
 function requireAuth(request: FastifyRequest): AuthContext {

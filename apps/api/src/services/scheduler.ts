@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { PlatterError, SCHEDULE_ACTIONS, type ScheduleAction } from '@platter/shared';
 import { prisma } from '../db.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { redactCommand } from '../lib/redact.js';
 import { createBackup } from './backups.js';
 import { recordAudit } from './audit.js';
 import { schedulerRuns } from './metrics.js';
@@ -163,6 +164,11 @@ async function executeAction(row: ScheduleRow): Promise<ExecuteOutcome> {
 async function runOnce(row: ScheduleRow, actorId: string | null): Promise<void> {
   const outcome = await executeAction(row);
   schedulerRuns.inc({ action: row.action, outcome: outcome.status });
+  // Resolved before the write so the entry still names whoever pressed "run now" after the
+  // account is deleted — `recordAudit` cannot look it up later, and an entry that says
+  // only `actorId=usr_…` is the least useful row in the log for the one action that is
+  // hardest to attribute.
+  const actorName = actorId === null ? null : await actorDisplayName(actorId);
   await prisma.schedule
     .update({
       where: { id: row.id },
@@ -176,11 +182,30 @@ async function runOnce(row: ScheduleRow, actorId: string | null): Promise<void> 
     action: 'schedule.executed',
     targetType: 'schedule',
     actorId,
+    actorName,
     targetId: row.id,
     targetName: row.name,
-    metadata: { action: row.action, status: outcome.status, serverId: row.serverId },
+    metadata: {
+      action: row.action,
+      status: outcome.status,
+      serverId: row.serverId,
+      // What was actually run. Direct console input has always been recorded; the
+      // scheduled path recorded only the action name, which made it the least audited way
+      // to run a command and the most attractive one to abuse.
+      ...(row.action === 'command' && row.payload !== null
+        ? { payload: redactCommand(row.payload) }
+        : {}),
+    },
     logger: logger ?? undefined,
   });
+}
+
+/** The actor's name at the moment they acted, for the audit entry above. */
+async function actorDisplayName(actorId: string): Promise<string | null> {
+  const user = await prisma.user
+    .findUnique({ where: { id: actorId }, select: { displayName: true } })
+    .catch(() => null);
+  return user?.displayName ?? null;
 }
 
 /** Triggered by a human, right now — used by the `/schedules/:id/run` route. Does not

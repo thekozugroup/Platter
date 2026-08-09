@@ -87,7 +87,12 @@ export const ALLOWED_POWER_ACTIONS: Record<ServerStatus, readonly PowerAction[]>
   // dead end reachable straight from the create endpoint, with only `delete` out of it.
   provisioning: ['start'],
   installing: ['kill'],
-  install_failed: [],
+  // Same reasoning as `provisioning`, one status over: a start here re-runs the install,
+  // which is idempotent and resumable. Leaving this empty made `install_failed` a dead end
+  // whose only exit was `POST /reinstall`, gated on `server.update` — so a collaborator
+  // granted exactly "you may run this server" had no legal action at all on a server whose
+  // install fell over.
+  install_failed: ['start'],
   offline: ['start'],
   starting: ['stop', 'kill'],
   running: ['stop', 'restart', 'kill'],
@@ -198,6 +203,22 @@ export type BackupStatus = (typeof BACKUP_STATUSES)[number];
 
 export const SCHEDULE_ACTIONS = ['start', 'stop', 'restart', 'backup', 'command'] as const;
 export type ScheduleAction = (typeof SCHEDULE_ACTIONS)[number];
+
+/**
+ * The permission a schedule's action needs, on top of `schedules.write`.
+ *
+ * A schedule is a stored, replayable instruction to do something to a server, so creating
+ * one has to cost what doing that thing costs. Without this table `schedules.write` is a
+ * universal escalation: the executor runs with no principal, so a collaborator who could
+ * not type `op me` into the console could still schedule it and press "run now".
+ */
+export const SCHEDULE_ACTION_PERMISSION: Record<ScheduleAction, ServerPermission> = {
+  start: 'power.start',
+  stop: 'power.stop',
+  restart: 'power.restart',
+  backup: 'backups.create',
+  command: 'console.write',
+};
 
 // ---------------------------------------------------------------------------
 // Nodes & drivers

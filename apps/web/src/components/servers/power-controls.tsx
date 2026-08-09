@@ -81,7 +81,9 @@ export function powerBlockedReason(status: ServerStatus, action: PowerAction): s
     return 'An administrator suspended this server. Only an administrator can bring it back.';
   }
   if (status === 'install_failed') {
-    return 'The install script failed. Reinstall it from Settings before it can start.';
+    // Start *is* the retry — the shared table allows it, and install is idempotent — so this
+    // branch is only ever reached by stop/restart/kill, none of which have a process to act on.
+    return 'The install did not finish, so nothing is running. Start it to try the install again.';
   }
   if (status === 'deleting') {
     return 'This server is being deleted. Its container and volume are on their way out.';

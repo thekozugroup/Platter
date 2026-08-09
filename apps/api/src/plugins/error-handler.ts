@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ERROR_MESSAGES, PlatterError, type ApiErrorBody, type ErrorCode } from '@platter/shared';
 import { REQUEST_ID_HEADER } from '../logger.js';
 import { isPrismaKnownError, fromPrismaError, zodDetails } from '../lib/errors.js';
+import { sendAppShell, wantsAppShell } from './spa.js';
 
 /**
  * Statuses Fastify itself produces before a route ever runs — body too large, bad
@@ -145,6 +146,12 @@ const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
   });
 
   app.setNotFoundHandler((request, reply) => {
+    // A navigation to an unmatched path is a client-side route, not a mistake: the SPA and
+    // the API share an origin, so a deep link pasted into a fresh tab arrives here. Anything
+    // under /api, any non-GET, and any request that did not ask for HTML still gets the JSON
+    // envelope — a client parsing an error must never receive a page.
+    if (wantsAppShell(request)) return sendAppShell(reply);
+
     const platterError = new PlatterError(
       'not_found',
       `No route for ${request.method} ${request.url}.`,

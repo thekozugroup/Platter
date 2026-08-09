@@ -4,6 +4,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   SCHEDULE_ACTIONS,
+  SCHEDULE_ACTION_PERMISSION,
   createScheduleRequestSchema,
   idSchema,
   okSchema,
@@ -13,7 +14,7 @@ import {
   type ScheduleAction,
 } from '@platter/shared';
 import { prisma } from '../db.js';
-import { requireServer } from '../plugins/auth.js';
+import { assertServerPermission, requireServer } from '../plugins/auth.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
 import { recordAuditFromRequest } from '../services/audit.js';
@@ -65,6 +66,23 @@ async function loadOwnedSchedule(serverId: string, id: string): Promise<Schedule
   return row;
 }
 
+/**
+ * A schedule costs what its action costs.
+ *
+ * `schedules.write` on its own was a universal escalation: the dispatcher in
+ * `services/scheduler.ts` calls `stopServer`, `sendCommand` and `createBackup` with no
+ * principal and therefore no permission check, and `POST /:id/run` fires it synchronously,
+ * so there was not even a cron wait between "may edit schedules" and "may type `op me` into
+ * the console". Checked here, where the acting principal is still on the request, at every
+ * point a schedule's action is chosen or replayed.
+ */
+async function assertMayScheduleAction(
+  request: Parameters<typeof assertServerPermission>[0],
+  action: ScheduleAction,
+): Promise<void> {
+  await assertServerPermission(request, SCHEDULE_ACTION_PERMISSION[action]);
+}
+
 const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -103,6 +121,7 @@ const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const server = requireServer(request);
       const body = request.body;
+      await assertMayScheduleAction(request, body.action);
       // Validated here (cron-parser plus a real timezone check), not just by the shared
       // schema's loose "looks like a cron expression" regex — a schedule that fails this
       // must never reach the database with a `nextRunAt` nobody could compute.
@@ -170,7 +189,7 @@ const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
         name: patch.name ?? existing.name,
         cron: patch.cron ?? existing.cron,
         timezone: patch.timezone ?? existing.timezone,
-        action: patch.action ?? existing.action,
+        action: patch.action ?? toScheduleAction(existing.action),
         payload: patch.payload !== undefined ? patch.payload : existing.payload,
         enabled: patch.enabled ?? existing.enabled,
         onlyWhenOnline: patch.onlyWhenOnline ?? existing.onlyWhenOnline,
@@ -184,6 +203,11 @@ const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
       if (merged.action === 'command' && !merged.payload?.trim()) {
         throw badRequest('Enter the command to run.', { payload: ['Enter the command to run.'] });
       }
+
+      // The resulting action, which is the one this schedule will fire. Not also the action
+      // it is replacing: `DELETE` needs only `schedules.write`, so demanding permission for
+      // the outgoing action would add friction without closing anything.
+      await assertMayScheduleAction(request, merged.action);
 
       const nextRunAt = merged.enabled ? computeNextRun(merged.cron, merged.timezone, new Date()) : null;
 
@@ -242,6 +266,9 @@ const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const existing = await loadOwnedSchedule(request.params.serverId, request.params.id);
+      // The synchronous escalation primitive, if this is missing: no cron wait between
+      // storing an action and having it performed.
+      await assertMayScheduleAction(request, toScheduleAction(existing.action));
       await runScheduleNow(existing.id, request.auth?.user.id ?? null);
       reply.code(202);
       return { ok: true as const };

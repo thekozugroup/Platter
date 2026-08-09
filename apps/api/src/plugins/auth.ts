@@ -80,6 +80,15 @@ declare module 'fastify' {
 
   interface FastifyInstance {
     authenticate: preHandlerHookHandler;
+    /**
+     * Authenticated, and acting *as the account* rather than on something it owns.
+     *
+     * Everything under `/auth` is in this category: the profile, the key list, the session
+     * list. A restricted API key is refused outright, because no scope in the vocabulary
+     * names "may change the account's login email", and treating the absence of a name as
+     * permission is how a read-only key ends up locking an owner out of their own panel.
+     */
+    requireAccount: preHandlerHookHandler;
     /** Resolves credentials when present and never rejects — for routes with optional auth. */
     tryAuthenticate: preHandlerHookHandler;
     requireRole(minimum: UserRole): preHandlerHookHandler;
@@ -224,6 +233,85 @@ export function assertRequestScope(request: FastifyRequest, scope: ApiKeyScope):
   assertScope(request.auth, scope);
 }
 
+interface PermissionLogger {
+  error(context: Record<string, unknown>, message: string): void;
+}
+
+function parsePermissions(
+  raw: string,
+  serverId: string,
+  log?: PermissionLogger,
+): ServerPermission[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    log?.error({ serverId }, 'subuser permissions column is not valid JSON');
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  // Unknown strings are dropped rather than trusted: a permission this build does not
+  // recognise must never widen access.
+  return parsed.filter(
+    (value): value is ServerPermission =>
+      typeof value === 'string' && (SERVER_PERMISSIONS as readonly string[]).includes(value),
+  );
+}
+
+/**
+ * Everything the acting principal may do on one server, as a set.
+ *
+ * Owners and admins hold the whole vocabulary; a collaborator holds their stored grant; a
+ * scoped API key intersects whichever of those applies with its own scopes, because a key
+ * must never be able to do something over one surface that it could not do over another.
+ * Someone with no relationship to the server at all holds nothing.
+ */
+export async function effectiveServerPermissions(
+  auth: AuthContext,
+  server: Pick<ServerRecord, 'id' | 'ownerId'>,
+  log?: PermissionLogger,
+): Promise<ReadonlySet<ServerPermission>> {
+  let held: readonly ServerPermission[];
+  if (roleAtLeast(auth.user.role, 'admin') || server.ownerId === auth.user.id) {
+    held = SERVER_PERMISSIONS;
+  } else {
+    const subuser = await prisma.serverSubuser.findUnique({
+      where: { serverId_userId: { serverId: server.id, userId: auth.user.id } },
+      select: { permissions: true },
+    });
+    held = subuser ? parsePermissions(subuser.permissions, server.id, log) : [];
+  }
+
+  const scopes = auth.scopes;
+  return new Set(scopes === null ? held : held.filter((permission) => scopes.has(permission)));
+}
+
+/**
+ * A second per-server permission, checked inside a handler that already ran behind
+ * `requireServerAccess`.
+ *
+ * This exists because "authorised at the door" is not the same as "authorised in the room".
+ * A schedule is a stored instruction to do something to a server, and the executor that
+ * runs it later has no principal to check — so the check has to happen where the principal
+ * is still present, against the permission the *action* needs rather than the one the
+ * route needs.
+ */
+export async function assertServerPermission(
+  request: FastifyRequest,
+  permission: ServerPermission,
+): Promise<void> {
+  const auth = request.auth;
+  if (!auth) throw unauthenticated();
+  // Scope first and unconditionally: a key without the scope learns nothing further, and
+  // the message names the scope rather than the server.
+  assertScope(auth, permission);
+  const server = requireServer(request);
+  const held = await effectiveServerPermissions(auth, server, request.log);
+  if (!held.has(permission)) {
+    throw forbidden('You do not have permission to do that on this server.');
+  }
+}
+
 const authPlugin: FastifyPluginAsync = async (app) => {
   await app.register(fastifyCookie);
   await app.register(fastifyJwt, {
@@ -338,6 +426,11 @@ const authPlugin: FastifyPluginAsync = async (app) => {
   };
   app.decorate('authenticate', authenticate);
 
+  const requireAccount: preHandlerHookHandler = async (request) => {
+    assertScope(await ensureAuth(request), null);
+  };
+  app.decorate('requireAccount', requireAccount);
+
   const tryAuthenticate: preHandlerHookHandler = async (request) => {
     if (request.auth) return;
     try {
@@ -370,22 +463,6 @@ const authPlugin: FastifyPluginAsync = async (app) => {
   // Per-server authorisation
   // -------------------------------------------------------------------------
 
-  function parsePermissions(raw: string, serverId: string): ServerPermission[] {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      app.log.error({ serverId }, 'subuser permissions column is not valid JSON');
-      return [];
-    }
-    if (!Array.isArray(parsed)) return [];
-    // Unknown strings are dropped rather than trusted: a permission this build does not
-    // recognise must never widen access.
-    return parsed.filter((value): value is ServerPermission =>
-      typeof value === 'string' && (SERVER_PERMISSIONS as readonly string[]).includes(value),
-    );
-  }
-
   app.decorate('requireServerAccess', (permission: ServerPermission): preHandlerHookHandler => {
     const handler: preHandlerHookHandler = async (request) => {
       const auth = await ensureAuth(request);
@@ -409,7 +486,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
         });
         // No relationship at all: 404, not 403. A 403 would confirm the server exists.
         if (!subuser) throw notFound('server');
-        if (!parsePermissions(subuser.permissions, server.id).includes(permission)) {
+        if (!parsePermissions(subuser.permissions, server.id, app.log).includes(permission)) {
           throw forbidden('You do not have permission to do that on this server.');
         }
       }

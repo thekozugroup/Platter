@@ -62,6 +62,12 @@ const envSchema = z
     REFRESH_TOKEN_TTL: durationSchema.default('30d'),
 
     DATA_DIR: z.string().min(1).default('./data'),
+    /**
+     * Directory holding the built web client. The production image sets this; in
+     * development it is absent and Vite serves the SPA instead, which is why an empty
+     * value is legal rather than a startup error.
+     */
+    WEB_ROOT: z.string().default(''),
     BACKUP_DIR: z.string().min(1).default('./data/backups'),
 
     DOCKER_SOCKET: z.string().min(1).default('/var/run/docker.sock'),
@@ -167,6 +173,7 @@ export const config = Object.freeze({
 
   /** Absolute; every path in the app is resolved against these, never against cwd. */
   dataDir,
+  webRoot: env.WEB_ROOT === '' ? null : path.resolve(process.cwd(), env.WEB_ROOT),
   serversDir: path.join(dataDir, 'servers'),
   backupDir: path.resolve(process.cwd(), env.BACKUP_DIR),
 

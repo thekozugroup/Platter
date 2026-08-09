@@ -13,3 +13,16 @@ import { config } from '../config.js';
 export function serverDataDir(serverId: string): string {
   return path.join(config.serversDir, serverId);
 }
+
+/**
+ * Where a server's backup archives live.
+ *
+ * Here rather than in `services/backups.ts` for the same reason as above: `deleteServer`
+ * has to remove this directory, and `services/backups.ts` imports `services/lifecycle.ts`,
+ * so reaching back the other way for one `path.join` would be a cycle. Leaving it out is
+ * what made every deleted server's archives immortal — the `Backup` rows cascade away, so
+ * nothing in the product could ever find or reclaim the files again.
+ */
+export function serverBackupDir(serverId: string): string {
+  return path.join(config.backupDir, serverId);
+}

@@ -206,7 +206,7 @@ interface Session {
 
 async function connect(token: string): Promise<Session> {
   const principal: McpPrincipal = await resolveApiKeyPrincipal(token, { ip: '10.0.0.1' });
-  const server = createMcpServer({ principal, logger: silentLogger() });
+  const server = createMcpServer({ principal: () => principal, logger: silentLogger() });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-agent', version: '9.9.9' });
 
@@ -748,6 +748,56 @@ describe('resources', () => {
       await expect(
         session.client.readResource({ uri: 'platter://nope' }),
       ).rejects.toBeInstanceOf(McpError);
+    } finally {
+      await session.close();
+    }
+  });
+
+  /**
+   * The round-three finding, and the reason this is written as a loop over every static URI
+   * rather than as one case.
+   *
+   * `listResources` checked `server.view` and the `list_servers` tool called `assertScope`,
+   * but `readServerList` — the path that returns the same inventory in full — checked
+   * nothing. The scope enforced on two surfaces out of three is the exact shape of the bug
+   * round one closed on the audit route, and an `audit.read`-only key is precisely what an
+   * operator hands to a third-party log shipper.
+   */
+  it('enforces server.view on every read path, not just the list and the tool', async () => {
+    const auditOnly = await seedKey('auditonly', OWNER_ID, ['audit.read']);
+    const powerOnly = await seedKey('poweronly', OWNER_ID, ['power.stop']);
+
+    for (const key of [auditOnly, powerOnly]) {
+      const session = await connect(key.token);
+      try {
+        // The tool has always refused; the resource must refuse identically.
+        const viaTool = await call(session.client, 'list_servers', {});
+        expect(viaTool.isError).toBe(true);
+
+        await expect(
+          session.client.readResource({ uri: 'platter://servers' }),
+        ).rejects.toThrow(/server\.view/);
+
+        await expect(
+          session.client.readResource({ uri: `platter://servers/${SERVER_ID}/config` }),
+        ).rejects.toThrow(/server\.view/);
+
+        // And nothing about the install leaks through the listing either.
+        const { resources } = await session.client.listResources();
+        const uris = resources.map((resource) => resource.uri);
+        expect(uris).not.toContain(`platter://servers/${SERVER_ID}/config`);
+      } finally {
+        await session.close();
+      }
+    }
+  });
+
+  it('still serves the catalogue to a key with any scope — it names no server', async () => {
+    const auditOnly = await seedKey('auditonly2', OWNER_ID, ['audit.read']);
+    const session = await connect(auditOnly.token);
+    try {
+      const catalogue = await session.client.readResource({ uri: 'platter://blueprints' });
+      expect(String(catalogue.contents[0]?.text)).toContain('minecraft-java');
     } finally {
       await session.close();
     }

@@ -1,7 +1,8 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
+  roleAtLeast,
   consoleCommandRequestSchema,
   createServerRequestSchema,
   listServersQuerySchema,
@@ -17,7 +18,14 @@ import {
   type ServerPermission,
 } from '@platter/shared';
 import { forbidden, unauthenticated } from '../lib/errors.js';
-import { assertRequestScope, requireServer, type AuthenticatedUser } from '../plugins/auth.js';
+import { redactCommand } from '../lib/redact.js';
+import {
+  assertRequestScope,
+  assertScope,
+  requireServer,
+  type AuthenticatedUser,
+  type ServerRecord,
+} from '../plugins/auth.js';
 import { recordAuditFromRequest } from '../services/audit.js';
 import {
   deleteServer,
@@ -81,6 +89,30 @@ function actor(request: { auth: { user: AuthenticatedUser } | null }): Authentic
   // one, this fails loudly instead of attributing the action to nobody.
   if (!request.auth) throw unauthenticated();
   return request.auth.user;
+}
+
+/**
+ * Who may rewrite a server's access-control list: its owner, or an admin.
+ *
+ * These four routes used to sit behind `requireServerAccess('server.update')`, which made
+ * `server.update` — meant as "change the memory limit" — into "grant yourself every
+ * permission there is, including `server.delete`". A collaborator would simply PATCH their
+ * own row. There is no per-server permission that should confer ACL management, so this is
+ * deliberately not expressed as one.
+ *
+ * A restricted API key is refused for the same reason `requireRole` refuses one: the scope
+ * vocabulary has no name for "may rewrite who can reach this server", and an unnameable
+ * grant must not be assumed.
+ */
+function requireCollaboratorAdmin(request: FastifyRequest): ServerRecord {
+  const auth = request.auth;
+  if (!auth) throw unauthenticated();
+  assertScope(auth, null);
+
+  const server = requireServer(request);
+  if (roleAtLeast(auth.user.role, 'admin')) return server;
+  if (server.ownerId === auth.user.id) return server;
+  throw forbidden('Only this server’s owner can manage who has access to it.');
 }
 
 const serverRoutes: FastifyPluginAsync = async (fastify) => {
@@ -307,7 +339,9 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
         targetType: 'server',
         targetId: server.id,
         targetName: server.name,
-        metadata: { command: request.body.command },
+        // Same reasoning as the server update above: the console is where an operator types
+        // `rcon-password …`, and every admin — and every `audit.read` key — reads this.
+        metadata: { command: redactCommand(request.body.command) },
       });
       return reply.code(202).send({ accepted: true as const });
     },
@@ -315,12 +349,16 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
 
   // -------------------------------------------------------------------------
   // Subusers
+  //
+  // `server.view` on the preHandler, not `server.update`: the real gate is
+  // `requireCollaboratorAdmin` in each handler, and resolving the server first is what
+  // keeps "no relationship to this server" answering 404 rather than 403.
   // -------------------------------------------------------------------------
 
   app.get(
     '/:serverId/subusers',
     {
-      preHandler: app.requireServerAccess('server.update'),
+      preHandler: app.requireServerAccess('server.view'),
       schema: {
         tags: ['servers'],
         summary: 'List collaborators',
@@ -328,13 +366,13 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: z.array(serverSubuserSchema) },
       },
     },
-    async (request) => listSubusers(requireServer(request).id, request.log),
+    async (request) => listSubusers(requireCollaboratorAdmin(request).id, request.log),
   );
 
   app.post(
     '/:serverId/subusers',
     {
-      preHandler: app.requireServerAccess('server.update'),
+      preHandler: app.requireServerAccess('server.view'),
       schema: {
         tags: ['servers'],
         summary: 'Invite a collaborator',
@@ -344,7 +382,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const server = requireServer(request);
+      const server = requireCollaboratorAdmin(request);
       const subuser = await addSubuser(
         server,
         request.body.email,
@@ -365,7 +403,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
   app.patch(
     '/:serverId/subusers/:subuserId',
     {
-      preHandler: app.requireServerAccess('server.update'),
+      preHandler: app.requireServerAccess('server.view'),
       schema: {
         tags: ['servers'],
         summary: "Change a collaborator's permissions",
@@ -375,7 +413,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const server = requireServer(request);
+      const server = requireCollaboratorAdmin(request);
       const subuser = await updateSubuser(
         server.id,
         request.params.subuserId,
@@ -396,7 +434,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
   app.delete(
     '/:serverId/subusers/:subuserId',
     {
-      preHandler: app.requireServerAccess('server.update'),
+      preHandler: app.requireServerAccess('server.view'),
       schema: {
         tags: ['servers'],
         summary: 'Remove a collaborator',
@@ -405,7 +443,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const server = requireServer(request);
+      const server = requireCollaboratorAdmin(request);
       const removed = await removeSubuser(server.id, request.params.subuserId);
       await recordAuditFromRequest(request, {
         action: 'server.subuser_removed',

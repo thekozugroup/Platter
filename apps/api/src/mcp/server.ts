@@ -19,11 +19,13 @@ import { PLATTER_TOOLS, getTool, type ToolContext } from './tools.js';
 import { principalLabel, type McpPrincipal } from './auth.js';
 
 /**
- * One MCP server instance, bound to one principal.
+ * One MCP server instance, bound to one API key.
  *
- * The binding is the point: a session's authority is fixed when it is created and cannot be
- * changed by anything the client sends afterwards. There is no "act as" argument on any tool,
- * so a compromised or confused agent cannot escalate past the key it was handed.
+ * The binding is the point: a session's authority comes from the key it was opened with and
+ * cannot be changed by anything the client sends. There is no "act as" argument on any tool,
+ * so a compromised or confused agent cannot escalate past the key it was handed. What the key
+ * itself may do is re-read on every call (see `McpServerOptions.principal`), so an operator
+ * who narrows or revokes a key does not have to wait out a session to make it stick.
  *
  * This is built on the SDK's low-level `Server` rather than `McpServer`, for one reason: the
  * MCP specification distinguishes *protocol* errors (unknown tool, invalid arguments — the
@@ -129,7 +131,17 @@ function toolResult(structured: Record<string, unknown>): CallToolResult {
 }
 
 export interface McpServerOptions {
-  principal: McpPrincipal;
+  /**
+   * Read on every request rather than captured once.
+   *
+   * A streamable-HTTP session lives up to half an hour and re-presents its key on every
+   * message, so the key's *current* scopes are knowable — but they were snapshotted at
+   * `initialize`, which meant narrowing a key's scopes did not take effect until the
+   * session ended. Revocation and suspension were re-checked; narrowing was not, and
+   * "I have reduced what that agent may do" is exactly the action an operator takes when
+   * they are already worried.
+   */
+  principal: () => McpPrincipal;
   logger: FastifyBaseLogger;
 }
 
@@ -137,7 +149,10 @@ export interface McpServerOptions {
  * Builds a server ready to be handed a transport. The caller owns `connect` and `close`.
  */
 export function createMcpServer(options: McpServerOptions): Server {
-  const { principal, logger } = options;
+  const { principal: currentPrincipal, logger } = options;
+  // Only for log context and the capacity check, which need *a* key id; the identity of the
+  // key cannot change within a session — `routes/mcp.ts` refuses a different one.
+  const principal = currentPrincipal();
 
   const server = new Server(
     { name: MCP_SERVER_NAME, title: 'Platter', version: APP_VERSION },
@@ -154,11 +169,13 @@ export function createMcpServer(options: McpServerOptions): Server {
   );
 
   function contextFor(signal: AbortSignal): ToolContext {
-    // Read at call time, not at construction: `clientInfo` only exists after `initialize`.
+    // Read at call time, not at construction: `clientInfo` only exists after `initialize`,
+    // and the principal's scopes may have been narrowed since the session opened.
     const client = server.getClientVersion();
+    const live = currentPrincipal();
     return {
-      principal,
-      actorName: principalLabel(principal, client?.name ?? null),
+      principal: live,
+      actorName: principalLabel(live, client?.name ?? null),
       signal,
       logger,
     };

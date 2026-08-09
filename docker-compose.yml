@@ -7,10 +7,13 @@
 services:
   platter:
     image: ghcr.io/thekozugroup/platter:latest
-    # Comment the image above and uncomment this to build locally.
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    # Both keys on purpose. `docker compose up -d` from a clone builds this image when it
+    # is not already present, so the repository is deployable before anything is
+    # published; once a release exists, `docker compose pull` fetches it instead of
+    # rebuilding. Removing `build` would make a fresh clone fail on a missing image.
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: platter
     restart: unless-stopped
     ports:
@@ -27,15 +30,18 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-claude-opus-5}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Closed by default. The very first account is created regardless of this, so a new
+      # instance is claimable without ever opening registration.
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
-      SEED_ON_START: ${SEED_ON_START:-1}
       # DATABASE_URL: postgresql://platter:platter@postgres:5432/platter
     volumes:
       - platter-data:/data
       # Platter manages game servers as sibling containers on the host's Docker daemon.
-      # This is real privilege: socket access is equivalent to root on the host. Read the
-      # security note in DEPLOYMENT.md before exposing this instance to the internet, and
-      # prefer a rootless daemon or a socket proxy for anything multi-tenant.
+      # This is real privilege: anything that can write to this socket can start a
+      # container that mounts the host filesystem, so it is equivalent to root on the
+      # host. Do not expose an instance with this mount to the internet without a trusted
+      # front door, and prefer a rootless daemon or a socket proxy (docker-socket-proxy,
+      # scoped to containers/images) for anything multi-tenant.
       - /var/run/docker.sock:/var/run/docker.sock
     # The container runs as an unprivileged user, so it needs the host group that owns
     # the socket. Find it with: stat -c '%g' /var/run/docker.sock

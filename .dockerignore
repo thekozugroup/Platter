@@ -1,3 +1,9 @@
+# Docker matches these against paths relative to the build context root, so a bare
+# `data` or `*.db` only ever matched the top level. Every one of those lives *inside* a
+# workspace package here (apps/api/data, apps/api/prisma/data), so the unanchored forms
+# let ~10 MB of local development databases into the context — and `apps/api/prisma` is
+# copied wholesale into the runtime image, which shipped them. Anchor with `**/`.
+
 **/node_modules
 **/dist
 **/build
@@ -12,12 +18,15 @@
 .github
 .gitignore
 
-data
-volumes
-backups
-*.db
-*.db-journal
-*.sqlite*
+# Local state: developer databases, server working directories, backup archives.
+**/data
+**/volumes
+**/backups
+**/*.db
+**/*.db-journal
+**/*.db-shm
+**/*.db-wal
+**/*.sqlite*
 
 .env
 .env.*

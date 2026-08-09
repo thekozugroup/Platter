@@ -399,10 +399,22 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   // Profile
   // -------------------------------------------------------------------------
 
+  /**
+   * Every authenticated route below uses `requireAccount`, not `authenticate`.
+   *
+   * `requireInteractiveSession` already kept API keys away from the password and TOTP
+   * endpoints, but it was applied handler by handler and `PATCH /me` was missed — so a key
+   * scoped to nothing but `server.view` could rewrite the account's email, and login is by
+   * email. `requireAccount` refuses every restricted key across the whole prefix, which is
+   * the version of this rule that cannot be forgotten on the next endpoint added here.
+   * An unrestricted key still passes, and still meets `requireInteractiveSession` where a
+   * credential change genuinely needs a password behind it.
+   */
+
   app.get(
     '/me',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       schema: {
         tags: ['auth'],
         summary: 'The signed-in user',
@@ -415,7 +427,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.patch(
     '/me',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       schema: {
         tags: ['auth'],
         summary: 'Update your own profile',
@@ -459,7 +471,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.post(
     '/password',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       config: { rateLimit: SENSITIVE_RATE_LIMIT },
       schema: {
         tags: ['auth'],
@@ -511,7 +523,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.post(
     '/totp/setup',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       config: { rateLimit: SENSITIVE_RATE_LIMIT },
       schema: {
         tags: ['auth'],
@@ -551,7 +563,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.post(
     '/totp/confirm',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       config: { rateLimit: SENSITIVE_RATE_LIMIT },
       schema: {
         tags: ['auth'],
@@ -593,7 +605,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.delete(
     '/totp',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       config: { rateLimit: SENSITIVE_RATE_LIMIT },
       schema: {
         tags: ['auth'],
@@ -715,7 +727,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.get(
     '/keys',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       schema: {
         tags: ['auth'],
         summary: 'List your API keys',
@@ -743,7 +755,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.post(
     '/keys',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       config: { rateLimit: SENSITIVE_RATE_LIMIT },
       schema: {
         tags: ['auth'],
@@ -800,7 +812,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   app.delete(
     '/keys/:keyId',
     {
-      preHandler: app.authenticate,
+      preHandler: app.requireAccount,
       schema: {
         tags: ['auth'],
         summary: 'Revoke an API key',

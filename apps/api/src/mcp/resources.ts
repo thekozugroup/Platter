@@ -5,7 +5,7 @@ import { MINECRAFT_SERVER_TYPES } from '../blueprints/index.js';
 import { prisma } from '../db.js';
 import { getBlueprint, hasBlueprint, listBlueprintSummaries } from '../services/blueprints.js';
 import { listServers, loadServerDto, presentStatus } from '../services/servers.js';
-import { authorizeServer } from './auth.js';
+import { assertScope, authorizeServer } from './auth.js';
 import { readRecentLines, toLogEntries, type ToolContext } from './tools.js';
 
 /**
@@ -150,6 +150,12 @@ function text(uri: string, body: string): ReadResourceResult {
 }
 
 async function readServerList(context: ToolContext): Promise<ReadResourceResult> {
+  // The header above says a resource is not a back door around `server.view`, and this is
+  // where that stopped being true: `listResources` checked the scope, the `list_servers`
+  // tool checked the scope, and this — the path that returns the same inventory in full —
+  // checked nothing. An `audit.read`-only key, exactly the kind handed to a third-party log
+  // shipper, read every server's name, node, address and memory through it.
+  assertScope(context.principal, 'server.view');
   const page = await listServers(
     listServersQuerySchema.parse({ page: 1, perPage: MAX_LISTED_SERVERS }),
     context.principal.user,

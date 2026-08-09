@@ -25,8 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` on purpose — the action reads `packageManager` from package.json
+      # (pnpm@10.33.0 today), so this cannot drift out of step with the lockfile. Pinning
+      # a literal here is how CI ends up installing a different pnpm than developers use.
       - uses: pnpm/action-setup@v4
 
+      # After pnpm: `cache: pnpm` needs the binary on PATH to locate the store.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -34,6 +38,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Both of these are prerequisites for typecheck, not conveniences: the API resolves
+      # `@platter/shared` through its built `dist`, and every Prisma type is generated.
       - name: Build shared contracts
         run: pnpm --filter @platter/shared build
 
@@ -51,6 +57,11 @@ jobs:
 
       - name: Unit and integration tests
         run: pnpm test
+
+      # tsc and vite fail on different things (module resolution vs. bundling and CSS), so
+      # a green typecheck does not imply a shippable build.
+      - name: Production build
+        run: pnpm build
 
   e2e:
     name: End-to-end
@@ -71,8 +82,45 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter @platter/web exec playwright install --with-deps chromium
 
+      # playwright.config.ts starts the *web* dev server and deliberately does not start
+      # the API — it will not boot one against an unknown DATABASE_URL. So CI has to, and
+      # the specs need a seeded owner: they log in as E2E_EMAIL/E2E_PASSWORD, whose
+      # defaults are the seed's own defaults.
+      - name: Migrate and seed the end-to-end database
+        working-directory: apps/api
+        env:
+          SEED_EMAIL: owner@platter.local
+          SEED_PASSWORD: platter-dev-pass-9F2k
+        run: |
+          mkdir -p data
+          pnpm exec prisma migrate deploy
+          pnpm exec tsx prisma/seed.ts
+
+      - name: Start the API
+        working-directory: apps/api
+        env:
+          PORT: 8080
+          LOG_LEVEL: warn
+        run: |
+          pnpm exec tsx src/main.ts > "$RUNNER_TEMP/api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/api.pid"
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/api/v1/system/ready > /dev/null; then
+              echo "api ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "api never became ready:"; cat "$RUNNER_TEMP/api.log"; exit 1
+
       - name: Run end-to-end tests
+        env:
+          E2E_EMAIL: owner@platter.local
+          E2E_PASSWORD: platter-dev-pass-9F2k
         run: pnpm test:e2e
+
+      - name: API log
+        if: ${{ failure() }}
+        run: cat "$RUNNER_TEMP/api.log"
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -100,25 +148,127 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # A green build that cannot start is not a green build. This boots the real image
-      # against the mock driver and waits for the readiness endpoint to report healthy.
-      - name: Smoke test the image
+      # A green build that cannot start is not a green build, and a container that starts
+      # is not the same as one that works. Every assertion below mirrors something that
+      # was run by hand against this image; nothing here is aspirational.
+      #
+      # Not asserted, because it does not hold yet: `GET /` returns the API's 404 envelope
+      # rather than the SPA. The image places the built client at WEB_ROOT=/app/web, but
+      # the API registers no static handler for it, so Platter is not yet served from a
+      # single origin. Add the check here the moment that lands.
+      - name: Smoke test — fresh volume
         run: |
+          set -euo pipefail
+          docker volume create platter-ci-data
           docker run -d --name platter-smoke \
             -e JWT_SECRET="$JWT_SECRET" \
             -e DEFAULT_NODE_DRIVER=mock \
-            -e SEED_ON_START=1 \
+            -v platter-ci-data:/data \
             -p 8080:8080 platter:ci
-          for attempt in $(seq 1 30); do
+
+          for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8080/api/v1/system/ready > /dev/null; then
-              echo "ready after ${attempt}s"
-              curl -fsS http://127.0.0.1:8080/api/v1/system/info
-              docker rm -f platter-smoke
-              exit 0
+              echo "ready after ${attempt}s"; break
+            fi
+            if [ "$attempt" = 60 ]; then
+              echo "container never became ready:"; docker logs platter-smoke; exit 1
+            fi
+            sleep 1
+          done
+
+          # Migrations must have run from the entrypoint against the empty volume.
+          # Logs go to a file first: `grep -q` stops reading at the first match, which
+          # SIGPIPEs `docker logs`, and under `pipefail` that turns a passing assertion
+          # into a failing pipeline.
+          docker logs platter-smoke > fresh.log 2>&1
+          grep -q "migration(s) have been applied" fresh.log \
+            || { echo "entrypoint did not apply migrations on a fresh volume"; cat fresh.log; exit 1; }
+
+          curl -fsS http://127.0.0.1:8080/api/v1/system/info
+
+      - name: Smoke test — sign up, sign in, run a Minecraft server
+        run: |
+          set -euo pipefail
+          API=http://127.0.0.1:8080/api/v1
+
+          # The first account is the owner even with registration closed.
+          curl -fsS -X POST "$API/auth/register" -H 'content-type: application/json' \
+            -d '{"email":"ci@platter.test","username":"ci-owner","displayName":"CI","password":"ContinuousIntegration123!"}' \
+            > /dev/null
+
+          TOKEN=$(curl -fsS -X POST "$API/auth/login" -H 'content-type: application/json' \
+            -d '{"email":"ci@platter.test","password":"ContinuousIntegration123!"}' \
+            | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).accessToken')
+
+          curl -fsS -X POST "$API/servers" -H "authorization: Bearer $TOKEN" \
+            -H 'content-type: application/json' \
+            -d '{"name":"ci-check","blueprintKey":"minecraft-java","variables":{"EULA":"true"}}' \
+            > /dev/null
+
+          # The mock driver walks the real state machine, so this is a genuine wait.
+          for attempt in $(seq 1 60); do
+            STATUS=$(curl -fsS "$API/servers" -H "authorization: Bearer $TOKEN" \
+              | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).data[0].status')
+            echo "server status: $STATUS"
+            if [ "$STATUS" = running ]; then break; fi
+            if [ "$attempt" = 60 ]; then
+              echo "server never reached running"; docker logs platter-smoke; exit 1
             fi
             sleep 2
           done
-          echo "container never became ready:"
-          docker logs platter-smoke
-          docker rm -f platter-smoke
-          exit 1
+
+      - name: Image hygiene — non-root, prompt shutdown
+        run: |
+          set -euo pipefail
+          UID_IN_CONTAINER=$(docker exec platter-smoke id -u)
+          [ "$UID_IN_CONTAINER" = 1001 ] \
+            || { echo "image runs as uid $UID_IN_CONTAINER, expected the unprivileged 1001"; exit 1; }
+
+          # A container that ignores SIGTERM costs the full 10s kill timeout on every
+          # deploy, and tini plus the API's signal handlers exist to prevent exactly that.
+          START=$(date +%s)
+          docker stop platter-smoke > /dev/null
+          ELAPSED=$(( $(date +%s) - START ))
+          echo "docker stop took ${ELAPSED}s"
+          [ "$ELAPSED" -lt 8 ] || { echo "shutdown hit the kill timeout"; exit 1; }
+
+          docker rm platter-smoke > /dev/null
+
+      - name: Smoke test — restart on the same volume is a no-op
+        run: |
+          set -euo pipefail
+          docker run -d --name platter-restart \
+            -e JWT_SECRET="$JWT_SECRET" \
+            -e DEFAULT_NODE_DRIVER=mock \
+            -v platter-ci-data:/data \
+            -p 8080:8080 platter:ci
+
+          for attempt in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8080/api/v1/system/ready > /dev/null && break
+            if [ "$attempt" = 60 ]; then
+              echo "restart never became ready:"; docker logs platter-restart; exit 1
+            fi
+            sleep 1
+          done
+
+          docker logs platter-restart > restart.log 2>&1
+          grep -q "No pending migrations to apply" restart.log \
+            || { echo "a second start re-ran migrations instead of no-opping"; cat restart.log; exit 1; }
+
+          # The account and server created above must still be there.
+          node -e '
+            const info = JSON.parse(process.argv[1]);
+            if (info.needsSetup) throw new Error("volume lost the owner account across restart");
+            if (info.counts.servers < 1) throw new Error("volume lost the created server across restart");
+            console.log("state survived restart:", JSON.stringify(info.counts));
+          ' "$(curl -fsS http://127.0.0.1:8080/api/v1/system/info)"
+
+      - name: Report image size
+        if: ${{ !cancelled() }}
+        run: docker images platter:ci --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+
+      - name: Tear down
+        if: ${{ always() }}
+        run: |
+          docker rm -f platter-smoke platter-restart 2>/dev/null || true
+          docker volume rm platter-ci-data 2>/dev/null || true
