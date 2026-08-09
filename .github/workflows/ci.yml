@@ -152,10 +152,10 @@ jobs:
       # is not the same as one that works. Every assertion below mirrors something that
       # was run by hand against this image; nothing here is aspirational.
       #
-      # Not asserted, because it does not hold yet: `GET /` returns the API's 404 envelope
-      # rather than the SPA. The image places the built client at WEB_ROOT=/app/web, but
-      # the API registers no static handler for it, so Platter is not yet served from a
-      # single origin. Add the check here the moment that lands.
+      # The single-origin claim is asserted, not assumed: the image places the built client
+      # at WEB_ROOT=/app/web and the API serves it, so `GET /` must return the app shell and
+      # a deep link must resolve to it. An unknown /api path must still return JSON — a
+      # client parsing an error must never be handed HTML.
       - name: Smoke test — fresh volume
         run: |
           set -euo pipefail
@@ -185,6 +185,14 @@ jobs:
             || { echo "entrypoint did not apply migrations on a fresh volume"; cat fresh.log; exit 1; }
 
           curl -fsS http://127.0.0.1:8080/api/v1/system/info
+
+          # Single origin: the shell at /, a deep link, and JSON still JSON.
+          curl -fsS -H 'accept: text/html' http://127.0.0.1:8080/ | grep -q '<div id="root">' \
+            || { echo "GET / did not return the app shell"; exit 1; }
+          curl -fsS -o /dev/null -H 'accept: text/html' http://127.0.0.1:8080/servers/srv_x/console \
+            || { echo "a deep link did not resolve to the client router"; exit 1; }
+          curl -sS -H 'accept: text/html' http://127.0.0.1:8080/api/v1/nope | grep -q '"code":"not_found"' \
+            || { echo "an unknown /api path returned HTML instead of the JSON envelope"; exit 1; }
 
       - name: Smoke test — sign up, sign in, run a Minecraft server
         run: |
