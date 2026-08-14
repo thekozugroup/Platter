@@ -47,6 +47,41 @@ const booleanSchema = z
 
 const portNumberSchema = z.coerce.number().int().min(1).max(65535);
 
+/**
+ * Keys where a blank value is a real setting rather than an omission.
+ *
+ * `WEB_ROOT=` means "no built client to serve, Vite is handling it" and `CORS_ORIGINS=` means
+ * "same origin only". Both are the documented default, so blank must reach the schema.
+ */
+const BLANK_IS_MEANINGFUL = new Set(['WEB_ROOT', 'CORS_ORIGINS']);
+
+/**
+ * `KEY=` in an environment file means "not set", not "set to the empty string".
+ *
+ * Docker Compose forces this question and gives only one answer. `ANTHROPIC_API_KEY:
+ * ${ANTHROPIC_API_KEY:-}` puts an empty string into the container for every operator who has
+ * no Anthropic key, and compose has no syntax for "leave this variable out entirely". Without
+ * this step the project's own `docker-compose.yml` and its own `.env.example` — which ships
+ * `ANTHROPIC_API_KEY=` — produced a container that refused to boot, crash-looping on:
+ *
+ *     ANTHROPIC_API_KEY: Too small: expected string to have >=1 characters
+ *
+ * The same fault hit `cp .env.example .env && pnpm dev`, because dotenv loads a bare `KEY=`
+ * as `''` too. So this is stripped once, here, for every key rather than patched per-field:
+ * the rule is that blank is absent, and the two exceptions above are named explicitly.
+ */
+export function stripBlankValues(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string' && value.trim() === '' && !BLANK_IS_MEANINGFUL.has(key)) {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -79,7 +114,9 @@ const envSchema = z
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
     AI_MODEL: z.string().min(1).default('claude-opus-5'),
 
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
     TRUST_PROXY: z.string().default('false'),
     /** Comma-separated origins. Empty means "same origin only". */
     CORS_ORIGINS: z.string().default(''),
@@ -99,13 +136,16 @@ function formatEnvIssues(error: z.ZodError<unknown>): string {
     const key = issue.path.length > 0 ? issue.path.join('.') : '(root)';
     return `  ${key}: ${issue.message}`;
   });
-  return ['Platter cannot start: the environment is not valid.', ...lines, '', 'See .env.example for every supported key.'].join(
-    '\n',
-  );
+  return [
+    'Platter cannot start: the environment is not valid.',
+    ...lines,
+    '',
+    'See .env.example for every supported key.',
+  ].join('\n');
 }
 
 function parseEnv(): Env {
-  const result = envSchema.safeParse(process.env);
+  const result = envSchema.safeParse(stripBlankValues(process.env));
   if (!result.success) {
     // Printed rather than thrown-with-stack: an operator debugging a compose file wants
     // the list of bad keys, not a v8 trace through zod.
@@ -148,7 +188,8 @@ function resolveJwtSecret(): string {
 
 function parseTrustProxy(value: string): boolean | number | string {
   const normalised = value.trim().toLowerCase();
-  if (normalised === '' || normalised === 'false' || normalised === 'no' || normalised === 'off') return false;
+  if (normalised === '' || normalised === 'false' || normalised === 'no' || normalised === 'off')
+    return false;
   if (normalised === 'true' || normalised === 'yes' || normalised === 'on') return true;
   const hops = Number(normalised);
   // A bare integer means "trust this many proxy hops"; anything else is a subnet list.
