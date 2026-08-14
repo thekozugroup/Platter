@@ -1,10 +1,19 @@
-import { Fragment, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatBytes, formatRelativeTime } from '@platter/shared';
 import { ExternalLink } from 'pixelarticons/react/ExternalLink.js';
 import { ModIcon, formatDownloads } from '@/components/mods/mod-card';
+import {
+  ADDED_BY_HAND,
+  CANCELLED_NOTE,
+  InstallPlan,
+  ProblemList,
+  summarisePlan,
+} from '@/components/mods/mod-install-plan';
+import { ModDescription, safeHref } from '@/components/mods/mod-markdown';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import {
   Sheet,
@@ -16,298 +25,46 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { ErrorState } from '@/components/common/error-state';
 import type {
+  ApprovalOutcome,
   InstalledMod,
   ModDependency,
   ModDetail,
+  ModProposal,
+  ModSide,
   ModSource,
   ModVersion,
+  ProposalChange,
 } from '@/hooks';
-import { useCreateProposal, useMod } from '@/hooks';
-import { errorMessage } from '@/lib/api-client.js';
+import { useApproveProposal, useCreateProposal, useMod, useRejectProposal } from '@/hooks';
+import { api, errorMessage } from '@/lib/api-client.js';
 import { cn } from '@/lib/utils';
 
 /**
- * Everything about one mod, in a sheet.
+ * Everything about one mod, in a sheet — and the button that puts it on the server.
  *
- * The completeness is the product requirement, not a nicety: this panel and the proposal
- * review screen are the only places a person gets to decide whether a project is real and
- * maintained or a two-download typosquat, and sending them to a third-party site to find out
- * defeats the point of having a review gate at all. So the body carries the full description,
- * the gallery, the author, the licence, the download count, the source and issue links, every
- * supported version and loader, the version list with its release channels, and the
- * dependencies — and `ModDetailBody` is exported so `proposal-review.tsx` renders exactly the
- * same thing from the snapshot rather than an abridged version of it.
+ * **This is the human path, and it is not a review queue.** Somebody who searched for a mod and
+ * opened it has already decided; asking them to write a justification and submit a request to
+ * themselves was the defect this panel was rebuilt to remove. The primary action is *Add to
+ * server*, it installs, and the panel says what happened. The review workflow still exists and
+ * still matters — it is in `proposal-review.tsx`, pointed at the person who did *not* choose the
+ * mod, because an agent suggested it.
  *
- * There is no install button anywhere in here, and there is no endpoint for one. The only
- * path to a file on disk is a proposal a human approves — see `apps/api/src/routes/mods.ts`.
+ * Two properties survive from the old flow because they were never about the queue:
+ *
+ * 1. **Nothing is written without the plan being true.** Adding still goes through
+ *    propose → resolve → re-check → install (`routes/proposals.ts`), so the checksum is verified
+ *    against what was shown and the dependency walk is the server's, not a guess made here.
+ *    There is no install endpoint to shortcut it with, by design.
+ * 2. **A surprise stops and asks.** When the plan pulls in other mods, overwrites something, or
+ *    raises any problem at all, the add pauses and says so in plain words *before* anything is
+ *    downloaded. When it is one file and nothing else, pausing to say "one file will be added"
+ *    is ceremony, and the add just happens.
+ *
+ * `ModDetailBody` is exported so the review screen renders exactly the same listing from its
+ * stored snapshot — the two must never show a different amount of information about one project.
  */
-
-// ---------------------------------------------------------------------------------------
-// Description rendering
-// ---------------------------------------------------------------------------------------
-
-/**
- * Registry descriptions are arbitrary text written by strangers, so none of it is ever
- * injected as markup. Modrinth publishes Markdown and CurseForge publishes HTML; the HTML is
- * parsed with `DOMParser` (which neither runs scripts nor fetches subresources) purely to
- * recover its text, and the Markdown gets a small block-level renderer. The result is plain
- * React elements — there is no `dangerouslySetInnerHTML` in this file by design.
- */
-function htmlToText(html: string): string {
-  if (typeof DOMParser === 'undefined') return html;
-  const parsed = new DOMParser().parseFromString(html, 'text/html');
-  return parsed.body.textContent ?? '';
-}
-
-/** Only web links are rendered as links. Anything else stays inert text. */
-function safeHref(href: string): string | null {
-  try {
-    const url = new URL(href, window.location.origin);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
-  } catch {
-    return null;
-  }
-}
-
-const INLINE_PATTERN =
-  /`([^`]+)`|\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
-
-/** Inline code, links, bold and italic. Everything else is left as literal text. */
-function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-  let index = 0;
-
-  INLINE_PATTERN.lastIndex = 0;
-  let match = INLINE_PATTERN.exec(text);
-  while (match !== null) {
-    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
-    const key = `${keyPrefix}-i${index}`;
-    index += 1;
-
-    const [, code, linkText, linkHref, bold, italic] = match;
-    if (code !== undefined) {
-      nodes.push(
-        <code className="rounded-xs bg-fill-tertiary px-1 font-mono text-caption" key={key}>
-          {code}
-        </code>,
-      );
-    } else if (linkHref !== undefined) {
-      const href = safeHref(linkHref);
-      const label = linkText === undefined || linkText.length === 0 ? linkHref : linkText;
-      nodes.push(
-        href === null ? (
-          <Fragment key={key}>{label}</Fragment>
-        ) : (
-          <a
-            className="underline underline-offset-2 hover:text-label"
-            href={href}
-            key={key}
-            rel="noreferrer noopener nofollow"
-            target="_blank"
-          >
-            {label}
-          </a>
-        ),
-      );
-    } else if (bold !== undefined) {
-      nodes.push(
-        <strong className="font-semibold text-label" key={key}>
-          {bold}
-        </strong>,
-      );
-    } else if (italic !== undefined) {
-      nodes.push(<em key={key}>{italic}</em>);
-    }
-
-    cursor = match.index + match[0].length;
-    match = INLINE_PATTERN.exec(text);
-  }
-
-  if (cursor < text.length) nodes.push(text.slice(cursor));
-  return nodes;
-}
-
-type Block =
-  | { kind: 'paragraph'; text: string }
-  | { kind: 'heading'; text: string; level: number }
-  | { kind: 'list'; items: string[]; ordered: boolean }
-  | { kind: 'quote'; text: string }
-  | { kind: 'code'; text: string }
-  | { kind: 'rule' };
-
-function parseBlocks(source: string): Block[] {
-  const lines = source.replace(/\r\n/g, '\n').split('\n');
-  const blocks: Block[] = [];
-  let paragraph: string[] = [];
-  let list: { items: string[]; ordered: boolean } | null = null;
-  let fence: string[] | null = null;
-
-  const flushParagraph = (): void => {
-    if (paragraph.length > 0) {
-      blocks.push({ kind: 'paragraph', text: paragraph.join(' ') });
-      paragraph = [];
-    }
-  };
-  const flushList = (): void => {
-    if (list !== null) {
-      blocks.push({ kind: 'list', items: list.items, ordered: list.ordered });
-      list = null;
-    }
-  };
-  const flushAll = (): void => {
-    flushParagraph();
-    flushList();
-  };
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-
-    if (line.trimStart().startsWith('```')) {
-      if (fence === null) {
-        flushAll();
-        fence = [];
-      } else {
-        blocks.push({ kind: 'code', text: fence.join('\n') });
-        fence = null;
-      }
-      continue;
-    }
-    if (fence !== null) {
-      fence.push(raw);
-      continue;
-    }
-
-    if (line.trim().length === 0) {
-      flushAll();
-      continue;
-    }
-
-    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (heading?.[1] !== undefined && heading[2] !== undefined) {
-      flushAll();
-      blocks.push({ kind: 'heading', text: heading[2], level: heading[1].length });
-      continue;
-    }
-
-    if (/^\s*([-*_])\s*\1\s*\1[-*_\s]*$/.test(line)) {
-      flushAll();
-      blocks.push({ kind: 'rule' });
-      continue;
-    }
-
-    const quote = /^>\s?(.*)$/.exec(line);
-    if (quote?.[1] !== undefined) {
-      flushAll();
-      blocks.push({ kind: 'quote', text: quote[1] });
-      continue;
-    }
-
-    const bullet = /^\s*[-*+]\s+(.*)$/.exec(line);
-    const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
-    const item = bullet?.[1] ?? numbered?.[1];
-    if (item !== undefined) {
-      const ordered = bullet === null;
-      flushParagraph();
-      if (list === null || list.ordered !== ordered) {
-        flushList();
-        list = { items: [], ordered };
-      }
-      list.items.push(item);
-      continue;
-    }
-
-    flushList();
-    paragraph.push(line.trim());
-  }
-
-  if (fence !== null) blocks.push({ kind: 'code', text: fence.join('\n') });
-  flushAll();
-  return blocks;
-}
-
-export interface ModDescriptionProps {
-  text: string;
-  format: ModDetail['descriptionFormat'];
-  className?: string;
-}
-
-export function ModDescription({ text, format, className }: ModDescriptionProps) {
-  const blocks = useMemo(
-    () => parseBlocks(format === 'html' ? htmlToText(text) : text),
-    [text, format],
-  );
-
-  if (blocks.length === 0) {
-    return (
-      <p className={cn('text-subhead text-label-tertiary', className)}>
-        This project publishes no description.
-      </p>
-    );
-  }
-
-  return (
-    <div className={cn('flex flex-col gap-3 text-subhead leading-normal text-label-secondary', className)}>
-      {blocks.map((block, blockIndex) => {
-        const key = `b${blockIndex}`;
-        switch (block.kind) {
-          case 'heading':
-            return (
-              // h4+, always: the pixel display face is for page headings and is unreadable here.
-              <h4
-                className={cn(
-                  'mt-2 font-sans font-semibold text-label',
-                  block.level <= 2 ? 'text-title-3' : 'text-body',
-                )}
-                key={key}
-              >
-                {renderInline(block.text, key)}
-              </h4>
-            );
-          case 'list':
-            return block.ordered ? (
-              <ol className="ms-5 flex list-decimal flex-col gap-1" key={key}>
-                {block.items.map((item, itemIndex) => (
-                  <li key={`${key}-${itemIndex}`}>{renderInline(item, `${key}-${itemIndex}`)}</li>
-                ))}
-              </ol>
-            ) : (
-              <ul className="ms-5 flex list-disc flex-col gap-1" key={key}>
-                {block.items.map((item, itemIndex) => (
-                  <li key={`${key}-${itemIndex}`}>{renderInline(item, `${key}-${itemIndex}`)}</li>
-                ))}
-              </ul>
-            );
-          case 'quote':
-            return (
-              <blockquote
-                className="border-s-2 border-separator-strong ps-3 text-label-tertiary"
-                key={key}
-              >
-                {renderInline(block.text, key)}
-              </blockquote>
-            );
-          case 'code':
-            return (
-              <pre
-                className="overflow-x-auto rounded-sm bg-bg-sunken p-3 font-mono text-caption text-label-secondary"
-                key={key}
-              >
-                <code>{block.text}</code>
-              </pre>
-            );
-          case 'rule':
-            return <hr className="border-separator" key={key} />;
-          default:
-            return <p key={key}>{renderInline(block.text, key)}</p>;
-        }
-      })}
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------------------
 // Pieces
@@ -330,13 +87,34 @@ function Section({
   );
 }
 
-function Chips({ values, empty }: { values: readonly string[]; empty: string }) {
+/**
+ * A capped list of pills.
+ *
+ * A long-lived mod declares every Minecraft version it has ever supported — Lithium lists
+ * sixty-one — and sixty-one pills is a wall that pushes the thing you came to read off the
+ * screen. The cap is a real control rather than a truncation: pressing it shows the rest.
+ */
+function Chips({
+  values,
+  empty,
+  cap = 12,
+}: {
+  values: readonly string[];
+  empty: string;
+  cap?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
   if (values.length === 0) {
     return <p className="text-caption text-label-tertiary">{empty}</p>;
   }
+
+  const shown = expanded ? values : values.slice(0, cap);
+  const hidden = values.length - shown.length;
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {values.map((value) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {shown.map((value) => (
         <span
           className="rounded-pill border border-pill-border bg-pill px-2 py-0.5 text-caption font-medium text-label-secondary"
           key={value}
@@ -344,6 +122,15 @@ function Chips({ values, empty }: { values: readonly string[]; empty: string }) 
           {value}
         </span>
       ))}
+      {hidden > 0 ? (
+        <Button
+          className="h-11 rounded-button px-3 text-caption font-medium"
+          onClick={() => setExpanded(true)}
+          variant="ghost"
+        >
+          and {hidden} more
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -371,33 +158,41 @@ const CHANNEL_STYLE = {
   alpha: 'border-danger/25 bg-danger-subtle text-danger',
 } as const;
 
+/** The channel names are the registry's. What they mean for you is not. */
+const CHANNEL_LABEL = {
+  release: 'Finished',
+  beta: 'Test build',
+  alpha: 'Early build',
+} as const;
+
 const CHANNEL_HINT = {
-  release: 'Stable, published for general use.',
-  beta: 'Pre-release. The author expects bugs.',
-  alpha: 'Early build. Expect breakage and data loss.',
+  release: 'The author considers this one done.',
+  beta: 'The author expects bugs in this one.',
+  alpha: 'Rough. Expect breakage, and possibly lost worlds.',
 } as const;
 
 export function ReleaseChannelBadge({ channel }: { channel: ModVersion['channel'] }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-pill border px-2 py-0.5 text-caption-2 font-medium capitalize',
+        'inline-flex shrink-0 items-center rounded-pill border px-2 py-0.5 text-caption-2 font-medium',
         CHANNEL_STYLE[channel],
       )}
       title={CHANNEL_HINT[channel]}
     >
-      {channel}
+      {CHANNEL_LABEL[channel]}
     </span>
   );
 }
 
-const DEPENDENCY_LABEL = {
-  required: 'Required',
-  optional: 'Optional',
-  incompatible: 'Conflicts with',
-  embedded: 'Bundled inside',
-} as const;
-
+/**
+ * What a version drags in with it, without the vocabulary.
+ *
+ * Registries name a dependency by file where they can and by opaque id where they cannot —
+ * `P7dR8mSH` is Fabric API on Modrinth, and printing that at somebody is worse than saying
+ * nothing. The project titles are not in this payload, so an unnamed entry is described rather
+ * than identified, and the honest count is still visible.
+ */
 export function ModDependencyList({
   dependencies,
   className,
@@ -405,54 +200,41 @@ export function ModDependencyList({
   dependencies: readonly ModDependency[];
   className?: string;
 }) {
-  if (dependencies.length === 0) {
-    return (
-      <p className={cn('text-caption text-label-tertiary', className)}>
-        This version declares no dependencies.
-      </p>
-    );
-  }
+  const needs = dependencies.filter((entry) => entry.kind === 'required');
+  const clashes = dependencies.filter((entry) => entry.kind === 'incompatible');
+  if (needs.length === 0 && clashes.length === 0) return null;
+
+  /*
+   * Modrinth names a dependency by file where it can and by opaque id where it cannot, and in
+   * practice it usually cannot — so this list is mostly ids. Repeating "a mod this listing does
+   * not name" once per entry reads like a stutter; the count carries the same information and
+   * the plan panel names them properly anyway, because the resolver looked them up.
+   */
+  const describe = (entries: readonly ModDependency[]): string => {
+    const named = entries.map((entry) => entry.fileName).filter((name): name is string => !!name);
+    const unnamed = entries.length - named.length;
+    const parts = [...named];
+    if (unnamed > 0) {
+      parts.push(
+        named.length === 0 && unnamed === 1
+          ? 'one this listing does not name'
+          : `${unnamed} this listing does not name`,
+      );
+    }
+    return parts.join(', ');
+  };
 
   return (
-    <ul className={cn('flex flex-col gap-1.5', className)}>
-      {dependencies.map((dependency, index) => {
-        /*
-         * Registries name a dependency by file where they can and by opaque id where they
-         * cannot — `P7dR8mSH` is Fabric API on Modrinth, and nothing on screen said so. The
-         * project titles are not in this payload, so the honest fix is to label the string
-         * for what it is rather than to let it read like a name.
-         */
-        const named = dependency.fileName;
-        const id = dependency.projectId ?? dependency.versionId;
-
-        return (
-          <li
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-label-secondary"
-            key={`${dependency.source}-${dependency.projectId ?? 'x'}-${dependency.versionId ?? 'x'}-${index}`}
-          >
-            <span className="font-medium text-label">{DEPENDENCY_LABEL[dependency.kind]}</span>
-            {named !== null ? (
-              <code className="font-mono text-caption">{named}</code>
-            ) : id !== null ? (
-              <>
-                <code className="font-mono text-caption">{id}</code>
-                <span className="text-label-tertiary">
-                  ({dependency.source === 'modrinth' ? 'Modrinth' : 'CurseForge'} project id — the
-                  project is not named in this listing)
-                </span>
-              </>
-            ) : (
-              <span className="text-label-tertiary">
-                a project this listing does not identify
-              </span>
-            )}
-            {dependency.versionId !== null ? (
-              <span className="text-label-tertiary">pinned to one version</span>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
+    <p className={cn('text-caption text-label-tertiary', className)}>
+      {needs.length > 0 ? (
+        <>
+          Also needs {needs.length === 1 ? '' : `${needs.length} other mods: `}
+          {describe(needs)}. Platter works out which and adds them with it.
+        </>
+      ) : null}
+      {needs.length > 0 && clashes.length > 0 ? ' ' : null}
+      {clashes.length > 0 ? <>Will not run alongside {describe(clashes)}.</> : null}
+    </p>
   );
 }
 
@@ -472,7 +254,7 @@ export function ModVersionList({
   if (versions.length === 0) {
     return (
       <p className="text-subhead text-label-tertiary">
-        No version of this project matches this server’s loader and Minecraft version.
+        No build of this project matches this server’s Minecraft version and mod format.
       </p>
     );
   }
@@ -503,12 +285,12 @@ export function ModVersionList({
                 <ReleaseChannelBadge channel={version.channel} />
                 {isHighlighted ? (
                   <span className="rounded-pill border border-pill-border bg-pill px-2 py-0.5 text-caption-2 font-medium text-label">
-                    Under review
+                    The one suggested
                   </span>
                 ) : null}
                 {isInstalled ? (
                   <span className="rounded-pill border border-pill-border bg-pill px-2 py-0.5 text-caption-2 font-medium text-label-secondary">
-                    Installed
+                    On this server
                   </span>
                 ) : null}
                 {version.publishedAt !== null ? (
@@ -523,15 +305,7 @@ export function ModVersionList({
               </div>
 
               <p className="text-caption text-label-tertiary">
-                <span className="tabular font-mono">{version.file.filename}</span>
-                <span aria-hidden> · </span>
                 <span className="tabular">{formatBytes(version.file.sizeBytes)}</span>
-                {version.loaders.length > 0 ? (
-                  <>
-                    <span aria-hidden> · </span>
-                    {version.loaders.join(', ')}
-                  </>
-                ) : null}
                 {version.gameVersions.length > 0 ? (
                   <>
                     <span aria-hidden> · </span>
@@ -543,9 +317,7 @@ export function ModVersionList({
                 ) : null}
               </p>
 
-              {version.dependencies.length > 0 ? (
-                <ModDependencyList dependencies={version.dependencies} />
-              ) : null}
+              <ModDependencyList dependencies={version.dependencies} />
             </li>
           );
         })}
@@ -586,6 +358,7 @@ function ModGallery({ mod }: { mod: ModDetail }) {
                   alt={image.title ?? `Screenshot of ${mod.title}`}
                   className="h-36 w-full bg-fill-tertiary object-cover"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                   src={href}
                 />
                 <span className="text-caption text-label-tertiary">
@@ -600,15 +373,35 @@ function ModGallery({ mod }: { mod: ModDetail }) {
   );
 }
 
+/**
+ * "Server side: required · Client side: optional" was two registry field names and four enum
+ * values. What a person actually needs from those four values is one sentence each, and the
+ * client one — *does everybody joining need to install this too?* — is the single most useful
+ * fact about a Minecraft mod and was the least readable thing on the panel.
+ */
+const SERVER_SIDE_SENTENCE: Record<ModSide, string> = {
+  required: 'Has to be installed on the server.',
+  optional: 'Works on the server, and works without it.',
+  unsupported: 'Does nothing on a server — this one is for players’ own game.',
+  unknown: 'The author does not say whether it belongs on a server.',
+};
+
+const CLIENT_SIDE_SENTENCE: Record<ModSide, string> = {
+  required: 'Everyone joining has to install it too, or they cannot connect.',
+  optional: 'Players can install it as well, but nobody has to.',
+  unsupported: 'Players need nothing — it all happens on the server.',
+  unknown: 'The author does not say whether players need it.',
+};
+
 // ---------------------------------------------------------------------------------------
 // Body
 // ---------------------------------------------------------------------------------------
 
 export interface ModDetailBodyProps {
   mod: ModDetail;
-  /** Versions this server can load. Empty is meaningful — it explains `incompatibleReason`. */
+  /** Versions this server can run. Empty is meaningful — it explains `incompatibleReason`. */
   versions?: readonly ModVersion[];
-  /** Pinned open at the top of the version list, for the one version under review. */
+  /** Pinned open at the top of the version list, for the one version an agent suggested. */
   highlightVersionId?: string | null;
   installed?: InstalledMod | null;
   incompatibleReason?: string | null;
@@ -618,7 +411,7 @@ export interface ModDetailBodyProps {
 }
 
 /**
- * The mod, rendered in full. Shared by the browser's sheet and the approval screen so the
+ * The mod, rendered in full. Shared by the browser's sheet and the suggestion screen so the
  * two can never show a different amount of information about the same project.
  */
 export function ModDetailBody({
@@ -638,12 +431,15 @@ export function ModDetailBody({
         <ModIcon iconUrl={mod.iconUrl} size="lg" title={mod.title} />
         <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2">
           <div className="min-w-0">
-            <dt className="text-caption text-label-tertiary">Author</dt>
+            <dt className="text-caption text-label-tertiary">Made by</dt>
             <dd className="truncate text-subhead text-label">{mod.author ?? 'Not published'}</dd>
           </div>
           <div className="min-w-0">
             <dt className="text-caption text-label-tertiary">Downloads</dt>
-            <dd className="tabular text-subhead text-label" title={`${mod.downloads.toLocaleString()} downloads`}>
+            <dd
+              className="tabular text-subhead text-label"
+              title={`${mod.downloads.toLocaleString()} downloads`}
+            >
               {formatDownloads(mod.downloads)}
             </dd>
           </div>
@@ -652,7 +448,7 @@ export function ModDetailBody({
             <dd className="truncate text-subhead text-label">{mod.license ?? 'Not published'}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-caption text-label-tertiary">Source</dt>
+            <dt className="text-caption text-label-tertiary">Found on</dt>
             <dd className="truncate text-subhead text-label">{sourceName}</dd>
           </div>
         </dl>
@@ -660,30 +456,37 @@ export function ModDetailBody({
 
       {capturedAt ? (
         <p className="text-caption text-label-tertiary">
-          Captured{' '}
+          This is what the listing said{' '}
           <time dateTime={capturedAt} title={new Date(capturedAt).toLocaleString()}>
             {formatRelativeTime(capturedAt)}
           </time>
-          , when the proposal was raised. This is what the proposer saw.
+          , when it was suggested — not a fresh read.
         </p>
       ) : null}
 
       {incompatibleReason ? (
         <Alert variant="warning">
-          <AlertTitle className="font-sans">This server can’t load it</AlertTitle>
+          <AlertTitle className="font-sans">This server can’t run it</AlertTitle>
           <AlertDescription>{incompatibleReason}</AlertDescription>
         </Alert>
       ) : null}
 
       {installed ? (
         <Alert>
-          <AlertTitle className="font-sans">Already installed</AlertTitle>
+          <AlertTitle className="font-sans">Already on this server</AlertTitle>
+          {/* One `<span>`, not four children: `AlertDescription` is a flex column, so an
+              interleaved `<code>` and `<time>` would each become their own row. */}
           <AlertDescription>
-            Version <code className="font-mono">{installed.versionNumber}</code> is on disk as{' '}
-            <code className="font-mono">
-              {installed.target}/{installed.filename}
-            </code>
-            .
+            <span>
+              Version <code className="font-mono">{installed.versionNumber}</code> was added{' '}
+              <time
+                dateTime={installed.installedAt}
+                title={new Date(installed.installedAt).toLocaleString()}
+              >
+                {formatRelativeTime(installed.installedAt)}
+              </time>
+              .
+            </span>
           </AlertDescription>
         </Alert>
       ) : null}
@@ -694,23 +497,23 @@ export function ModDetailBody({
 
       <ModGallery mod={mod} />
 
-      <Section title="Runs on">
+      <Section title="Where it runs">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <span className="text-caption text-label-tertiary">Loaders</span>
-            <Chips empty="The project declares no loader." values={mod.loaders} />
+            <span className="text-caption text-label-tertiary">Made for</span>
+            <Chips empty="The project does not say." values={mod.loaders} />
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-caption text-label-tertiary">Minecraft versions</span>
-            <Chips empty="The project declares no game version." values={mod.gameVersions} />
+            <Chips empty="The project does not say." values={mod.gameVersions} />
           </div>
           <p className="text-caption text-label-tertiary">
-            Server side: {mod.serverSide} · Client side: {mod.clientSide}
+            {SERVER_SIDE_SENTENCE[mod.serverSide]} {CLIENT_SIDE_SENTENCE[mod.clientSide]}
           </p>
         </div>
       </Section>
 
-      <Section title={versions.length === 1 ? 'Version' : 'Versions'}>
+      <Section title={versions.length === 1 ? 'The version' : 'Versions that fit this server'}>
         <ModVersionList
           highlightVersionId={highlightVersionId ?? null}
           installedVersionId={installed?.versionId ?? null}
@@ -720,13 +523,11 @@ export function ModDetailBody({
 
       <Section title="Links">
         <div className="flex flex-col">
-          <OutboundLink href={mod.url}>View on {sourceName}</OutboundLink>
+          <OutboundLink href={mod.url}>Open it on {sourceName}</OutboundLink>
           {mod.sourceUrl ? <OutboundLink href={mod.sourceUrl}>Source code</OutboundLink> : null}
-          {mod.issuesUrl ? <OutboundLink href={mod.issuesUrl}>Issue tracker</OutboundLink> : null}
+          {mod.issuesUrl ? <OutboundLink href={mod.issuesUrl}>Bug reports</OutboundLink> : null}
           {mod.wikiUrl ? <OutboundLink href={mod.wikiUrl}>Wiki</OutboundLink> : null}
-          {mod.licenseUrl ? (
-            <OutboundLink href={mod.licenseUrl}>Licence text</OutboundLink>
-          ) : null}
+          {mod.licenseUrl ? <OutboundLink href={mod.licenseUrl}>Licence text</OutboundLink> : null}
           {mod.discordUrl ? <OutboundLink href={mod.discordUrl}>Discord</OutboundLink> : null}
         </div>
       </Section>
@@ -735,127 +536,333 @@ export function ModDetailBody({
 }
 
 // ---------------------------------------------------------------------------------------
-// Propose
+// Adding
 // ---------------------------------------------------------------------------------------
 
-const MIN_RATIONALE = 3;
-const MAX_RATIONALE = 2000;
+/** Registry field names, in the words somebody running a server would use. */
+const CHANGED_FIELD_PHRASE: Record<string, string> = {
+  sha512: 'the file’s fingerprint',
+  sha1: 'the file’s fingerprint',
+  url: 'where it downloads from',
+  filename: 'the file name',
+  sizeBytes: 'the file size',
+  versionId: 'the version',
+  versionNumber: 'the version',
+  loaders: 'which servers it runs on',
+  gameVersions: 'which Minecraft versions it supports',
+  requires: 'what else it needs',
+  projectId: 'which project it is',
+  slug: 'which project it is',
+  title: 'its name',
+  author: 'who made it',
+  license: 'its licence',
+  serverSide: 'whether it belongs on a server',
+  summary: 'its summary',
+  description: 'its description',
+};
 
-function ProposeForm({
-  serverId,
-  source,
-  project,
-  versions,
-  onProposed,
-}: {
+function describeChanges(changes: readonly ProposalChange[]): string {
+  const phrases = [
+    ...new Set(
+      changes
+        .filter((change) => change.material)
+        .map((change) => CHANGED_FIELD_PHRASE[change.field] ?? change.field),
+    ),
+  ];
+  if (phrases.length === 0) return 'Something about the listing moved.';
+  if (phrases.length === 1) return `What changed: ${phrases[0]}.`;
+  return `What changed: ${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}.`;
+}
+
+type AddState =
+  | { step: 'idle' }
+  /** The plan is being worked out upstream. Nothing has been downloaded. */
+  | { step: 'checking' }
+  /** The plan holds a surprise, so it is on screen and waiting for a person. */
+  | { step: 'confirm'; proposal: ModProposal }
+  | { step: 'adding'; proposal: ModProposal }
+  | { step: 'done'; outcome: ApprovalOutcome }
+  /** Re-checking upstream refused: the listing moved, or the plan no longer fits. */
+  | { step: 'stopped'; proposal: ModProposal; outcome: ApprovalOutcome };
+
+export interface AddToServerProps {
   serverId: string;
+  serverName: string;
+  /** Drives the restart sentence: a stopped server needs starting, not restarting. */
+  serverRunning?: boolean;
   source: ModSource;
   project: string;
+  detail: ModDetail;
   versions: readonly ModVersion[];
-  onProposed?: (proposalId: string) => void;
-}) {
-  const [rationale, setRationale] = useState('');
+  installed: InstalledMod | null;
+  onAdded?: () => void;
+}
+
+export function AddToServer({
+  serverId,
+  serverName,
+  serverRunning = false,
+  source,
+  project,
+  detail,
+  versions,
+  installed,
+  onAdded,
+}: AddToServerProps) {
   const [versionId, setVersionId] = useState('');
-  const [touched, setTouched] = useState(false);
-  const propose = useCreateProposal(serverId);
+  const [state, setState] = useState<AddState>({ step: 'idle' });
   const hintId = useId();
-  // Submitting an empty rationale used to look like a broken button: the handler returned and
-  // the only feedback was red text further up the sheet, easily below the fold on a phone.
-  const rationaleRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const trimmed = rationale.trim();
-  const tooShort = trimmed.length < MIN_RATIONALE;
-  const invalid = touched && tooShort;
+  /*
+   * Pressing "Add to server" replaces the button with whatever comes next, which for a
+   * keyboard or screen-reader user means the thing they were on has just ceased to exist and
+   * focus falls to the body. So each answer takes focus itself: `role="status"` announces it,
+   * `tabIndex={-1}` makes it focusable without putting it in the tab order, and the controls
+   * that follow are then the next thing Tab reaches. DESIGN §10.
+   */
+  const panel = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (state.step === 'confirm' || state.step === 'done' || state.step === 'stopped') {
+      panel.current?.focus();
+    }
+  }, [state.step]);
 
-  if (propose.isSuccess) {
-    const proposalId = propose.data.id;
+  const propose = useCreateProposal(serverId);
+  const approve = useApproveProposal(serverId);
+  const reject = useRejectProposal(serverId);
+  const queryClient = useQueryClient();
+
+  /*
+   * Working out the plan means asking the API to resolve it, and the API records that ask.
+   * So a plan the person then walks away from would sit in this server's suggestion list
+   * looking like something an agent proposed — the exact confusion this rework exists to
+   * remove. Whatever is staged when this panel goes away gets closed on the way out.
+   */
+  const staged = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      const id = staged.current;
+      if (id === null) return;
+      staged.current = null;
+      void api
+        .post(`/servers/${serverId}/proposals/${id}/reject`, { note: CANCELLED_NOTE })
+        .catch(() => undefined)
+        .finally(() => {
+          void queryClient.invalidateQueries({ queryKey: ['servers', serverId, 'proposals'] });
+        });
+    },
+    [queryClient, serverId],
+  );
+
+  const install = (proposal: ModProposal, acknowledgedDigest: string | null): void => {
+    staged.current = null;
+    setState({ step: 'adding', proposal });
+    approve.mutate(
+      { proposalId: proposal.id, acknowledgedDigest, title: proposal.title },
+      {
+        onSuccess: (outcome) => {
+          if (outcome.status === 'installed') {
+            setState({ step: 'done', outcome });
+            onAdded?.();
+          } else {
+            // Re-check refused. The record is still open, so it is still cancellable.
+            staged.current = proposal.id;
+            setState({ step: 'stopped', proposal, outcome });
+          }
+        },
+        onError: () => {
+          /*
+           * The failure itself is reported by the mutation's own toast, which outlives this
+           * panel — that is the whole reason it lives there. What has to happen *here* is that
+           * the record does not strand: a refused permission leaves it open and untouched, and
+           * an open record nobody can see is worse than a visible one. Putting it back on the
+           * staging ref means leaving this panel closes it.
+           */
+          staged.current = proposal.id;
+          setState({ step: 'idle' });
+        },
+      },
+    );
+  };
+
+  const begin = (): void => {
+    setState({ step: 'checking' });
+    propose.mutate(
+      {
+        source,
+        project,
+        rationale: ADDED_BY_HAND,
+        ...(versionId === '' ? {} : { version: versionId }),
+      },
+      {
+        onSuccess: (proposal) => {
+          staged.current = proposal.id;
+          if (summarisePlan(proposal.snapshot.resolution).worthAPause) {
+            setState({ step: 'confirm', proposal });
+          } else {
+            install(proposal, null);
+          }
+        },
+        onError: () => setState({ step: 'idle' }),
+      },
+    );
+  };
+
+  const cancel = (proposalId: string): void => {
+    staged.current = null;
+    setState({ step: 'idle' });
+    reject.mutate({ proposalId, note: CANCELLED_NOTE });
+  };
+
+  // ---- Done -------------------------------------------------------------------------
+
+  if (state.step === 'done') {
+    const files = state.outcome.installed;
     return (
-      <Alert variant="success">
-        <AlertTitle className="font-sans">Queued for review</AlertTitle>
-        <AlertDescription className="flex flex-col items-start gap-3">
+      <Alert ref={panel} role="status" tabIndex={-1} variant="success">
+        <AlertTitle className="font-sans">Added to {serverName}</AlertTitle>
+        <AlertDescription className="flex flex-col gap-1">
           <span>
-            Nothing has been installed. It waits in this server’s review queue, which lists
-            every file installing it would write — dependencies included — before anyone
-            approves it.
+            {files.length === 1
+              ? `${files[0]?.title ?? detail.title} ${files[0]?.versionNumber ?? ''} is on the server.`
+              : `${files.length} mods are on the server: ${files.map((file) => file.title).join(', ')}.`}
           </span>
-          {/*
-            "Then find the queue" was the friction here: the queue is behind this sheet, at
-            the top of the same page, and nothing said so or took you there.
-          */}
-          {onProposed ? (
-            <Button
-              className="h-11 rounded-button px-5 text-subhead font-medium"
-              onClick={() => onProposed(proposalId)}
-              variant="outline"
-            >
-              Review it now
-            </Button>
-          ) : null}
+          <span>
+            {serverRunning
+              ? `Restart ${serverName} and it will load.`
+              : `It loads the next time you start ${serverName}.`}
+          </span>
         </AlertDescription>
       </Alert>
     );
   }
 
-  return (
-    <form
-      className="flex flex-col gap-3"
-      // Our own validation, not the browser's: `required` alone cannot express "a few words",
-      // and a native validation bubble would suppress the message written for this field.
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        setTouched(true);
-        if (tooShort || propose.isPending) {
-          if (tooShort) rationaleRef.current?.focus();
-          return;
-        }
-        propose.mutate(
-          {
-            source,
-            project,
-            rationale: trimmed,
-            ...(versionId === '' ? {} : { version: versionId }),
-          },
-        );
-      }}
-    >
-      <Field invalid={invalid} required>
-        <FieldLabel>
-          Why this mod?
-          <span className="font-normal text-label-tertiary">(required)</span>
-        </FieldLabel>
-        <Textarea
-          maxLength={MAX_RATIONALE}
-          name="rationale"
-          onBlur={() => setTouched(true)}
-          onChange={(event) => setRationale(event.target.value)}
-          placeholder="What it adds, and why this server wants it."
-          ref={rationaleRef}
-          rows={3}
-          value={rationale}
-        />
-        {invalid ? (
-          <FieldError>Write at least a few words. The reviewer reads this first.</FieldError>
-        ) : (
-          <FieldDescription>
-            Stored with the proposal. An agent proposing over MCP fills in the same field.
-          </FieldDescription>
-        )}
-      </Field>
+  // ---- Stopped by the re-check ------------------------------------------------------
 
-      {versions.length > 0 ? (
+  if (state.step === 'stopped') {
+    const changed = state.outcome.status === 'changed';
+    return (
+      <div className="flex flex-col gap-3 outline-none" ref={panel} role="alert" tabIndex={-1}>
+        <Alert variant={changed ? 'warning' : 'destructive'}>
+          <AlertTitle className="font-sans">
+            {changed ? 'The download changed while you were reading' : 'Nothing was added'}
+          </AlertTitle>
+          <AlertDescription>
+            {changed
+              ? `${detail.title} on ${detail.source === 'modrinth' ? 'Modrinth' : 'CurseForge'} is not the same file it was a moment ago, so Platter stopped rather than fetch something you did not look at. ${describeChanges(state.outcome.changes)}`
+              : 'The plan no longer works on this server. Nothing was downloaded and nothing was written.'}
+          </AlertDescription>
+        </Alert>
+
+        <ProblemList problems={state.outcome.resolution.problems} />
+
+        <div className="flex flex-wrap gap-3">
+          {changed ? (
+            <Button
+              className="h-11 rounded-button px-5 text-subhead font-medium"
+              isLoading={approve.isPending}
+              onClick={() => install(state.proposal, state.outcome.digest)}
+              size="lg"
+            >
+              Add the new one anyway
+            </Button>
+          ) : null}
+          <Button
+            className="h-11 rounded-button px-5 text-subhead font-medium"
+            onClick={() => cancel(state.proposal.id)}
+            variant="outline"
+          >
+            {changed ? 'Leave it' : 'Close'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- The plan, when it holds a surprise --------------------------------------------
+
+  if (state.step === 'confirm' || state.step === 'adding') {
+    const { proposal } = state;
+    const plan = summarisePlan(proposal.snapshot.resolution);
+    const blocked = plan.errors.length > 0 || !proposal.snapshot.resolution.installable;
+
+    return (
+      <div className="flex flex-col gap-4 outline-none" ref={panel} role="status" tabIndex={-1}>
+        <div className="flex flex-col gap-1">
+          <h4 className="font-sans text-subhead font-semibold text-label">
+            Before it goes on {serverName}
+          </h4>
+          <p className="text-caption text-label-tertiary">Nothing has been downloaded yet.</p>
+        </div>
+
+        <InstallPlan resolution={proposal.snapshot.resolution} title={detail.title} />
+
+        <div className="flex flex-wrap gap-3">
+          <Button
+            className="h-11 rounded-button px-5 text-subhead font-medium"
+            disabled={blocked}
+            isLoading={state.step === 'adding'}
+            onClick={() => install(proposal, null)}
+            size="lg"
+          >
+            {plan.fileCount > 1 ? `Add all ${plan.fileCount}` : 'Add it'}
+          </Button>
+          <Button
+            className="h-11 rounded-button px-5 text-subhead font-medium"
+            disabled={state.step === 'adding'}
+            onClick={() => cancel(proposal.id)}
+            variant="outline"
+          >
+            Cancel
+          </Button>
+        </div>
+
+        {blocked ? (
+          <p className="text-caption text-label-tertiary">
+            This one cannot go on as things stand. Clearing the problem above is the only way
+            forward.
+          </p>
+        ) : (
+          <p className="text-caption text-label-tertiary">
+            {serverRunning
+              ? `${serverName} keeps running; it picks the change up on the next restart.`
+              : `${serverName} loads it the next time you start it.`}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // ---- Resting ------------------------------------------------------------------------
+
+  const busy = state.step === 'checking';
+  /*
+   * "Newest one that works here" is a choice, not an absence of one — `compatibleVersions`
+   * arrives newest first (`services/mods.ts`), so the empty select value resolves to the first
+   * entry. Treating it as unknown is what would make an available update look unavailable.
+   */
+  const chosenVersionId = versionId === '' ? (versions[0]?.versionId ?? null) : versionId;
+  const alreadyHere = installed !== null && chosenVersionId === installed.versionId;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {versions.length > 1 ? (
         <Field>
-          <FieldLabel>Version</FieldLabel>
+          <FieldLabel>Which version</FieldLabel>
           <NativeSelect
             className="w-full [&>select]:h-11"
             name="version"
             onChange={(event) => setVersionId(event.target.value)}
             value={versionId}
           >
-            <NativeSelectOption value="">Newest this server can load</NativeSelectOption>
+            <NativeSelectOption value="">
+              Newest one that works here (recommended)
+            </NativeSelectOption>
             {versions.map((version) => (
               <NativeSelectOption key={version.versionId} value={version.versionId}>
-                {version.versionNumber} ({version.channel})
+                {version.versionNumber}
+                {version.channel === 'release' ? '' : ` — ${CHANNEL_LABEL[version.channel]}`}
+                {version.versionId === installed?.versionId ? ' — already here' : ''}
               </NativeSelectOption>
             ))}
           </NativeSelect>
@@ -863,23 +870,32 @@ function ProposeForm({
       ) : null}
 
       <p className="text-caption text-label-tertiary" id={hintId}>
-        This adds it to the review queue. It installs nothing.
+        {alreadyHere
+          ? `This version is already on ${serverName}. Pick a different one to change it.`
+          : installed === null
+            ? `Downloads it to ${serverName} and checks the file before saving it. The server picks it up on its next restart.`
+            : `Replaces the copy already on ${serverName}. The server picks it up on its next restart.`}
       </p>
 
       <Button
         aria-describedby={hintId}
         className="h-11 rounded-button px-5 text-subhead font-medium"
-        isLoading={propose.isPending}
+        disabled={alreadyHere}
+        isLoading={busy}
+        onClick={begin}
         size="lg"
-        type="submit"
       >
-        Send for review
+        {installed === null
+          ? `Add to ${serverName}`
+          : alreadyHere
+            ? `Already on ${serverName}`
+            : 'Swap in this version'}
       </Button>
 
       <p aria-live="polite" className="text-caption text-danger" role="status">
         {propose.isError ? errorMessage(propose.error) : null}
       </p>
-    </form>
+    </div>
   );
 }
 
@@ -889,26 +905,25 @@ function ProposeForm({
 
 export interface ModDetailSheetProps {
   serverId: string;
+  serverName: string;
+  serverRunning?: boolean;
   /** Null closes the sheet. Changing it swaps which mod is shown. */
   target: { source: ModSource; project: string; title: string } | null;
   onClose: () => void;
-  /** Hides the propose form for a reader who cannot use it. */
-  canPropose?: boolean;
-  /**
-   * Take the reader to the proposal they just raised. Called when they ask for it, not the
-   * instant the request succeeds — closing the sheet out from under the confirmation would
-   * hide the one sentence that says nothing was installed. Omit it and the confirmation
-   * simply has no action.
-   */
-  onProposed?: (proposalId: string) => void;
+  /** Hides the add control for somebody who may only look. */
+  canAdd?: boolean;
+  /** Fires once a mod is actually on disk, so the page can show the installed list. */
+  onAdded?: () => void;
 }
 
 export function ModDetailSheet({
   serverId,
+  serverName,
+  serverRunning,
   target,
   onClose,
-  canPropose = true,
-  onProposed,
+  canAdd = true,
+  onAdded,
 }: ModDetailSheetProps) {
   return (
     <Sheet
@@ -921,12 +936,14 @@ export function ModDetailSheet({
       <SheetContent className="max-w-xl lg:max-w-2xl">
         {target ? (
           <SheetInner
-            canPropose={canPropose}
+            canAdd={canAdd}
             project={target.project}
             serverId={serverId}
+            serverName={serverName}
             source={target.source}
             title={target.title}
-            {...(onProposed ? { onProposed } : {})}
+            {...(serverRunning === undefined ? {} : { serverRunning })}
+            {...(onAdded ? { onAdded } : {})}
           />
         ) : null}
       </SheetContent>
@@ -940,18 +957,22 @@ export function ModDetailSheet({
  */
 function SheetInner({
   serverId,
+  serverName,
+  serverRunning,
   source,
   project,
   title,
-  canPropose,
-  onProposed,
+  canAdd,
+  onAdded,
 }: {
   serverId: string;
+  serverName: string;
+  serverRunning?: boolean;
   source: ModSource;
   project: string;
   title: string;
-  canPropose: boolean;
-  onProposed?: (proposalId: string) => void;
+  canAdd: boolean;
+  onAdded?: () => void;
 }) {
   const query = useMod(serverId, source, project);
   const detail = query.data;
@@ -979,6 +1000,8 @@ function SheetInner({
             error={query.error}
             isRetrying={query.isFetching}
             onRetry={() => void query.refetch()}
+            recovery="The registry is outside Platter, so restarting it will not help. Try again in a minute."
+            title="Couldn’t load this mod"
             variant="inline"
           />
         ) : detail === undefined ? (
@@ -1008,15 +1031,25 @@ function SheetInner({
         )}
       </SheetBody>
 
-      {detail && canPropose && detail.incompatibleReason === null ? (
+      {detail && canAdd ? (
         <SheetFooter className="flex-col items-stretch gap-0 sm:flex-col sm:justify-start">
-          <ProposeForm
-            project={project}
-            serverId={serverId}
-            source={source}
-            versions={detail.compatibleVersions}
-            {...(onProposed ? { onProposed } : {})}
-          />
+          {detail.incompatibleReason === null ? (
+            <AddToServer
+              detail={detail.mod}
+              installed={detail.installed}
+              project={project}
+              serverId={serverId}
+              serverName={serverName}
+              source={source}
+              versions={detail.compatibleVersions}
+              {...(serverRunning === undefined ? {} : { serverRunning })}
+              {...(onAdded ? { onAdded } : {})}
+            />
+          ) : (
+            <p className="text-caption text-label-tertiary">
+              There is nothing to add here — {detail.incompatibleReason.toLowerCase()}
+            </p>
+          )}
         </SheetFooter>
       ) : null}
     </>

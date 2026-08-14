@@ -58,7 +58,13 @@ export interface ModIconProps {
  * 6px `rounded-xs` here was the chrome's radius on artwork, the one contrast the system rests
  * on.
  */
-export function ModIcon({ iconUrl, title, size = 'md', labelled = false, className }: ModIconProps) {
+export function ModIcon({
+  iconUrl,
+  title,
+  size = 'md',
+  labelled = false,
+  className,
+}: ModIconProps) {
   const [failed, setFailed] = useState(false);
   const showImage = iconUrl !== null && iconUrl.length > 0 && !failed;
 

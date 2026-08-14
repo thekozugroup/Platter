@@ -27,9 +27,9 @@ import { cn } from '@/lib/utils';
  *
  * The update check is not a background poll: it costs one upstream request per installed mod
  * against a six-per-minute budget (`apps/api/src/routes/mods.ts`), so it runs only when
- * somebody asks. And an available update is reported, never applied — there is no update
- * endpoint, because installing anything goes through a proposal a human approves. The button
- * on an out-of-date row opens the listing so the newer version can be sent for review.
+ * somebody asks. An available update is reported, never applied on its own — the button on an
+ * out-of-date row opens the listing, where swapping the version in is one press and says what
+ * it would do first.
  */
 
 function modKey(mod: { source: string; projectId: string }): string {
@@ -38,7 +38,7 @@ function modKey(mod: { source: string; projectId: string }): string {
 
 export interface InstalledModsProps {
   serverId: string;
-  /** Opens the full listing, which is where a newer version is sent for review. */
+  /** Opens the full listing, which is where a newer version gets swapped in. */
   onOpenMod: (mod: Pick<ModSummary, 'source' | 'projectId' | 'slug' | 'title'>) => void;
   className?: string;
 }
@@ -84,15 +84,14 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
     return (
       <EmptyState
         className={className}
-        description="Platter tracks every mod it installs — the file, its checksum, who approved it and when. Search a registry to send one for review; nothing lands on disk until it is approved."
+        description="Nothing yet. Search above, open anything that looks right, and add it — Platter downloads it, checks the file is the one it was offered, and remembers where it came from."
         icon={<Package />}
         size="sm"
-        title="No mods installed by Platter"
+        title="No mods on this server yet"
       >
         <p className="max-w-prose text-caption text-label-tertiary">
-          Jars you dropped into <code className="font-mono">mods/</code> yourself are still
-          loaded by the server — they just are not listed here, because Platter has no record
-          of where they came from.
+          Files you copied into <code className="font-mono">mods/</code> yourself still load
+          normally. They are not listed here because Platter has no record of where they came from.
         </p>
       </EmptyState>
     );
@@ -102,7 +101,7 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
     <div className={cn('flex flex-col gap-4', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-subhead text-label-secondary">
-          {mods.length} {mods.length === 1 ? 'mod' : 'mods'} installed by Platter
+          {mods.length} {mods.length === 1 ? 'mod' : 'mods'} added by Platter
         </p>
         <div className="flex flex-col items-end gap-1">
           <Button
@@ -163,9 +162,9 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
               <code className="font-mono">
                 {pendingRemoval?.target}/{pendingRemoval?.filename}
               </code>{' '}
-              is deleted. Anything that depends on it will fail to load, and worlds that use
-              its blocks or items may lose them on the next start. The server keeps running
-              until it is restarted.
+              is deleted. Anything that depends on it will fail to load, and worlds that use its
+              blocks or items may lose them on the next start. The server keeps running until it is
+              restarted.
             </p>
           </AlertDialogBody>
           <AlertDialogFooter>
@@ -216,9 +215,7 @@ function InstalledRow({
             <h4 className="min-w-0 font-sans text-body font-semibold tracking-title text-label">
               {mod.title}
             </h4>
-            <code className="font-mono text-caption text-label-secondary">
-              {mod.versionNumber}
-            </code>
+            <code className="font-mono text-caption text-label-secondary">{mod.versionNumber}</code>
           </div>
           <p className="mt-0.5 text-caption text-label-tertiary">
             <code className="font-mono">
@@ -228,13 +225,8 @@ function InstalledRow({
             <span className="tabular">{formatBytes(mod.sizeBytes)}</span>
           </p>
           <p className="mt-0.5 text-caption text-label-tertiary">
-            {mod.installedByName === null
-              ? 'Installed'
-              : `Approved by ${mod.installedByName}`}{' '}
-            <time
-              dateTime={mod.installedAt}
-              title={new Date(mod.installedAt).toLocaleString()}
-            >
+            {mod.installedByName === null ? 'Added' : `Added by ${mod.installedByName}`}{' '}
+            <time dateTime={mod.installedAt} title={new Date(mod.installedAt).toLocaleString()}>
               {formatRelativeTime(mod.installedAt)}
             </time>
           </p>
@@ -266,15 +258,15 @@ function InstalledRow({
               Version {candidate.latest.versionNumber} is available.
             </span>{' '}
             {candidate.prerelease
-              ? `It is a ${candidate.latest.channel} build — the author does not consider it stable.`
-              : 'It is a stable release for this server’s loader and Minecraft version.'}
+              ? 'It is a test build — the author does not consider it finished.'
+              : 'It is a finished release, and it runs on this server.'}
           </p>
           <Button
             className="h-11 shrink-0 rounded-button px-4 text-subhead font-medium"
             onClick={onOpen}
             variant="outline"
           >
-            Send update for review
+            Look at it
           </Button>
         </div>
       ) : null}

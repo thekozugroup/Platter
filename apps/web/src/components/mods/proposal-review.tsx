@@ -5,7 +5,8 @@ import { Robot } from 'pixelarticons/react/Robot.js';
 import { Shield } from 'pixelarticons/react/Shield.js';
 import { WarningDiamond } from 'pixelarticons/react/WarningDiamond.js';
 import { ModDetailBody } from '@/components/mods/mod-detail-sheet';
-import { ModIcon, modSurface } from '@/components/mods/mod-card';
+import { InstallPlan, isSelfRaised, summarisePlan } from '@/components/mods/mod-install-plan';
+import { modSurface } from '@/components/mods/mod-card';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import {
@@ -24,54 +25,85 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import type {
-  ApprovalOutcome,
-  ModProposal,
-  PlannedInstall,
-  ProposalChange,
-  Resolution,
-  ResolutionProblem,
-} from '@/hooks';
-import {
-  useApproveProposal,
-  useCreateProposal,
-  useProposals,
-  useRejectProposal,
-} from '@/hooks';
+import type { ApprovalOutcome, ModProposal, ProposalChange } from '@/hooks';
+import { useApproveProposal, useCreateProposal, useProposals, useRejectProposal } from '@/hooks';
 import { errorMessage } from '@/lib/api-client.js';
 import { cn } from '@/lib/utils';
 
 /**
- * The human-approval gate for a mod an agent suggested.
+ * A mod somebody else picked, and the person who gets to decide.
  *
- * Everything here serves one property: **a person decides, on complete information, and knows
- * that nothing has happened yet.** That shapes three decisions worth defending.
+ * This is the *other* half of the mod flow, and the distinction is the whole design. When a
+ * person searches for a mod and opens it, they have already decided, and the sheet in
+ * `mod-detail-sheet.tsx` simply adds it. This screen is for the case where they did not
+ * choose: an agent connected over MCP proposed one. So the reader here is being *asked*, and
+ * every line is written to that — who suggested it, in their words, what it would do to this
+ * server, the whole listing so the project can be judged, and then Add or Dismiss.
  *
- * 1. **The whole mod, not a summary.** The panel renders `ModDetailBody` — the same component
- *    the browser's detail sheet uses — against the *snapshot* stored on the proposal. A
- *    reviewer who has to open Modrinth to judge whether a project is real is a reviewer who
- *    will stop bothering, and that is how a security gate quietly stops working.
+ * It reads as "someone suggested this for you", never as a form to fill in. There is no field
+ * to complete, no justification to write, nothing to submit. The only inputs are two buttons
+ * and an optional note when dismissing.
  *
- * 2. **Drift is the headline, not a footnote.** Approval re-reads the registry and refuses to
- *    install anything whose checksum, download URL, filename, dependency set, loaders or game
- *    versions have moved since the proposal was raised (`services/proposals.ts`). Approving
- *    something different from what was reviewed is the exact failure this feature exists to
- *    prevent, so a `changed` outcome takes over the top of the panel and the field-level diff
- *    is spelled out before a second approval is offered.
+ * Three properties it must keep:
  *
- * 3. **No primary action.** Approve and Reject are the same size, the same weight, and neither
- *    is focused first. The rest of the product has one near-black primary per view; this screen
- *    deliberately has none, because the interface has no opinion about which way this should go.
+ * 1. **Nothing has happened yet, said before anything else.** An agent that appears to have
+ *    already acted is the failure mode DESIGN §9 names outright.
+ * 2. **The whole mod, not a summary.** The panel renders `ModDetailBody` — the same component
+ *    the browser uses — against the snapshot stored on the proposal. Somebody who has to open
+ *    Modrinth to judge whether a project is real is somebody who will stop bothering, and that
+ *    is how a safety gate quietly stops working.
+ * 3. **A changed download stops the add.** Approval re-reads the registry and refuses anything
+ *    whose checksum, download URL, filename, dependencies, loaders or game versions have moved
+ *    since the suggestion was made (`services/proposals.ts`). Getting something other than what
+ *    you read is the exact failure this exists to prevent, so that outcome takes over the top
+ *    of the panel and spells out the difference before offering the choice again.
  */
 
 // ---------------------------------------------------------------------------------------
 // Discovery
 // ---------------------------------------------------------------------------------------
 
-/** The pending review queue for one server. Cheap enough to sit in the header. */
+/** Pending suggestions for one server. Cheap enough to sit in the header. */
 export function usePendingProposals(serverId: string): ModProposal[] {
   const query = useProposals(serverId, 'pending');
-  return query.data?.data ?? [];
+  return (query.data?.data ?? []).filter((entry) => !isSelfRaised(entry));
+}
+
+export interface ProposalQueueState {
+  /** Pending suggestions first, then installs that fell over recently. */
+  proposals: ModProposal[];
+  isPending: boolean;
+  isError: boolean;
+}
+
+/**
+ * The queue's contents, shared with whatever lays the page out.
+ *
+ * `ModsPage` needs to know whether anything is waiting *before* it decides what comes first on
+ * the screen, and re-fetching to find out would be silly. Both callers read the same two
+ * queries through react-query, so this costs one request either way.
+ */
+export function useProposalQueue(serverId: string): ProposalQueueState {
+  const pendingQuery = useProposals(serverId, 'pending');
+  const failedQuery = useProposals(serverId, 'failed');
+
+  const proposals = useMemo(
+    () => [
+      // A mod somebody is adding by hand is not a suggestion, even though it briefly shares a
+      // table with them — see `isSelfRaised`.
+      ...(pendingQuery.data?.data ?? []).filter((entry) => !isSelfRaised(entry)),
+      ...recentFailures(failedQuery.data?.data ?? [], Date.now()),
+    ],
+    [pendingQuery.data, failedQuery.data],
+  );
+
+  return {
+    proposals,
+    // Both halves, or neither: resolving the pending list first and rendering "nothing here"
+    // while the failures are still in flight is the flash this screen must not have.
+    isPending: pendingQuery.isPending || failedQuery.isPending,
+    isError: pendingQuery.isError || failedQuery.isError,
+  };
 }
 
 export interface PendingProposalsBadgeProps {
@@ -82,9 +114,9 @@ export interface PendingProposalsBadgeProps {
 /**
  * A count of what is waiting, linking to the queue.
  *
- * Exported for the server header (`pages/server/ServerLayout.tsx`) so a proposal is visible
+ * Exported for the server header (`pages/server/ServerLayout.tsx`) so a suggestion is visible
  * from every tab rather than only from the one screen that lists them. It renders nothing when
- * the queue is empty, so it is safe to mount unconditionally.
+ * nothing is waiting, so it is safe to mount unconditionally.
  */
 export function PendingProposalsBadge({ serverId, className }: PendingProposalsBadgeProps) {
   const pending = usePendingProposals(serverId);
@@ -101,153 +133,40 @@ export function PendingProposalsBadge({ serverId, className }: PendingProposalsB
       to={`/servers/${serverId}/mods`}
     >
       <Shield aria-hidden className="size-3.5" />
-      {pending.length} {pending.length === 1 ? 'mod waits' : 'mods wait'} for review
+      {pending.length} {pending.length === 1 ? 'mod suggested' : 'mods suggested'} for you
     </Link>
   );
 }
 
 // ---------------------------------------------------------------------------------------
-// Pieces
+// The changed-listing diff
 // ---------------------------------------------------------------------------------------
 
-const REASON_LABEL: Record<PlannedInstall['reason'], string> = {
-  requested: 'The proposed mod',
-  dependency: 'Pulled in as a dependency',
-  update: 'Replaces the installed version',
-};
-
 /**
- * Project ids, resolved to the names on the cards above them.
+ * Registry field names, in the words somebody running a server would use.
  *
- * `requiredBy` carries registry ids (`resolve.ts` fills it from the graph's keys), so an
- * unresolved list reads "Required by AAAA1111" — or, against real Modrinth data, "Required by
- * P7dR8mSH". Every id in it is also a node in this same resolution, which means the plan the
- * reviewer is looking at already contains the title for each one.
+ * The raw name is kept in the row's `title`, because on this one screen the technical name is
+ * occasionally the thing being checked — but it is not what leads.
  */
-function titleIndex(resolution: Resolution): Map<string, string> {
-  const index = new Map<string, string>();
-  for (const entry of [...resolution.install, ...resolution.satisfied]) {
-    index.set(entry.projectId, entry.title);
-    index.set(`${entry.source}:${entry.projectId}`, entry.title);
-  }
-  return index;
-}
-
-function PlannedRow({ entry, names }: { entry: PlannedInstall; names: Map<string, string> }) {
-  return (
-    <li className="flex items-start gap-3 border-t border-separator py-3 first:border-t-0 first:pt-0">
-      <ModIcon iconUrl={entry.iconUrl} size="sm" title={entry.title} />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-sans text-subhead font-semibold text-label">{entry.title}</span>
-          <code className="font-mono text-caption text-label-secondary">
-            {entry.version.versionNumber}
-          </code>
-          <span className="text-caption text-label-tertiary">{REASON_LABEL[entry.reason]}</span>
-        </p>
-        <p className="mt-0.5 text-caption text-label-secondary">
-          Written to{' '}
-          <code className="font-mono text-label">
-            {entry.target}/{entry.version.file.filename}
-          </code>
-          <span aria-hidden> · </span>
-          <span className="tabular">{formatBytes(entry.version.file.sizeBytes)}</span>
-        </p>
-        {entry.requiredBy.length > 0 ? (
-          <p className="mt-0.5 text-caption text-label-tertiary">
-            Required by {entry.requiredBy.map((id) => names.get(id) ?? id).join(', ')}
-          </p>
-        ) : null}
-        {entry.replacesVersionId !== null ? (
-          <p className="mt-0.5 text-caption text-label-tertiary">
-            Replaces the jar currently on disk.
-          </p>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
-function ProblemList({ problems }: { problems: readonly ResolutionProblem[] }) {
-  if (problems.length === 0) return null;
-
-  return (
-    <ul className="flex flex-col gap-2">
-      {problems.map((problem, index) => (
-        <li
-          className={cn(
-            'rounded-sm border px-3 py-2 text-caption',
-            problem.severity === 'error'
-              ? 'border-danger/25 bg-danger-subtle text-danger'
-              : 'border-warning/25 bg-warning-subtle text-warning',
-          )}
-          key={`${problem.kind}-${problem.projectId ?? index}`}
-        >
-          <span className="font-medium">
-            {problem.severity === 'error' ? 'Blocks the install' : 'Worth knowing'} —{' '}
-            {problem.title}.
-          </span>{' '}
-          {problem.message}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Exactly what pressing Approve writes to disk. Nothing here has happened yet. */
-function PlannedChanges({ resolution }: { resolution: Resolution }) {
-  const names = titleIndex(resolution);
-
-  return (
-    <section className="flex flex-col gap-3">
-      <h4 className="font-sans text-subhead font-semibold text-label">
-        What approving would install
-      </h4>
-
-      {resolution.install.length === 0 ? (
-        <p className="text-subhead text-label-tertiary">
-          Nothing would be written — every file this plan needs is already on disk.
-        </p>
-      ) : (
-        <ul className={cn(modSurface, 'flex flex-col px-4 py-3')}>
-          {resolution.install.map((entry) => (
-            <PlannedRow entry={entry} key={`${entry.source}:${entry.projectId}`} names={names} />
-          ))}
-        </ul>
-      )}
-
-      {resolution.satisfied.length > 0 ? (
-        <p className="text-caption text-label-tertiary">
-          Already at the resolved version, so untouched:{' '}
-          {resolution.satisfied.map((entry) => entry.title).join(', ')}.
-        </p>
-      ) : null}
-
-      <ProblemList problems={resolution.problems} />
-    </section>
-  );
-}
-
-/** Registry field names, in the words a reviewer thinks in. */
 const CHANGE_FIELD_LABEL: Record<string, string> = {
-  projectId: 'Project id',
-  slug: 'Slug',
-  title: 'Name',
-  serverSide: 'Server-side support',
-  license: 'Licence',
-  versionId: 'Version id',
-  versionNumber: 'Version number',
-  filename: 'File name',
-  url: 'Download URL',
-  sizeBytes: 'File size',
-  sha512: 'SHA-512 checksum',
-  sha1: 'SHA-1 checksum',
-  loaders: 'Loaders',
-  gameVersions: 'Minecraft versions',
-  requires: 'Required dependencies',
-  summary: 'Summary',
-  description: 'Description',
-  author: 'Author',
+  projectId: 'Which project it is',
+  slug: 'Which project it is',
+  title: 'Its name',
+  serverSide: 'Whether it belongs on a server',
+  license: 'Its licence',
+  versionId: 'The version',
+  versionNumber: 'The version number',
+  filename: 'The file name',
+  url: 'Where it downloads from',
+  sizeBytes: 'The file size',
+  sha512: 'The file’s fingerprint',
+  sha1: 'The file’s fingerprint',
+  loaders: 'Which servers it runs on',
+  gameVersions: 'Which Minecraft versions it supports',
+  requires: 'What else it needs',
+  summary: 'Its summary',
+  description: 'Its description',
+  author: 'Who made it',
 };
 
 function ChangeTable({ changes }: { changes: readonly ProposalChange[] }) {
@@ -257,15 +176,15 @@ function ChangeTable({ changes }: { changes: readonly ProposalChange[] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-lg border-collapse text-caption">
         <caption className="sr-only">
-          Fields that differ between the reviewed snapshot and the registry now
+          What is different between the listing you were shown and the listing now
         </caption>
         <thead>
           <tr className="border-b border-separator-strong text-start">
             <th className="py-2 pe-3 text-start font-medium text-label-tertiary" scope="col">
-              Field
+              What
             </th>
             <th className="py-2 pe-3 text-start font-medium text-label-tertiary" scope="col">
-              You reviewed
+              You were shown
             </th>
             <th className="py-2 text-start font-medium text-label-tertiary" scope="col">
               It is now
@@ -275,10 +194,14 @@ function ChangeTable({ changes }: { changes: readonly ProposalChange[] }) {
         <tbody>
           {changes.map((change) => (
             <tr className="border-b border-separator align-top" key={change.field}>
-              <th className="py-2 pe-3 text-start font-medium text-label" scope="row">
+              <th
+                className="py-2 pe-3 text-start font-medium text-label"
+                scope="row"
+                title={change.field}
+              >
                 {CHANGE_FIELD_LABEL[change.field] ?? change.field}
                 {change.material ? null : (
-                  <span className="block font-normal text-caption-2 text-label-tertiary">
+                  <span className="block text-caption-2 font-normal text-label-tertiary">
                     Does not change what runs
                   </span>
                 )}
@@ -314,26 +237,29 @@ const MAX_NOTE = 1000;
 
 export interface ProposalReviewProps {
   serverId: string;
+  /** Used in the sentences, so they name the server rather than say "this server". */
+  serverName?: string;
   proposal: ModProposal;
-  /** Called after a decision lands, so a list can move on to the next proposal. */
+  /** Called after a decision lands, so a list can move on to the next suggestion. */
   onReviewed?: (proposal: ModProposal) => void;
   className?: string;
 }
 
 export function ProposalReview({
   serverId,
+  serverName = 'this server',
   proposal,
   onReviewed,
   className,
 }: ProposalReviewProps) {
-  const [confirming, setConfirming] = useState<'approve' | 'reject' | null>(null);
+  const [confirming, setConfirming] = useState<'add' | 'dismiss' | null>(null);
   const [note, setNote] = useState('');
   const [outcome, setOutcome] = useState<ApprovalOutcome | null>(null);
 
   /*
    * `useApproveProposal` declares 409 an expected status, so the `changed` and `blocked`
-   * outcomes arrive here as ordinary results carrying the diff and the new digest — which
-   * is what this screen exists to show. Only a real failure lands in `error`.
+   * outcomes arrive here as ordinary results carrying the difference and the new digest —
+   * which is what this screen exists to show. Only a real failure lands in `error`.
    */
   const approve = useApproveProposal(serverId);
   const submitApproval = (acknowledgedDigest: string | null) =>
@@ -351,9 +277,10 @@ export function ProposalReview({
   const reject = useRejectProposal(serverId);
   const repropose = useCreateProposal(serverId);
 
-  // The live re-resolution wins over the snapshot once an attempt has been made: after a
-  // `blocked` or `changed` answer, the stored plan is no longer what would happen.
+  // The live re-check wins over the stored plan once an attempt has been made: after a
+  // `blocked` or `changed` answer, what was stored is no longer what would happen.
   const resolution = outcome?.resolution ?? proposal.snapshot.resolution;
+  const plan = summarisePlan(resolution);
   const drifted = outcome?.status === 'changed';
   const driftSuspected = proposal.driftDetectedAt !== null && outcome === null;
   const materialChanges = useMemo(
@@ -364,7 +291,7 @@ export function ProposalReview({
   const decided = proposal.status !== 'pending' || outcome?.status === 'installed';
   const blockedReason = resolution.installable
     ? null
-    : 'The plan does not resolve against this server as it is now. The problems above have to be fixed first.';
+    : `This no longer works on ${serverName} as it is now. The problems above have to be sorted first.`;
   const busy = approve.isPending || reject.isPending;
 
   return (
@@ -372,6 +299,7 @@ export function ProposalReview({
       <Standing
         installed={outcome?.status === 'installed' ? outcome : null}
         proposal={proposal}
+        serverName={serverName}
       />
 
       {drifted && outcome ? (
@@ -384,16 +312,16 @@ export function ProposalReview({
       ) : null}
 
       {/*
-        A *retryable* install failure leaves the proposal pending with the reason recorded on
-        it (`services/proposals.ts`), so without this the second visit to this screen shows a
-        proposal that looks untouched and gives no hint that a download already fell over.
+        A *retryable* failure leaves the suggestion open with the reason recorded on it
+        (`services/proposals.ts`), so without this the second visit to this screen shows
+        something that looks untouched and gives no hint that a download already fell over.
       */}
       {proposal.status === 'pending' && proposal.error !== null && outcome === null ? (
         <Alert variant="destructive">
           <AlertTitle className="font-sans">The last attempt did not finish</AlertTitle>
           <AlertDescription>
-            {proposal.error} Nothing was installed and this proposal is still open, so approving
-            tries again.
+            {proposal.error} Nothing was added, and this suggestion is still open — trying again
+            starts over.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -402,33 +330,35 @@ export function ProposalReview({
         <Alert variant="warning">
           <WarningDiamond aria-hidden />
           <AlertTitle className="font-sans">
-            This listing changed once since it was proposed
+            This listing changed once since it was suggested
           </AlertTitle>
           <AlertDescription>
-            An earlier approval attempt found the registry no longer matched the snapshot below,
-            and stopped. Approving re-checks it and will show you the difference before anything
-            is downloaded.
+            An earlier attempt found the registry no longer matched what is shown below, and
+            stopped. Trying again re-checks it and shows you the difference before anything is
+            downloaded.
           </AlertDescription>
         </Alert>
       ) : null}
 
       {outcome?.status === 'blocked' ? (
         <Alert variant="destructive">
-          <AlertTitle className="font-sans">Nothing was installed</AlertTitle>
+          <AlertTitle className="font-sans">Nothing was added</AlertTitle>
           <AlertDescription>
-            The plan no longer resolves against this server. Every problem is listed under
-            “What approving would install”.
+            It no longer works on {serverName}. Every reason is listed under “What this would do”.
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <Proposer proposal={proposal} />
+      <Proposer proposal={proposal} serverName={serverName} />
 
-      <PlannedChanges resolution={resolution} />
+      <section className="flex flex-col gap-3">
+        <h4 className="font-sans text-subhead font-semibold text-label">What this would do</h4>
+        <InstallPlan resolution={resolution} showFiles title={proposal.title} />
+      </section>
 
       <section className="flex flex-col gap-3 border-t border-separator pt-5">
         <h4 className="font-sans text-subhead font-semibold text-label">
-          The mod, as it was when this was proposed
+          The mod, as it was when this was suggested
         </h4>
         <ModDetailBody
           capturedAt={proposal.proposedAt}
@@ -442,14 +372,15 @@ export function ProposalReview({
         <Decision
           blockedReason={blockedReason}
           busy={busy}
-          onApprove={() => setConfirming('approve')}
-          onReject={() => setConfirming('reject')}
+          fileCount={plan.fileCount}
+          onAdd={() => setConfirming('add')}
+          onDismiss={() => setConfirming('dismiss')}
         />
       )}
 
       {/*
-        A failed proposal is terminal — the API refuses to approve or reject one — so the only
-        way forward is a fresh proposal. Offering it here means the error names a next step
+        A failed install is terminal — the API refuses to approve or reject one — so the only
+        way forward is a fresh suggestion. Offering it here means the error names a next step
         instead of leaving a dead card on the screen.
       */}
       {proposal.status === 'failed' ? (
@@ -466,11 +397,11 @@ export function ProposalReview({
             }
             variant="outline"
           >
-            Propose it again
+            Try it again
           </Button>
           <p className="text-caption text-label-tertiary">
-            Puts a fresh proposal in the queue for the newest version this server can load, with
-            the same reason attached. It installs nothing on its own.
+            Puts it back on this list for the newest version {serverName} can run, with the same
+            reason attached. It adds nothing on its own.
           </p>
         </div>
       ) : null}
@@ -481,36 +412,39 @@ export function ProposalReview({
         {repropose.isError ? errorMessage(repropose.error) : null}
       </p>
 
-      {/* Approve: the last chance to read what will be written, restated in one place. */}
+      {/* Add: the last chance to read what goes on the server, restated in one place. */}
       <AlertDialog
         onOpenChange={(details) => {
           if (!details.open) setConfirming(null);
         }}
-        open={confirming === 'approve'}
+        open={confirming === 'add'}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-sans text-title-3 font-semibold">
-              Install {proposal.title} {proposal.versionNumber}?
+              Add {proposal.title} {proposal.versionNumber} to {serverName}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This downloads and writes executable code to the server.
+              {resolution.install.length === 1
+                ? 'This downloads one file and puts it on the server.'
+                : `This downloads ${resolution.install.length} files and puts them on the server.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody>
             <ul className="flex flex-col gap-2">
               {resolution.install.map((entry) => (
                 <li className="text-subhead text-label-secondary" key={entry.projectId}>
-                  <code className="font-mono text-label">
-                    {entry.target}/{entry.version.file.filename}
-                  </code>{' '}
-                  <span className="tabular">({formatBytes(entry.version.file.sizeBytes)})</span>
+                  <span className="text-label">{entry.title}</span>{' '}
+                  <code className="font-mono text-caption">{entry.version.versionNumber}</code>{' '}
+                  <span className="tabular text-caption">
+                    ({formatBytes(entry.version.file.sizeBytes)})
+                  </span>
                 </li>
               ))}
             </ul>
             <p className="mt-3 text-caption text-label-tertiary">
-              Platter re-reads the registry first and refuses to install anything that has
-              changed since you reviewed it. The server picks the mod up on its next restart.
+              Platter checks each download against what you just read and refuses anything that has
+              changed. {serverName} picks it up on its next restart.
             </p>
           </AlertDialogBody>
           <AlertDialogFooter>
@@ -522,41 +456,41 @@ export function ProposalReview({
               isLoading={approve.isPending}
               onClick={() => submitApproval(null)}
             >
-              Approve and install
+              Add to server
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reject: the note is optional and is the only field. */}
+      {/* Dismiss: the note is optional and is the only field on this screen. */}
       <AlertDialog
         onOpenChange={(details) => {
           if (!details.open) setConfirming(null);
         }}
-        open={confirming === 'reject'}
+        open={confirming === 'dismiss'}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-sans text-title-3 font-semibold">
-              Reject {proposal.title}?
+              Dismiss {proposal.title}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Nothing is installed and nothing is deleted. The proposal closes.
+              Nothing is added and nothing is deleted. The suggestion goes away.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody>
             <Field>
-              <FieldLabel>Note (optional)</FieldLabel>
+              <FieldLabel>Why not? (optional)</FieldLabel>
               <Textarea
                 maxLength={MAX_NOTE}
                 name="note"
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="Why not, so the same thing is not proposed again."
+                placeholder="So the same thing is not suggested again."
                 rows={3}
                 value={note}
               />
               <FieldDescription>
-                Stored on the proposal and readable by whoever raised it.
+                Kept with the suggestion, and readable by whoever made it.
               </FieldDescription>
             </Field>
           </AlertDialogBody>
@@ -583,7 +517,7 @@ export function ProposalReview({
               }
               variant="destructive"
             >
-              Reject proposal
+              Dismiss it
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -597,29 +531,29 @@ export function ProposalReview({
 /**
  * The standing statement at the top of the panel.
  *
- * While a proposal is pending this says, unambiguously and before anything else, that nothing
- * has been installed. Every other state replaces it with what actually happened.
+ * While a suggestion is open this says, unambiguously and before anything else, that nothing
+ * has been added. Every other state replaces it with what actually happened.
  */
 function Standing({
   proposal,
   installed,
+  serverName,
 }: {
   proposal: ModProposal;
   installed: ApprovalOutcome | null;
+  serverName: string;
 }) {
   if (installed) {
     return (
       <Alert variant="success">
-        <AlertTitle className="font-sans">Installed</AlertTitle>
+        <AlertTitle className="font-sans">Added to {serverName}</AlertTitle>
         <AlertDescription>
           {installed.installed.length === 1
-            ? '1 file was'
-            : `${installed.installed.length} files were`}{' '}
-          written:{' '}
-          {installed.installed
-            .map((record) => `${record.target}/${record.filename}`)
-            .join(', ')}
-          . Restart the server to load it.
+            ? `${installed.installed[0]?.title ?? proposal.title} is on the server.`
+            : `${installed.installed.length} mods are on the server: ${installed.installed
+                .map((record) => record.title)
+                .join(', ')}.`}{' '}
+          Restart {serverName} and it will load.
         </AlertDescription>
       </Alert>
     );
@@ -628,11 +562,11 @@ function Standing({
   if (proposal.status === 'approved') {
     return (
       <Alert variant="success">
-        <AlertTitle className="font-sans">Approved</AlertTitle>
+        <AlertTitle className="font-sans">Added</AlertTitle>
         <AlertDescription>
-          {proposal.reviewedByName ?? 'A reviewer'} approved this{' '}
-          {proposal.reviewedAt === null ? '' : formatRelativeTime(proposal.reviewedAt)}. The
-          files are on disk.
+          {proposal.reviewedByName ?? 'Somebody'} added this{' '}
+          {proposal.reviewedAt === null ? '' : formatRelativeTime(proposal.reviewedAt)}. It is on
+          the server.
         </AlertDescription>
       </Alert>
     );
@@ -641,11 +575,11 @@ function Standing({
   if (proposal.status === 'rejected') {
     return (
       <Alert>
-        <AlertTitle className="font-sans">Rejected</AlertTitle>
+        <AlertTitle className="font-sans">Dismissed</AlertTitle>
         <AlertDescription>
-          {proposal.reviewedByName ?? 'A reviewer'} rejected this{' '}
-          {proposal.reviewedAt === null ? '' : formatRelativeTime(proposal.reviewedAt)}. Nothing
-          was installed.
+          {proposal.reviewedByName ?? 'Somebody'} dismissed this{' '}
+          {proposal.reviewedAt === null ? '' : formatRelativeTime(proposal.reviewedAt)}. Nothing was
+          added.
           {proposal.reviewNote === null ? null : (
             <span className="block text-label-secondary">“{proposal.reviewNote}”</span>
           )}
@@ -657,10 +591,10 @@ function Standing({
   if (proposal.status === 'failed') {
     return (
       <Alert variant="destructive">
-        <AlertTitle className="font-sans">The install failed</AlertTitle>
+        <AlertTitle className="font-sans">Adding it failed</AlertTitle>
         <AlertDescription>
-          {proposal.error ?? 'The download or the write did not complete.'} Nothing usable was
-          left on the server, and this proposal cannot be approved again.
+          {proposal.error ?? 'The download did not finish.'} Nothing usable was left on the server,
+          and this one cannot be tried again as it is.
         </AlertDescription>
       </Alert>
     );
@@ -669,22 +603,25 @@ function Standing({
   return (
     <Alert variant="info">
       <Shield aria-hidden />
-      <AlertTitle className="font-sans">Nothing has been installed</AlertTitle>
+      <AlertTitle className="font-sans">Nothing has been added</AlertTitle>
       <AlertDescription>
-        This is a suggestion waiting for a person. No file has been downloaded, nothing has been
-        written to the server, and the server has not been touched. That only happens when you
-        press Approve.
+        This is a suggestion waiting on you. No file has been downloaded, nothing has been written
+        to {serverName}, and the server has not been touched. That only happens if you add it.
       </AlertDescription>
     </Alert>
   );
 }
 
-function Proposer({ proposal }: { proposal: ModProposal }) {
+function Proposer({ proposal, serverName }: { proposal: ModProposal; serverName: string }) {
   const name = proposal.proposedByName;
 
   return (
     <section className="flex flex-col gap-3">
-      <h4 className="font-sans text-subhead font-semibold text-label">Who suggested this</h4>
+      <h4 className="font-sans text-subhead font-semibold text-label">
+        {name === null
+          ? `An assistant suggested this for ${serverName}`
+          : `${name} suggested this for ${serverName}`}
+      </h4>
       <div className={cn(modSurface, 'flex items-start gap-3 p-4')}>
         <span
           aria-hidden
@@ -694,12 +631,19 @@ function Proposer({ proposal }: { proposal: ModProposal }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-subhead font-medium text-label">
-            {name ?? 'An API key with the ai.use permission'}
+            {name ?? 'An assistant connected to this server'}
           </p>
           <p className="mt-0.5 text-caption text-label-tertiary">
+            {/*
+              Everything that reaches this list arrived through `POST /proposals` from
+              something other than this browser's own add button (`isSelfRaised` filters those
+              out), which in practice means an assistant over MCP. The name, when there is one,
+              is whose account the assistant was connected with — worth saying, because it is
+              also whose permissions it was limited to.
+            */}
             {name === null
-              ? 'No account is attached — this came from a machine credential over MCP.'
-              : 'Proposed over MCP or from this panel.'}
+              ? 'Came in over MCP with no account attached — a machine credential.'
+              : 'Came in over MCP. Nothing it sends can install anything on its own.'}
             {' · '}
             <time
               dateTime={proposal.proposedAt}
@@ -738,12 +682,12 @@ function DriftPanel({
         <WarningDiamond aria-hidden className="mt-0.5 size-5 shrink-0 text-danger" />
         <div className="min-w-0">
           <h4 className="font-sans text-title-3 font-semibold text-danger">
-            This is not what you reviewed
+            This is not what you were shown
           </h4>
           <p className="mt-1 text-subhead leading-normal text-label-secondary">
             {materialCount === 0
-              ? 'The listing changed since this proposal was raised. Nothing was installed.'
-              : `${materialCount} ${materialCount === 1 ? 'field that decides what code runs has' : 'fields that decide what code runs have'} changed since this proposal was raised. Nothing was installed.`}{' '}
+              ? 'The listing changed since this was suggested. Nothing was added.'
+              : `${materialCount} ${materialCount === 1 ? 'thing that decides what code runs has' : 'things that decide what code runs have'} changed since this was suggested. Nothing was added.`}{' '}
             Read the difference below before deciding again.
           </p>
         </div>
@@ -758,11 +702,11 @@ function DriftPanel({
           onClick={onAcknowledge}
           variant="destructive"
         >
-          I have read the changes — install the new version
+          I have read the changes — add the new one
         </Button>
         <p className="text-caption text-label-secondary">
-          Leaving this page installs nothing. The proposal stays open, and rejecting it is still
-          the other option.
+          Leaving this page adds nothing. The suggestion stays open, and dismissing it is still the
+          other option.
         </p>
       </div>
     </section>
@@ -770,21 +714,24 @@ function DriftPanel({
 }
 
 /**
- * The decision. Two controls, identical in size and weight, neither focused first — the screen
- * has no primary action on purpose.
+ * The decision. Two controls, identical in size and weight, neither focused first — this screen
+ * has no primary action on purpose, because the interface has no opinion about which way it
+ * should go.
  */
 function Decision({
-  onApprove,
-  onReject,
+  onAdd,
+  onDismiss,
   blockedReason,
   busy,
+  fileCount,
 }: {
-  onApprove: () => void;
-  onReject: () => void;
+  onAdd: () => void;
+  onDismiss: () => void;
   blockedReason: string | null;
   busy: boolean;
+  fileCount: number;
 }) {
-  const reasonId = 'proposal-approve-blocked';
+  const reasonId = 'proposal-add-blocked';
 
   return (
     <div className="flex flex-col gap-2 border-t border-separator pt-5">
@@ -793,18 +740,18 @@ function Decision({
           {...(blockedReason ? { 'aria-describedby': reasonId } : {})}
           className="h-11 rounded-button px-5 text-subhead font-medium"
           disabled={blockedReason !== null || busy}
-          onClick={onApprove}
+          onClick={onAdd}
           variant="outline"
         >
-          Approve and install
+          {fileCount > 1 ? `Add all ${fileCount} to server` : 'Add to server'}
         </Button>
         <Button
           className="h-11 rounded-button px-5 text-subhead font-medium"
           disabled={busy}
-          onClick={onReject}
+          onClick={onDismiss}
           variant="outline"
         >
-          Reject
+          Dismiss
         </Button>
       </div>
       {blockedReason ? (
@@ -822,6 +769,7 @@ function Decision({
 
 export interface ProposalQueueProps {
   serverId: string;
+  serverName?: string;
   className?: string;
 }
 
@@ -840,56 +788,48 @@ function recentFailures(proposals: readonly ModProposal[], now: number): ModProp
 }
 
 /**
- * The review queue: everything waiting on a person, with the selected one opened in full.
+ * Everything waiting on a person, with the selected one opened in full.
  *
- * A proposal is never summarised down to a row and then approved from that row — selecting one
+ * A suggestion is never summarised down to a row and then added from that row — selecting one
  * opens the whole panel, because the decision is only meaningful on complete information.
  *
- * **Recent failures are part of the queue, not a separate history.** An approval whose download
- * or write fell over moves the proposal from `pending` to `failed`, which used to take the card
- * off this screen mid-request: the reviewer pressed "Approve and install", the panel vanished,
- * and what replaced it was "Nothing waiting for review" — the exact impression DESIGN §9
- * forbids. A failed proposal now stays visible, carrying the reason the API recorded, until it
- * is a week old.
+ * **Recent failures live here too, not in a separate history.** An add whose download or write
+ * fell over moves the record from `pending` to `failed`, which used to take the card off this
+ * screen mid-request: you pressed the button, the panel vanished, and what replaced it was
+ * "nothing here" — the exact impression DESIGN §9 forbids. A failed one now stays visible,
+ * carrying the reason the API recorded, until it is a week old.
  */
-export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
-  const query = useProposals(serverId, 'pending');
+export function ProposalQueue({ serverId, serverName, className }: ProposalQueueProps) {
+  const { proposals, isPending, isError } = useProposalQueue(serverId);
+  const pendingQuery = useProposals(serverId, 'pending');
   const failedQuery = useProposals(serverId, 'failed');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const pending = query.data?.data ?? [];
-  const failed = useMemo(
-    () => recentFailures(failedQuery.data?.data ?? [], Date.now()),
-    [failedQuery.data],
-  );
-  const proposals = [...pending, ...failed];
   const selected = proposals.find((entry) => entry.id === selectedId) ?? proposals[0] ?? null;
 
-  // Both halves, or neither: resolving the pending list first and rendering "Nothing waiting
-  // for review" while the failures are still in flight is the flash this screen must not have.
-  if (query.isPending || failedQuery.isPending) {
+  if (isPending) {
     return (
       <div className={cn('flex flex-col gap-3', className)}>
         <span className="sr-only" role="status">
-          Loading the review queue.
+          Looking for suggestions.
         </span>
         <Skeleton className="h-32 rounded-md" />
       </div>
     );
   }
 
-  if (query.isError || failedQuery.isError) {
-    const failing = query.isError ? query : failedQuery;
+  if (isError) {
+    const failing = pendingQuery.isError ? pendingQuery : failedQuery;
     return (
       <ErrorState
         className={className}
         error={failing.error}
         isRetrying={failing.isFetching}
         onRetry={() => {
-          void query.refetch();
+          void pendingQuery.refetch();
           void failedQuery.refetch();
         }}
-        title="Couldn’t read the review queue"
+        title="Couldn’t check for suggestions"
         variant="inline"
       />
     );
@@ -899,10 +839,10 @@ export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
     return (
       <EmptyState
         className={className}
-        description="When an agent suggests a mod over MCP it lands here first. It shows you the whole listing — description, author, licence, downloads, dependencies — and installs nothing until you approve it."
+        description="Connect Claude, or any assistant that speaks MCP, and it can suggest mods for this server. They land here with the whole listing — what it does, who made it, its licence, how many people use it — and go on the server only if you say so."
         icon={<Shield />}
         size="sm"
-        title="Nothing waiting for review"
+        title="No suggestions right now"
       />
     );
   }
@@ -910,7 +850,7 @@ export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
   return (
     <div className={cn('flex flex-col gap-5', className)}>
       {proposals.length > 1 ? (
-        <nav aria-label="Pending proposals">
+        <nav aria-label="Suggested mods">
           <ul className="flex flex-wrap gap-2">
             {proposals.map((entry) => {
               const active = entry.id === selected?.id;
@@ -927,7 +867,7 @@ export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
                   >
                     {entry.title}
                     {entry.status === 'failed' ? (
-                      <span className="text-label-tertiary"> · install failed</span>
+                      <span className="text-label-tertiary"> · didn’t finish</span>
                     ) : null}
                   </Button>
                 </li>
@@ -943,6 +883,7 @@ export function ProposalQueue({ serverId, className }: ProposalQueueProps) {
           onReviewed={() => setSelectedId(null)}
           proposal={selected}
           serverId={serverId}
+          {...(serverName === undefined ? {} : { serverName })}
         />
       ) : null}
     </div>

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import type { RateLimitOptions } from '@fastify/rate-limit';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { forbidden } from '../lib/errors.js';
 import { requireServer } from '../plugins/auth.js';
 import {
   MOD_SOURCES,
@@ -10,7 +11,17 @@ import {
   modDetailSchema,
   modSourceSchema,
   modVersionSchema,
+  type ModDetail,
 } from '../mods/registry.js';
+import {
+  ICON_CACHE_CONTROL,
+  ICON_MAX_URL_LENGTH,
+  ICON_ROUTE_PATH,
+  assertProxyableIconUrl,
+  fetchModIcon,
+  proxiedIconUrl,
+  verifyIconSignature,
+} from '../mods/icon-proxy.js';
 import { installedModSchema } from '../mods/resolve.js';
 import { recordAuditFromRequest } from '../services/audit.js';
 import {
@@ -39,6 +50,14 @@ const UPSTREAM_RATE_LIMIT: RateLimitOptions = { max: 40, timeWindow: '1 minute' 
 
 /** The update check is one upstream request per installed mod, so it gets its own budget. */
 const UPDATE_CHECK_RATE_LIMIT: RateLimitOptions = { max: 6, timeWindow: '1 minute' };
+
+/**
+ * Icons are counted in tiles, not in searches: one grid is twenty-odd requests and opening a
+ * detail sheet adds a gallery, so the budget above would be spent by a single screen. It stays
+ * a budget rather than being unlimited because each request is still an upstream fetch — and
+ * only the *first* view costs anything, since the responses are immutable and cache for a year.
+ */
+const ICON_RATE_LIMIT: RateLimitOptions = { max: 240, timeWindow: '1 minute' };
 
 /**
  * Deliberately looser than an id's real shape (mirrors `routes/files.ts`): a malformed id must
@@ -101,6 +120,53 @@ export function clientAbortSignal(reply: FastifyReply): AbortSignal {
   return controller.signal;
 }
 
+// ---------------------------------------------------------------------------------------
+// Artwork
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Registry artwork is rewritten to a same-origin proxy path on the way out.
+ *
+ * This happens here, at the response boundary, rather than in the client: `img-src` is pinned
+ * to `'self'`, so a raw `cdn.modrinth.com` URL in a payload is a tile the browser refuses to
+ * paint. Rewriting server-side means every consumer — the grid, the detail sheet, the approval
+ * screen — gets a URL that works, with nothing to remember. See `mods/icon-proxy.ts` for why
+ * proxying beats widening the policy.
+ *
+ * A URL that cannot be proxied becomes null, which is the same signal a mod with no artwork
+ * sends, and the client draws its monogram.
+ */
+export function withProxiedIcon<T extends { iconUrl: string | null }>(
+  serverId: string,
+  value: T,
+): T {
+  return { ...value, iconUrl: proxiedIconUrl(serverId, value.iconUrl) };
+}
+
+/**
+ * Gallery screenshots are the same CDN and the same CSP problem as the icon.
+ *
+ * Unlike `iconUrl`, a gallery entry's `url` is non-nullable and doubles as the "open full size"
+ * link, so an unproxyable one is left exactly as it was rather than dropped — no better, but no
+ * worse than before.
+ */
+export function withProxiedArtwork(serverId: string, mod: ModDetail): ModDetail {
+  return {
+    ...withProxiedIcon(serverId, mod),
+    gallery: mod.gallery.map((image) => {
+      const proxied = proxiedIconUrl(serverId, image.url);
+      return proxied === null ? image : { ...image, url: proxied };
+    }),
+  };
+}
+
+const iconQuerySchema = z.object({
+  /** The upstream CDN URL. Refused unless it is on the allowlist in `icon-proxy.ts`. */
+  url: z.string().min(1).max(ICON_MAX_URL_LENGTH),
+  /** HMAC over `(serverId, url)`. Proof that Platter minted this link for an authorised view. */
+  sig: z.string().min(1).max(128),
+});
+
 const modRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -120,7 +186,7 @@ const modRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const server = requireServer(request);
       const { q, source, category, gameVersion, limit, offset } = request.query;
-      return searchServerMods(
+      const results = await searchServerMods(
         server,
         {
           query: q ?? null,
@@ -136,6 +202,10 @@ const modRoutes: FastifyPluginAsync = async (fastify) => {
         },
         request.log,
       );
+      return {
+        ...results,
+        hits: results.hits.map((hit) => withProxiedIcon(server.id, hit)),
+      };
     },
   );
 
@@ -150,6 +220,8 @@ const modRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: installedResponseSchema },
       },
     },
+    // No artwork rewrite here: `installedModSchema` carries no `iconUrl` at all — the
+    // installed list is drawn from Platter's own manifest and renders monograms.
     async (request) => ({
       data: await listInstalledMods(requireServer(request)),
       sources: availableModSources(),
@@ -173,6 +245,66 @@ const modRoutes: FastifyPluginAsync = async (fastify) => {
     }),
   );
 
+  /**
+   * Streams one registry image back from Platter's own origin.
+   *
+   * **Why there is no `requireServerAccess` here.** A browser `<img>` cannot attach an
+   * `Authorization` header or an `X-API-Key`, so header authentication is not available to the
+   * only caller this endpoint has. The `sig` parameter is the authenticator instead: it is an
+   * HMAC over `(serverId, url)` keyed off `JWT_SECRET`, and it is minted *only* by the handlers
+   * above, every one of which ran behind `requireServerAccess('server.view')`. A caller holding
+   * a working link therefore holds proof that an authorised view produced it, and no one else
+   * can forge one. It is a narrower grant than a bearer token would be: a token would unlock
+   * every allowlisted URL, a signature unlocks exactly the one it was cut for.
+   *
+   * Registered before `/:source/:project` for readability; find-my-way prefers the static
+   * segment regardless, and the two differ in arity anyway.
+   */
+  app.get(
+    ICON_ROUTE_PATH,
+    {
+      config: { rateLimit: ICON_RATE_LIMIT },
+      schema: {
+        tags: ['mods'],
+        summary: 'Proxy a mod’s icon or gallery image from the registry CDN',
+        description:
+          "Same-origin delivery for registry artwork, so `img-src` can stay `'self'`. The URL is " +
+          'signed by Platter when it serves mod data; it is not meant to be constructed by hand.',
+        security: [],
+        params: serverIdParamSchema,
+        querystring: iconQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      const { serverId } = request.params;
+      const { url, sig } = request.query;
+
+      // Signature first, and before the URL is even parsed: an unsigned caller learns nothing
+      // about which hosts are allowlisted or what this endpoint would have done.
+      if (!verifyIconSignature(serverId, url, sig)) {
+        throw forbidden('That image link is not valid.');
+      }
+
+      // Re-validated rather than trusted. The signature proves Platter minted the link, not
+      // that the allowlist is the same one that was in force when it did.
+      const target = assertProxyableIconUrl(url);
+      const icon = await fetchModIcon(target, { signal: clientAbortSignal(reply) });
+
+      return (
+        reply
+          .header('content-type', icon.contentType)
+          .header('content-length', icon.body.byteLength)
+          .header('cache-control', ICON_CACHE_CONTROL)
+          // Belt and braces on top of the content-type allowlist: never let a browser sniff
+          // these bytes into something executable.
+          .header('x-content-type-options', 'nosniff')
+          .header('content-security-policy', "default-src 'none'; sandbox")
+          .header('cross-origin-resource-policy', 'same-origin')
+          .send(icon.body)
+      );
+    },
+  );
+
   app.get(
     '/:source/:project',
     {
@@ -185,14 +317,17 @@ const modRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: modDetailResponseSchema },
       },
     },
-    async (request, reply) =>
-      getServerMod(
-        requireServer(request),
+    async (request, reply) => {
+      const server = requireServer(request);
+      const detail = await getServerMod(
+        server,
         request.params.source,
         request.params.project,
         clientAbortSignal(reply),
         request.log,
-      ),
+      );
+      return { ...detail, mod: withProxiedArtwork(server.id, detail.mod) };
+    },
   );
 
   app.get(

@@ -19,10 +19,10 @@ import { cn } from '@/lib/utils';
  * whole deployment (`apps/api/src/routes/mods.ts`), so the query is debounced and the results
  * are treated as fresh for a minute rather than refetched on focus.
  *
- * The API filters to the server's loader and Minecraft version by default. "Any Minecraft
+ * The API narrows results to what this server can actually run by default. "Any Minecraft
  * version" is the deliberate escape hatch — it widens the search and is exactly the mode in
- * which incompatible results appear, which is why `ModCard` states incompatibility in words
- * instead of leaving it to be inferred.
+ * which results this server cannot run appear, which is why `ModCard` says so in words instead
+ * of leaving it to be inferred.
  */
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -211,10 +211,10 @@ export function ModSearch({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-caption text-label-tertiary">
             {gameVersion === null
-              ? 'This server tracks a moving version, so results are not filtered by Minecraft version.'
+              ? 'This server follows whatever Minecraft is newest, so nothing here is narrowed by version.'
               : anyVersion
                 ? `Showing every Minecraft version. This server runs ${gameVersion}.`
-                : `Filtered to Minecraft ${gameVersion} and this server’s loader.`}
+                : `Only what runs on Minecraft ${gameVersion} here.`}
           </p>
 
           {gameVersion === null ? null : (
@@ -231,11 +231,10 @@ export function ModSearch({
 
       {failedSources.map((entry) => (
         <Alert key={entry.source} variant="warning">
-          <AlertTitle className="font-sans">
-            {SOURCE_LABEL[entry.source]} did not answer
-          </AlertTitle>
+          <AlertTitle className="font-sans">{SOURCE_LABEL[entry.source]} did not answer</AlertTitle>
           <AlertDescription>
-            {entry.error} Results below come from the other registries only.
+            {entry.error} Everything below came from the other one, so this is not the whole
+            picture.
           </AlertDescription>
         </Alert>
       ))}
@@ -270,10 +269,10 @@ export function ModSearch({
           <EmptyState
             description={
               debouncedTerm === ''
-                ? 'Search by name, or browse by category. Everything found here has to be approved before it is installed.'
-                : `Nothing matching “${debouncedTerm}” runs on this server’s loader${
-                    anyVersion || gameVersion === null ? '' : ` and Minecraft ${gameVersion}`
-                  }. Try a shorter term, or widen the version filter.`
+                ? 'Search by name, or pick a category. Open anything that looks right and you will see what it does, what it needs, and who made it before you add it.'
+                : `Nothing called “${debouncedTerm}” runs on this server${
+                    anyVersion || gameVersion === null ? '' : ` on Minecraft ${gameVersion}`
+                  }. Try a shorter word, or look at every Minecraft version.`
             }
             size="sm"
             title={debouncedTerm === '' ? 'Find a mod' : 'No matches'}

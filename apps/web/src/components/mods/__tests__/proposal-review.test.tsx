@@ -19,11 +19,17 @@ import type {
 import { createQueryClient } from '@/lib/query.js';
 
 /**
- * The approval gate, tested for the promises it makes rather than its pixels.
+ * The half of the mod flow where the human did *not* choose.
  *
- * Every case here guards something that would fail silently and dangerously: a reviewer
- * believing an agent already installed something, a reviewer approving a build that is not the
- * one they read, an "informed decision" screen that quietly stopped showing the licence.
+ * An agent over MCP can suggest a mod and cannot install one, so this screen is a decision put
+ * to a person — and the tests are about the promises that decision rests on, not about pixels.
+ * Every case guards something that would fail silently and dangerously: somebody believing an
+ * agent already installed something, somebody adding a build that is not the one they read,
+ * an "informed decision" screen that quietly stopped showing the licence.
+ *
+ * It also guards the register. This screen must read as *someone suggested this for you*, with
+ * two buttons and nothing to fill in — never as a form, and never in the vocabulary of the
+ * dependency resolver underneath it.
  */
 
 /*
@@ -127,7 +133,7 @@ const DEPENDENCY: PlannedInstall = plannedFixture({
   title: 'Fabric Language Kotlin',
   reason: 'dependency',
   // As the API sends it: `resolve.ts` fills `requiredBy` from the graph's keys, which are
-  // registry project ids. The panel has to resolve them against the plan it is rendering.
+  // registry project ids — never something to print at a person.
   requiredBy: ['P7dR8mSH'],
   version: versionFixture({
     versionId: 'ver_dep',
@@ -191,12 +197,7 @@ function changedOutcome(): ApprovalOutcome {
     installed: [],
     resolution: resolutionFixture(),
     changes: [
-      {
-        field: 'sha512',
-        before: 'a'.repeat(16),
-        after: 'c'.repeat(16),
-        material: true,
-      },
+      { field: 'sha512', before: 'a'.repeat(16), after: 'c'.repeat(16), material: true },
       {
         field: 'url',
         before: 'https://cdn.modrinth.com/fabric-api-0.102.0.jar',
@@ -220,7 +221,7 @@ function renderReview(proposal: ModProposal = proposalFixture()) {
   return render(
     <QueryClientProvider client={createQueryClient()}>
       <MemoryRouter>
-        <ProposalReview proposal={proposal} serverId="srv_1" />
+        <ProposalReview proposal={proposal} serverId="srv_1" serverName="Survival SMP" />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -239,72 +240,97 @@ afterEach(() => {
 // ---------------------------------------------------------------------------------------
 
 describe('ProposalReview — the boundary', () => {
-  it('says nothing has been installed, before anything else', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('says nothing has been added, before anything else', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview();
 
-    expect(screen.getByText('Nothing has been installed')).toBeInTheDocument();
+    expect(screen.getByText('Nothing has been added')).toBeInTheDocument();
     expect(
-      screen.getByText(/No file has been downloaded, nothing has been written to the server/i),
+      screen.getByText(/No file has been downloaded, nothing has been written to Survival SMP/i),
     ).toBeInTheDocument();
   });
 
-  it('names a machine credential as one rather than leaving the proposer blank', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('reads as a suggestion someone made, not as a form to fill in', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview();
 
-    expect(screen.getByText('An API key with the ai.use permission')).toBeInTheDocument();
     expect(
-      screen.getByText(/came from a machine credential over MCP/i),
+      screen.getByRole('heading', { name: 'An assistant suggested this for Survival SMP' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/needs Fabric API to register its blocks/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/needs Fabric API to register its blocks/i)).toBeInTheDocument();
+    // Nothing to complete and nothing to submit: two buttons, and that is the whole input.
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/why this mod/i)).not.toBeInTheDocument();
   });
 
   it('names a human proposer when there is one', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview(proposalFixture({ proposedById: 'usr_2', proposedByName: 'Ada Lovelace' }));
 
-    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Ada Lovelace suggested this for Survival SMP' }),
+    ).toBeInTheDocument();
   });
 });
 
 describe('ProposalReview — informed decision', () => {
-  it('shows the full snapshot, not a summary', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('shows the full listing, not a summary', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview();
 
-    // Author, licence and downloads are the fields that decide "is this project real?".
+    // Who made it, its licence and how many people use it are the facts that answer
+    // "is this project real?".
     expect(screen.getByText('modmuss50')).toBeInTheDocument();
     expect(screen.getByText('Apache-2.0')).toBeInTheDocument();
     expect(screen.getByText('2.4M')).toBeInTheDocument();
     // The description body itself, rendered rather than truncated to the summary line.
     expect(screen.getByText('The core library for the Fabric toolchain.')).toBeInTheDocument();
     expect(screen.getByText('Registry sync')).toBeInTheDocument();
-    // And the outbound links a reviewer needs for a second opinion.
-    expect(screen.getByRole('link', { name: /Issue tracker/ })).toHaveAttribute(
+    // And the outbound links needed for a second opinion.
+    expect(screen.getByRole('link', { name: /Bug reports/ })).toHaveAttribute(
       'href',
       'https://github.com/FabricMC/fabric/issues',
     );
     // Captured, not live — the panel says which.
-    expect(screen.getByText(/when the proposal was raised/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a fresh read/i)).toBeInTheDocument();
   });
 
-  it('spells out every file approving would write, dependencies included', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('says what it would do in plain words, with the exact files still on screen', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview();
 
+    expect(screen.getByText('Adds Fabric API')).toBeInTheDocument();
+    expect(screen.getByText('Adds 1 more mod it needs')).toBeInTheDocument();
+    // Once in the sentence, once in the file list below it.
+    expect(screen.getAllByText(/Fabric Language Kotlin/)).toHaveLength(2);
+    // This is the security gate, so the filenames start visible here rather than folded away.
     expect(screen.getByText('mods/fabric-api-0.102.0.jar')).toBeInTheDocument();
     expect(screen.getByText('mods/fabric-language-kotlin-1.12.0.jar')).toBeInTheDocument();
-    expect(screen.getByText('Pulled in as a dependency')).toBeInTheDocument();
-    // The name the reviewer read two rows above, never the registry id the API sends.
-    expect(screen.getByText('Required by Fabric API')).toBeInTheDocument();
-    expect(screen.queryByText(/Required by P7dR8mSH/)).not.toBeInTheDocument();
+    // Never the registry id the API sends, and never the resolver's vocabulary.
+    expect(screen.queryByText(/P7dR8mSH/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/dependency/i)).not.toBeInTheDocument();
   });
 
-  it('disables approval when the plan does not resolve, and says why', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('refuses the add when the plan does not work, and says why', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview(
       proposalFixture({
         snapshot: {
@@ -328,10 +354,11 @@ describe('ProposalReview — informed decision', () => {
       }),
     );
 
-    const approve = screen.getByRole('button', { name: 'Approve and install' });
-    expect(approve).toBeDisabled();
+    const add = screen.getByRole('button', { name: 'Add all 2 to server' });
+    expect(add).toBeDisabled();
     // A disabled control always carries its reason, and the reason is tied to the control.
-    expect(approve).toHaveAccessibleDescription(/does not resolve against this server/i);
+    expect(add).toHaveAccessibleDescription(/no longer works on Survival SMP/i);
+    expect(screen.getByText('Built for a different kind of server.')).toBeInTheDocument();
     expect(
       screen.getByText(/This build needs Fabric and the server runs Paper./),
     ).toBeInTheDocument();
@@ -339,36 +366,41 @@ describe('ProposalReview — informed decision', () => {
 });
 
 describe('ProposalReview — the decision', () => {
-  it('offers approve and reject at equal weight, with neither pre-selected', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('offers add and dismiss at equal weight, with neither pre-selected', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview();
 
-    const approve = screen.getByRole('button', { name: 'Approve and install' });
-    const reject = screen.getByRole('button', { name: 'Reject' });
+    const add = screen.getByRole('button', { name: 'Add all 2 to server' });
+    const dismiss = screen.getByRole('button', { name: 'Dismiss' });
 
-    // Same variant, so neither is the near-black primary the rest of the app uses.
-    expect(approve.getAttribute('data-variant')).toBe(reject.getAttribute('data-variant'));
-    expect(approve).toHaveAttribute('data-variant', 'outline');
-    expect(document.activeElement).not.toBe(approve);
-    expect(document.activeElement).not.toBe(reject);
+    // Same variant, so neither is the near-black primary the rest of the app uses. The
+    // interface has no opinion about which way this should go.
+    expect(add.getAttribute('data-variant')).toBe(dismiss.getAttribute('data-variant'));
+    expect(add).toHaveAttribute('data-variant', 'outline');
+    expect(document.activeElement).not.toBe(add);
+    expect(document.activeElement).not.toBe(dismiss);
   });
 
-  it('installs nothing until the confirmation is answered', async () => {
+  it('adds nothing until the confirmation is answered', async () => {
     const user = userEvent.setup();
-    const fetchSpy = vi.fn(async () => json({ data: [] }));
-    vi.stubGlobal('fetch', fetchSpy);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview();
 
-    await user.click(screen.getByRole('button', { name: 'Approve and install' }));
+    await user.click(screen.getByRole('button', { name: 'Add all 2 to server' }));
 
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText(/writes executable code/i)).toBeInTheDocument();
-    expect(
-      fetchCalls().some(([url]) => url.includes('/approve')),
-    ).toBe(false);
+    expect(dialog).toHaveTextContent('Add Fabric API 0.102.0+1.21.1 to Survival SMP?');
+    expect(within(dialog).getByText(/downloads 2 files/i)).toBeInTheDocument();
+    expect(fetchCalls().some(([url]) => url.includes('/approve'))).toBe(false);
   });
 
-  it('sends the optional note with a rejection', async () => {
+  it('sends the optional note with a dismissal', async () => {
     const user = userEvent.setup();
     vi.stubGlobal(
       'fetch',
@@ -380,13 +412,13 @@ describe('ProposalReview — the decision', () => {
     );
     renderReview();
 
-    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.type(
-      within(dialog).getByLabelText('Note (optional)'),
+      within(dialog).getByLabelText('Why not? (optional)'),
       'We already ship Paper, not Fabric.',
     );
-    await user.click(within(dialog).getByRole('button', { name: 'Reject proposal' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Dismiss it' }));
 
     await waitFor(() => {
       const call = fetchCalls().find(([url]) => url.includes('/reject'));
@@ -396,8 +428,8 @@ describe('ProposalReview — the decision', () => {
   });
 });
 
-describe('ProposalReview — drift', () => {
-  it('surfaces a changed listing prominently and installs nothing', async () => {
+describe('ProposalReview — the listing changing underneath', () => {
+  it('surfaces a changed listing prominently and adds nothing', async () => {
     const user = userEvent.setup();
     vi.stubGlobal(
       'fetch',
@@ -410,16 +442,16 @@ describe('ProposalReview — drift', () => {
     );
     renderReview();
 
-    await user.click(screen.getByRole('button', { name: 'Approve and install' }));
+    await user.click(screen.getByRole('button', { name: 'Add all 2 to server' }));
     const dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Approve and install' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add to server' }));
 
     const panel = await screen.findByRole('alert');
-    expect(within(panel).getByText('This is not what you reviewed')).toBeInTheDocument();
-    expect(within(panel).getByText(/Nothing was installed/)).toBeInTheDocument();
-    // The diff is field-level and names what changed, in a reviewer's vocabulary.
-    expect(within(panel).getByText('SHA-512 checksum')).toBeInTheDocument();
-    expect(within(panel).getByText('Download URL')).toBeInTheDocument();
+    expect(within(panel).getByText('This is not what you were shown')).toBeInTheDocument();
+    expect(within(panel).getByText(/Nothing was added/)).toBeInTheDocument();
+    // The difference is field-level and named in words, not in registry field names.
+    expect(within(panel).getByText('The file’s fingerprint')).toBeInTheDocument();
+    expect(within(panel).getByText('Where it downloads from')).toBeInTheDocument();
     expect(
       within(panel).getByText('https://elsewhere.invalid/fabric-api-0.102.0.jar'),
     ).toBeInTheDocument();
@@ -427,53 +459,57 @@ describe('ProposalReview — drift', () => {
     expect(within(panel).getByText('Does not change what runs')).toBeInTheDocument();
   });
 
-  it('re-approves only against the new digest', async () => {
+  it('adds again only against the digest it has just shown', async () => {
     const user = userEvent.setup();
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) =>
-        String(input).includes('/approve')
-          ? json(changedOutcome(), 409)
-          : json({ data: [] }),
+        String(input).includes('/approve') ? json(changedOutcome(), 409) : json({ data: [] }),
       ),
     );
     renderReview();
 
-    await user.click(screen.getByRole('button', { name: 'Approve and install' }));
+    await user.click(screen.getByRole('button', { name: 'Add all 2 to server' }));
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Approve and install',
+        name: 'Add to server',
       }),
     );
     await user.click(
       await screen.findByRole('button', {
-        name: 'I have read the changes — install the new version',
+        name: 'I have read the changes — add the new one',
       }),
     );
 
     await waitFor(() => {
       const approvals = fetchCalls().filter(([url]) => url.includes('/approve'));
       expect(approvals).toHaveLength(2);
-      // The first attempt acknowledges nothing; the second carries the digest the reviewer
-      // was actually shown. That is the only way consent to the new bytes can be expressed.
+      // The first attempt acknowledges nothing; the second carries the digest that was
+      // actually shown. That is the only way consent to the new bytes can be expressed.
       expect(String(approvals[0]?.[1]?.body)).toContain('"acknowledgedDigest":null');
       expect(String(approvals[1]?.[1]?.body)).toContain('digest-after-the-change');
     });
   });
 
-  it('warns about drift found on an earlier attempt, before anything is pressed', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('warns about a change found on an earlier attempt, before anything is pressed', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview(proposalFixture({ driftDetectedAt: '2026-08-02T09:00:00.000Z' }));
 
     expect(
-      screen.getByText('This listing changed once since it was proposed'),
+      screen.getByText('This listing changed once since it was suggested'),
     ).toBeInTheDocument();
   });
 });
 
-describe('ProposalReview — settled proposals', () => {
-  it('reports a rejection with its note instead of offering the decision again', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+describe('ProposalReview — settled suggestions', () => {
+  it('reports a dismissal with its note instead of offering the decision again', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview(
       proposalFixture({
         status: 'rejected',
@@ -483,32 +519,31 @@ describe('ProposalReview — settled proposals', () => {
       }),
     );
 
-    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.getByText('Dismissed')).toBeInTheDocument();
     expect(screen.getByText('“Wrong loader.”')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Approve and install' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add all/ })).not.toBeInTheDocument();
   });
 
-  it('explains a failed install rather than leaving it looking pending', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('explains a failed add rather than leaving it looking open', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     renderReview(
       proposalFixture({ status: 'failed', error: 'The checksum did not match the download.' }),
     );
 
-    expect(screen.getByText('The install failed')).toBeInTheDocument();
-    expect(
-      screen.getByText(/The checksum did not match the download./),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Adding it failed')).toBeInTheDocument();
+    expect(screen.getByText(/The checksum did not match the download./)).toBeInTheDocument();
   });
 });
 
-describe('ProposalQueue — a failed install is not allowed to vanish', () => {
+describe('ProposalQueue — a failed add is not allowed to vanish', () => {
   function renderQueue() {
     return render(
       <QueryClientProvider client={createQueryClient()}>
         <MemoryRouter>
-          <ProposalQueue serverId="srv_1" />
+          <ProposalQueue serverId="srv_1" serverName="Survival SMP" />
         </MemoryRouter>
       </QueryClientProvider>,
     );
@@ -522,7 +557,7 @@ describe('ProposalQueue — a failed install is not allowed to vanish', () => {
     );
   }
 
-  it('keeps a failed proposal on screen, with the reason, instead of an empty queue', async () => {
+  it('keeps a failed suggestion on screen, with the reason, instead of an empty list', async () => {
     vi.stubGlobal(
       'fetch',
       queueFetch(
@@ -538,14 +573,14 @@ describe('ProposalQueue — a failed install is not allowed to vanish', () => {
     );
     renderQueue();
 
-    // Approving this is what put it here; "Nothing waiting for review" would say the
-    // opposite of what happened.
-    expect(await screen.findByText('The install failed')).toBeInTheDocument();
+    // Pressing add is what put it here; "no suggestions right now" would say the opposite
+    // of what happened.
+    expect(await screen.findByText('Adding it failed')).toBeInTheDocument();
     expect(screen.getByText(new RegExp(FAILURE.replace(/[.()]/g, '\\$&')))).toBeInTheDocument();
-    expect(screen.queryByText('Nothing waiting for review')).not.toBeInTheDocument();
-    // Terminal on the API, so the way forward is a fresh proposal rather than a retry.
-    expect(screen.getByRole('button', { name: 'Propose it again' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve and install' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No suggestions right now')).not.toBeInTheDocument();
+    // Terminal on the API, so the way forward is a fresh suggestion rather than a retry.
+    expect(screen.getByRole('button', { name: 'Try it again' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add all/ })).not.toBeInTheDocument();
   });
 
   it('drops a failure once it is a week old', async () => {
@@ -556,10 +591,10 @@ describe('ProposalQueue — a failed install is not allowed to vanish', () => {
     );
     renderQueue();
 
-    expect(await screen.findByText('Nothing waiting for review')).toBeInTheDocument();
+    expect(await screen.findByText('No suggestions right now')).toBeInTheDocument();
   });
 
-  it('waits for both halves before claiming the queue is empty', async () => {
+  it('waits for both halves before claiming there is nothing waiting', async () => {
     let releaseFailed: () => void = () => undefined;
     const failedArrives = new Promise<void>((resolve) => {
       releaseFailed = resolve;
@@ -576,25 +611,28 @@ describe('ProposalQueue — a failed install is not allowed to vanish', () => {
     );
     renderQueue();
 
-    // The pending list is back and empty, but nothing may be asserted about the queue yet.
+    // The pending list is back and empty, but nothing may be claimed about the queue yet.
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
-    expect(screen.queryByText('Nothing waiting for review')).not.toBeInTheDocument();
+    expect(screen.queryByText('No suggestions right now')).not.toBeInTheDocument();
 
     releaseFailed();
-    expect(await screen.findByText('The install failed')).toBeInTheDocument();
+    expect(await screen.findByText('Adding it failed')).toBeInTheDocument();
   });
 });
 
-describe('ProposalReview — a failure recorded on an open proposal', () => {
-  it('reports the last attempt rather than showing a proposal that looks untouched', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
-    // A *retryable* failure leaves the proposal pending with the reason stored on it.
+describe('ProposalReview — a failure recorded on an open suggestion', () => {
+  it('reports the last attempt rather than showing something that looks untouched', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
+    // A *retryable* failure leaves the suggestion open with the reason stored on it.
     renderReview(proposalFixture({ error: 'The node did not answer in time.' }));
 
     expect(screen.getByText('The last attempt did not finish')).toBeInTheDocument();
     expect(screen.getByText(/The node did not answer in time./)).toBeInTheDocument();
     // Still open, so the decision is still offered.
-    expect(screen.getByRole('button', { name: 'Approve and install' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add all 2 to server' })).toBeEnabled();
   });
 });
 
@@ -609,22 +647,25 @@ describe('PendingProposalsBadge', () => {
     );
   }
 
-  it('renders nothing when the queue is empty, so it is safe to mount always', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] })));
+  it('renders nothing when nothing is waiting, so it is safe to mount always', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ data: [] })),
+    );
     const { container } = renderBadge();
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('counts what is waiting and links to the queue', async () => {
+  it('counts what is waiting and links to the list', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => json({ data: [proposalFixture(), proposalFixture({ id: 'mpr_2' })] })),
     );
     renderBadge();
 
-    const link = await screen.findByRole('link', { name: '2 mods wait for review' });
+    const link = await screen.findByRole('link', { name: '2 mods suggested for you' });
     expect(link).toHaveAttribute('href', '/servers/srv_1/mods');
   });
 });

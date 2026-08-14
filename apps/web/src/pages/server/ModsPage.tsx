@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { InstalledMods } from '@/components/mods/installed-mods';
 import { ModDetailSheet } from '@/components/mods/mod-detail-sheet';
 import { ModSearch } from '@/components/mods/mod-search';
-import { ProposalQueue } from '@/components/mods/proposal-review';
+import { ProposalQueue, useProposalQueue } from '@/components/mods/proposal-review';
 import { PageBody } from '@/components/layout/page-header';
 import { minecraftTypeLabel } from '@/components/servers/minecraft-type-picker';
 import type { ModSource } from '@/hooks';
@@ -10,16 +10,23 @@ import { useInstalledMods } from '@/hooks';
 import { useServerScope } from '@/pages/server/ServerLayout';
 
 /**
- * Mods and plugins for one server.
+ * Mods for one server.
  *
- * Three stacked sections rather than a widget that hides two of them: the review queue first,
- * because a proposal is somebody waiting on you; then the registry search; then what is on
- * disk. The order is the order of urgency, and the vertical rhythm is the design language's
- * — this screen is airy on purpose.
+ * There are two ways a mod gets here, and the page is laid out so which one you are in is
+ * never in doubt.
  *
- * There is no install control anywhere on this page. Search sends a mod for review, review
- * approves it, and approval is the only thing that writes a file. See
- * `apps/api/src/routes/mods.ts` for why there is no endpoint to shortcut that.
+ * **You found it.** You search, you open it, you press add. No form, no queue, no waiting on
+ * yourself — the old screen made a person write a justification and file a request they then
+ * had to approve, which is a review workflow pointed at the wrong human. Search leads the page,
+ * because that is what somebody opening this tab almost always came to do.
+ *
+ * **Something suggested it.** An assistant over MCP can propose a mod and cannot install one
+ * (`apps/api/src/routes/proposals.ts` — `ai.use` proposes, `files.write` installs). That is a
+ * decision waiting on a person, so when one exists it takes the top of the page; when none
+ * does, the section falls to the bottom and explains itself rather than sitting empty above
+ * the thing you came for.
+ *
+ * The vertical rhythm is the design language's — this screen is airy on purpose.
  */
 
 /**
@@ -28,7 +35,7 @@ import { useServerScope } from '@/pages/server/ServerLayout';
  * Mirrors `buildModContext` in `apps/api/src/services/mods.ts`: `LATEST` and `SNAPSHOT` are
  * aliases with no knowable version, and the honest answer for them is null. Used here only for
  * display and for the soft compatibility warning on a card — the API remains the authority on
- * what this server can actually load, and its `incompatibleReason` is what the detail sheet
+ * what this server can actually run, and its `incompatibleReason` is what the detail sheet
  * shows.
  */
 function concreteGameVersion(variables: Readonly<Record<string, string>>): string | null {
@@ -45,28 +52,37 @@ interface SheetTarget {
 }
 
 export function ModsPage() {
-  const { server } = useServerScope();
+  const { server, status } = useServerScope();
   const installedQuery = useInstalledMods(server.id);
+  const { proposals } = useProposalQueue(server.id);
   const [target, setTarget] = useState<SheetTarget | null>(null);
+  /** Set when the open sheet actually put something on disk, read when it closes. */
+  const added = useRef(false);
 
   const gameVersion = concreteGameVersion(server.variables);
   const serverType = minecraftTypeLabel((server.variables.TYPE ?? '').trim());
+  const hasSuggestions = proposals.length > 0;
+
+  const suggestions = (
+    <section aria-labelledby="mods-suggested" className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-title-2 text-label" id="mods-suggested">
+          Suggested for you
+        </h2>
+        <p className="max-w-prose text-subhead text-label-secondary">
+          {hasSuggestions
+            ? 'An assistant picked these out. Nothing is on the server until you say so.'
+            : 'An assistant connected over MCP can suggest a mod. It cannot put one on the server — that is always your call.'}
+        </p>
+      </div>
+      <ProposalQueue serverId={server.id} serverName={server.name} />
+    </section>
+  );
 
   return (
     <PageBody>
       <div className="flex flex-col gap-16 sm:gap-24">
-        <section aria-labelledby="mods-review" className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-title-2 text-label" id="mods-review">
-              Waiting for review
-            </h2>
-            <p className="max-w-prose text-subhead text-label-secondary">
-              An agent can suggest a mod. Only a person can install one. An install that failed
-              stays here as well, with the reason it gave.
-            </p>
-          </div>
-          <ProposalQueue serverId={server.id} />
-        </section>
+        {hasSuggestions ? suggestions : null}
 
         <section aria-labelledby="mods-browse" className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
@@ -75,12 +91,9 @@ export function ModsPage() {
             </h2>
             <p className="max-w-prose text-subhead text-label-secondary">
               Search Modrinth
-              {(installedQuery.data?.sources ?? []).includes('curseforge')
-                ? ' and CurseForge'
-                : ''}
-              {serverType === '' ? '' : `, filtered to what a ${serverType} server loads`}.
-              Picking one sends it to the queue above; it is not installed until it is
-              approved.
+              {(installedQuery.data?.sources ?? []).includes('curseforge') ? ' and CurseForge' : ''}
+              {serverType === '' ? '' : `, narrowed to what a ${serverType} server runs`}. Open one
+              to read what it does, then add it.
             </p>
           </div>
           <ModSearch
@@ -97,11 +110,10 @@ export function ModsPage() {
         <section aria-labelledby="mods-installed" className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <h2 className="text-title-2 text-label" id="mods-installed">
-              Installed
+              On this server
             </h2>
             <p className="max-w-prose text-subhead text-label-secondary">
-              Every jar Platter put on this server, with the checksum it verified and who
-              approved it.
+              Every mod Platter put on {server.name}, when it went on, and who added it.
             </p>
           </div>
           <InstalledMods
@@ -111,19 +123,32 @@ export function ModsPage() {
             serverId={server.id}
           />
         </section>
+
+        {hasSuggestions ? null : suggestions}
       </div>
 
       <ModDetailSheet
-        onClose={() => setTarget(null)}
-        onProposed={() => {
-          // The queue is at the top of this same page, behind the sheet. Closing it and
-          // moving there is what "it waits in the review queue" actually means.
+        onAdded={() => {
+          added.current = true;
+        }}
+        onClose={() => {
           setTarget(null);
+          /*
+           * The installed list is on this same page, behind the sheet — so the move happens on
+           * the way out, not the moment the install lands. While the sheet is open it holds a
+           * scroll lock on the body and the page underneath cannot go anywhere; scrolling then
+           * would silently do nothing, and the reader would close the sheet to find the screen
+           * exactly where they left it and no sign of the thing they just added.
+           */
+          if (!added.current) return;
+          added.current = false;
           document
-            .getElementById('mods-review')
+            .getElementById('mods-installed')
             ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
         }}
         serverId={server.id}
+        serverName={server.name}
+        serverRunning={status === 'running'}
         target={target}
       />
     </PageBody>

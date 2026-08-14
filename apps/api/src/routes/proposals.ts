@@ -3,6 +3,7 @@ import type { RateLimitOptions } from '@fastify/rate-limit';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { requireServer } from '../plugins/auth.js';
+import type { ModProposal } from '../services/proposals.js';
 import { modSourceSchema } from '../mods/registry.js';
 import { installedModSchema, resolutionSchema } from '../mods/resolve.js';
 import {
@@ -15,7 +16,7 @@ import {
   propose,
   reject,
 } from '../services/proposals.js';
-import { clientAbortSignal } from './mods.js';
+import { clientAbortSignal, withProxiedArtwork, withProxiedIcon } from './mods.js';
 
 /**
  * The review queue.
@@ -73,6 +74,34 @@ const approvalOutcomeSchema = z.object({
   digest: z.string(),
 });
 
+/**
+ * Rewrites every image URL a proposal carries onto the same-origin proxy.
+ *
+ * The review screen is the one place a person is asked to judge something an agent chose for
+ * them, so it is the last place that should render blank tiles. Its artwork comes from the
+ * frozen snapshot rather than a live lookup, which is exactly why it was missed: the mod
+ * routes proxy what they fetch, and nothing was proxying what was stored.
+ *
+ * Signing at read time rather than at propose time is deliberate — a signature minted months
+ * ago would still be in the row after `JWT_SECRET` was rotated, and would then fail to verify.
+ */
+function withProxiedProposal<T extends ModProposal>(proposal: T): T {
+  const { snapshot } = proposal;
+  const serverId = proposal.serverId;
+  return {
+    ...proposal,
+    snapshot: {
+      ...snapshot,
+      detail: withProxiedArtwork(serverId, snapshot.detail),
+      resolution: {
+        ...snapshot.resolution,
+        install: snapshot.resolution.install.map((entry) => withProxiedIcon(serverId, entry)),
+        satisfied: snapshot.resolution.satisfied.map((entry) => withProxiedIcon(serverId, entry)),
+      },
+    },
+  };
+}
+
 const proposalRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -89,7 +118,9 @@ const proposalRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => ({
-      data: await listProposals(request.params.serverId, request.query.status, request.log),
+      data: (await listProposals(request.params.serverId, request.query.status, request.log)).map(
+        withProxiedProposal,
+      ),
     }),
   );
 
@@ -123,7 +154,7 @@ const proposalRoutes: FastifyPluginAsync = async (fastify) => {
         log: request.log,
       });
       reply.code(201);
-      return proposal;
+      return withProxiedProposal(proposal);
     },
   );
 
@@ -138,7 +169,10 @@ const proposalRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: modProposalSchema },
       },
     },
-    async (request) => getProposal(request.params.serverId, request.params.id, request.log),
+    async (request) =>
+      withProxiedProposal(
+        await getProposal(request.params.serverId, request.params.id, request.log),
+      ),
   );
 
   app.post(
@@ -171,7 +205,7 @@ const proposalRoutes: FastifyPluginAsync = async (fastify) => {
       // 409 for both non-install outcomes: the request conflicts with the world as it is now,
       // and the body says exactly how.
       if (outcome.status !== 'installed') reply.code(409);
-      return outcome;
+      return { ...outcome, proposal: withProxiedProposal(outcome.proposal) };
     },
   );
 
@@ -191,13 +225,15 @@ const proposalRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const server = requireServer(request);
       const actor = request.auth?.user ?? null;
-      return reject(server, request.params.id, request.body.note ?? null, {
-        reviewerId: actor?.id ?? null,
-        reviewerName: actor?.displayName ?? null,
-        ip: request.ip,
-        userAgent: request.headers['user-agent'] ?? null,
-        log: request.log,
-      });
+      return withProxiedProposal(
+        await reject(server, request.params.id, request.body.note ?? null, {
+          reviewerId: actor?.id ?? null,
+          reviewerName: actor?.displayName ?? null,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] ?? null,
+          log: request.log,
+        }),
+      );
     },
   );
 };

@@ -57,6 +57,16 @@ const securityPlugin: FastifyPluginAsync = async (app) => {
         scriptSrc: ["'self'", "'unsafe-inline'"],
         // Styled-in-JS and the docs UI both emit inline style attributes.
         styleSrc: ["'self'", "'unsafe-inline'"],
+        // Stays `'self'` on purpose, and mod artwork is the reason it is worth stating.
+        //
+        // Mod icons and gallery screenshots live on cdn.modrinth.com and media.forgecdn.net,
+        // so the obvious fix for a grid of blank tiles is to name those CDNs here. Platter
+        // proxies them through `GET /servers/:serverId/mods/icon` instead (see
+        // `mods/icon-proxy.ts`), because for a self-hosted panel that is the better trade:
+        // the operator's browser never beacons to a third party revealing which mods they are
+        // reading about, it works on a host whose only egress is `HTTPS_PROXY` — where the
+        // server can reach the CDN and the browser cannot — and this directive stays a real
+        // boundary instead of a list that grows by one entry per registry.
         imgSrc: ["'self'", 'data:', 'blob:'],
         fontSrc: ["'self'", 'data:'],
         // The console reads over a websocket on the same origin, under either scheme.
