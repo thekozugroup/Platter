@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!--
+    Tab icon. The mark sits on a filled near-black tile rather than floating on the tab's
+    own background: a bare glyph inherits whatever colour the browser chrome is and
+    disappears entirely in a dark-themed tab strip.
+  -->
+  <rect width="24" height="24" rx="5" fill="#161616"/>
+  <g transform="translate(2.4 2.4) scale(0.8)" fill="#f7f7f7">
+    <path d="M6 2h8v2H6zM4 4h12v2H4zM2 6h16v8H2zM4 14h12v2H4zM6 16h8v2H6zM16 16h2v2h-2zM18 18h2v2h-2zM20 20h2v2h-2z"/>
+  </g>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Platter">
+  <!--
+    Platter's mark: pixelarticons' `gamepad-directions`, solid.
+
+    The set ships this icon as an outline only, so the fill is the same silhouette on the
+    same 24px grid — every edge lands on an even coordinate, which is what keeps it crisp
+    at 16px instead of blurring onto half-pixels.
+  -->
+  <path d="M6 2h8v2H6zM4 4h12v2H4zM2 6h16v8H2zM4 14h12v2H4zM6 16h8v2H6zM16 16h2v2h-2zM18 18h2v2h-2zM20 20h2v2h-2z"/>
+</svg>
