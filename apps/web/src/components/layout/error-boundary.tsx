@@ -29,8 +29,8 @@ function CrashScreen({ error, homeTo = '/' }: { error: Error; homeTo?: string })
     <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-bg px-6 py-16 text-center">
       <h1 className="text-title-1 text-label">This screen crashed</h1>
       <p className="max-w-prose text-balance text-body text-label-secondary">
-        Platter hit a bug while drawing this page. Your servers are unaffected — nothing here
-        talks to them until the page loads.
+        Platter hit a bug while drawing this page. Your servers are unaffected — nothing here talks
+        to them until the page loads.
       </p>
 
       <pre className="max-w-full overflow-x-auto rounded-sm border border-separator-strong bg-bg-sunken px-4 py-3 text-start font-mono text-caption text-label-secondary">
@@ -38,11 +38,7 @@ function CrashScreen({ error, homeTo = '/' }: { error: Error; homeTo?: string })
       </pre>
 
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-        <Button
-          className={pageActionClass}
-          onClick={() => window.location.reload()}
-          size="lg"
-        >
+        <Button className={pageActionClass} onClick={() => window.location.reload()} size="lg">
           Reload the page
         </Button>
         <Button asChild className={cn(pageActionClass)} size="lg" variant="outline">
@@ -94,7 +90,7 @@ export function RouteErrorBoundary() {
         <p className="max-w-prose text-balance text-body text-label-secondary">
           {isNotFound
             ? 'The address is wrong, or whatever used to be here has been deleted.'
-            : (error.statusText || 'The router could not load this route.')}
+            : error.statusText || 'The router could not load this route.'}
         </p>
         <Button asChild className={pageActionClass} size="lg">
           <Link to="/">Go to the dashboard</Link>

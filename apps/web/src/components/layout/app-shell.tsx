@@ -114,10 +114,12 @@ function AppShellFrame() {
     <SidebarProvider
       onOpenChange={handleOpenChange}
       open={expanded}
-      style={{
-        '--sidebar-width': 'var(--pl-sidebar-width)',
-        '--sidebar-width-icon': 'var(--pl-sidebar-width-collapsed)',
-      } as React.CSSProperties}
+      style={
+        {
+          '--sidebar-width': 'var(--pl-sidebar-width)',
+          '--sidebar-width-icon': 'var(--pl-sidebar-width-collapsed)',
+        } as React.CSSProperties
+      }
     >
       {/* First focusable element on the page, by construction. */}
       <SkipNavLink id={MAIN_ID}>Skip to content</SkipNavLink>

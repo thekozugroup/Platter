@@ -1,10 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Platter">
   <!--
-    Platter's mark: pixelarticons' `gamepad-directions`, solid.
+    Platter's mark.
 
-    The set ships this icon as an outline only, so the fill is the same silhouette on the
-    same 24px grid — every edge lands on an even coordinate, which is what keeps it crisp
-    at 16px instead of blurring onto half-pixels.
+    Drawn in the idiom of pixelarticons — the set the rest of the product's icons come from —
+    but it is not one of that set's glyphs: a filled body with a three-step tail falling to the
+    lower right. Every edge lands on an even coordinate of the 24px grid, which is what keeps
+    it crisp at 16px instead of blurring onto half-pixels.
+
+    The bounding box is x 2..22, y 2..22 — square, but not the full grid. Anything placing this
+    on a tile must centre it on that box rather than on the viewBox, or the tail hangs off one
+    corner. `public/favicon.svg` does exactly that, and the PNG siblings beside it are
+    generated with the same transform.
+
+    `fill="currentColor"` is load-bearing. The design system has no brand hue, so the mark is
+    whatever colour the text beside it is, in both themes. `src/components/common/platter-mark.tsx`
+    inlines this same path as a component for the same reason — an <img> cannot inherit colour.
+    Keep the two in step.
   -->
   <path d="M6 2h8v2H6zM4 4h12v2H4zM2 6h16v8H2zM4 14h12v2H4zM6 16h8v2H6zM16 16h2v2h-2zM18 18h2v2h-2zM20 20h2v2h-2z"/>
 </svg>

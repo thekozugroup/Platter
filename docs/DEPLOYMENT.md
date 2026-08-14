@@ -325,10 +325,10 @@ setting it too.
 
 ### Behind an egress proxy
 
-| Variable      | Default | Notes |
-| ------------- | ------- | ----- |
-| `HTTPS_PROXY` | —       | Proxy for outbound HTTPS. Lowercase `https_proxy` works too. |
-| `HTTP_PROXY`  | —       | Proxy for outbound HTTP. |
+| Variable      | Default | Notes                                                            |
+| ------------- | ------- | ---------------------------------------------------------------- |
+| `HTTPS_PROXY` | —       | Proxy for outbound HTTPS. Lowercase `https_proxy` works too.     |
+| `HTTP_PROXY`  | —       | Proxy for outbound HTTP.                                         |
 | `NO_PROXY`    | —       | Comma-separated hosts to reach directly. Conventional semantics. |
 
 Set these if your network requires a proxy for outbound traffic, and Platter will route mod

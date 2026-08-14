@@ -6,7 +6,22 @@
     <title>Platter</title>
     <meta name="description" content="Simple, clean, easily deployable game servers driven by AI" />
     <meta name="color-scheme" content="light dark" />
+    <!--
+      Matches `--pl-bg` in each theme (tokens.css), so the browser's own chrome on Android and
+      iOS Safari is the same colour as the page under it instead of a strip of default grey.
+      Two tags rather than one: a single `theme-color` cannot follow the theme.
+    -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d" />
+
+    <!--
+      The SVG is the real favicon; the PNG is the fallback for browsers that do not take one
+      (Safari before 17 among them), and is the same artwork rasterised — see
+      `public/manifest.webmanifest` for the rest of the set. `apple-touch-icon` has to be a
+      PNG: iOS ignores an SVG there and falls back to a screenshot of the page.
+    -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <script>

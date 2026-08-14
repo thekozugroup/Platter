@@ -26,6 +26,7 @@ import { User } from 'pixelarticons/react/User.js';
 import { Users } from 'pixelarticons/react/Users.js';
 import { avatarStyle } from '@/components/common/avatar-ink';
 import { GameIcon } from '@/components/common/game-icon';
+import { PlatterMark } from '@/components/common/platter-mark';
 import { StatusDot } from '@/components/common/status-pill';
 import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -374,11 +375,15 @@ export function AppSidebar({ onSearch, searchShortcut }: AppSidebarProps) {
             className={cn(
               // The wordmark is a real navigation target, so it takes the 44px floor like
               // every other one — its 30px line box was the last sub-minimum hit area left.
-              'hit-target rounded-xs font-heading text-headline font-medium tracking-title text-label',
+              'hit-target flex items-center gap-2 rounded-xs font-heading text-headline font-medium tracking-title text-label',
+              // Mark and word collapse together, as the word alone used to. The rail is 3rem
+              // wide with `px-3`, leaving 24px of content that the collapse chevron already
+              // more than fills — a mark left behind there would sit on top of it.
               COLLAPSED_LABEL,
             )}
             to="/"
           >
+            <PlatterMark className="size-5" />
             Platter
           </Link>
           <CollapseControl />
@@ -413,7 +418,10 @@ export function AppSidebar({ onSearch, searchShortcut }: AppSidebarProps) {
                     {/* A phone has no Ctrl key, and this row renders inside the nav sheet
                         there — so the shortcut is desktop-only. */}
                     <Kbd
-                      className={cn('ms-auto hidden bg-transparent md:inline-flex', COLLAPSED_LABEL)}
+                      className={cn(
+                        'ms-auto hidden bg-transparent md:inline-flex',
+                        COLLAPSED_LABEL,
+                      )}
                       variant="outline"
                     >
                       {searchShortcut}

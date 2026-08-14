@@ -13,6 +13,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { AppSplash } from '@/components/layout/app-shell';
 import { ErrorState } from '@/components/common/error-state';
+import { PlatterMark } from '@/components/common/platter-mark';
 import { ApiError, NetworkError, errorMessage } from '@/lib/api-client.js';
 import { useAuth, useSystemInfo } from '@/lib/auth.js';
 import { cn } from '@/lib/utils';
@@ -140,13 +141,14 @@ export function SetupPage() {
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
       <div className="flex flex-col justify-center px-6 py-12 sm:px-12">
         <div className="mx-auto w-full max-w-sm">
-          <p className="font-heading text-headline font-medium tracking-title text-label">
+          <p className="flex items-center gap-2 font-heading text-headline font-medium tracking-title text-label">
+            <PlatterMark className="size-5" />
             Platter
           </p>
           <h1 className="mt-6 text-title-1 text-label">Create the owner account</h1>
           <p className="mt-3 text-body text-label-secondary">
-            Nobody has signed in to this installation yet. The first account owns it: it can
-            create servers, add nodes, and promote everyone else.
+            Nobody has signed in to this installation yet. The first account owns it: it can create
+            servers, add nodes, and promote everyone else.
           </p>
 
           <form className="mt-8" noValidate onSubmit={(event) => void handleSubmit(event)}>

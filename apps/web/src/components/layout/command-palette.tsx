@@ -221,7 +221,10 @@ function CommandPalette() {
     return [...servers, ...pages];
   }, [data, isAdmin, blueprints]);
 
-  const filtered = useMemo(() => entries.filter((entry) => matches(entry, query)), [entries, query]);
+  const filtered = useMemo(
+    () => entries.filter((entry) => matches(entry, query)),
+    [entries, query],
+  );
 
   const collection = useMemo(
     () =>

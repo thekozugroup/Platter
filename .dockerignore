@@ -34,6 +34,12 @@
 
 **/*.log
 .DS_Store
+# Prose and the installer. `COPY . .` in the build stage would otherwise sweep these into the
+# context on every build; nothing in the Dockerfile reads them. LICENSE is deliberately not
+# here — a container image should carry its licence.
 docs
 README.md
 CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+install.sh

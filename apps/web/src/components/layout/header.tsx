@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { Menu as MenuIcon } from 'pixelarticons/react/Menu.js';
 import { Search } from 'pixelarticons/react/Search.js';
+import { PlatterMark } from '@/components/common/platter-mark';
 import { useCommandPalette } from '@/components/layout/command-palette';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -32,9 +33,10 @@ export function AppHeader() {
       </Button>
 
       <Link
-        className="rounded-xs font-heading text-headline font-medium tracking-title text-label"
+        className="flex items-center gap-2 rounded-xs font-heading text-headline font-medium tracking-title text-label"
         to="/"
       >
+        <PlatterMark className="size-5" />
         Platter
       </Link>
 

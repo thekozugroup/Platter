@@ -1,0 +1,233 @@
+name: Release
+
+# Tag-driven. `git tag v0.1.0 && git push --tags` is the whole publish step.
+#
+# `workflow_dispatch` is here for re-running a release whose image push failed after the tag
+# already existed — retagging to force a re-run rewrites history that people may have fetched.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release (e.g. v0.1.0)'
+        required: true
+        type: string
+
+# Only GITHUB_TOKEN is used. `packages: write` pushes to GHCR under the same owner as the
+# repository, and `contents: write` creates the release. No other secret exists, and none is
+# needed — adding one would make this workflow unrunnable on a fork.
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # The tag is not the artifact — the code at the tag is. Running the full gate here means a
+  # broken release fails before anything is published, rather than after.
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared contracts
+        run: pnpm --filter @platter/shared build
+
+      - name: Generate Prisma client
+        run: pnpm --filter @platter/api exec prisma generate
+
+      - name: Typecheck, lint and test
+        env:
+          DEFAULT_NODE_DRIVER: mock
+          JWT_SECRET: ci-secret-not-used-outside-continuous-integration-0000
+          DATABASE_URL: file:./data/ci.db
+        run: pnpm verify
+
+  image:
+    name: Build and push image
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      # arm64 is emulated through binfmt here. It is slow — a full cross build is the reason
+      # this job's timeout is an hour — but it means a Raspberry Pi or an Ampere VPS can run
+      # `docker compose up` with no build step, which is the whole point of publishing.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `${{ github.repository }}` lowercased: GHCR rejects an image name with a capital in it,
+      # and this repository is `thekozugroup/Platter`. Hard-coding the lowercase name instead
+      # would silently break the first time someone forks it.
+      - name: Resolve image name
+        id: name
+        run: echo "image=${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Derive tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.name.outputs.image }}
+          # `latest` only for a final release. A prerelease tag such as v0.2.0-rc.1 must never
+          # become what a fresh `docker compose up` pulls.
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.tag || github.ref_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag || github.ref_name }}
+            type=raw,value=latest,enable=${{ !contains(inputs.tag || github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=Platter
+            org.opencontainers.image.description=Self-hosted control panel for game servers
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      # A pushed image that cannot start is worse than no release: `latest` now points at it.
+      # Only the amd64 image is exercised — the runner cannot run the arm64 one at native speed
+      # and an emulated boot proves little beyond "qemu works".
+      - name: Smoke test the published image
+        run: |
+          set -euo pipefail
+          IMAGE='${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}'
+
+          docker run -d --name platter-release \
+            --platform linux/amd64 \
+            -e JWT_SECRET=release-smoke-secret-not-used-anywhere-else-000000 \
+            -e DEFAULT_NODE_DRIVER=mock \
+            -p 8080:8080 "$IMAGE"
+
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/api/v1/system/ready > /dev/null; then
+              echo "ready after ${attempt}s"; break
+            fi
+            if [ "$attempt" = 60 ]; then
+              echo "published image never became ready:"; docker logs platter-release; exit 1
+            fi
+            sleep 1
+          done
+
+          # The single-origin promise, asserted rather than assumed.
+          curl -fsS -H 'accept: text/html' http://127.0.0.1:8080/ | grep -q '<div id="root">' \
+            || { echo "GET / did not return the app shell"; exit 1; }
+          curl -fsS http://127.0.0.1:8080/api/v1/system/info
+
+          docker rm -f platter-release > /dev/null
+
+  release:
+    name: Create release
+    needs: [verify, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          # The changelog extraction below needs history, not just the tagged tree.
+          fetch-depth: 0
+
+      # The release body comes from CHANGELOG.md rather than from generated commit titles: the
+      # changelog is written for someone deciding whether to upgrade, and a list of commit
+      # subjects is not. Falls back to a pointer if the version has no section yet, instead of
+      # publishing an empty release.
+      - name: Extract this version's changelog
+        id: notes
+        run: |
+          set -euo pipefail
+          TAG='${{ inputs.tag || github.ref_name }}'
+          VERSION="${TAG#v}"
+
+          # Stops at the next version heading, and also at the link-reference block at the
+          # foot of the file — without that second rule the newest entry, which has no heading
+          # after it, swallows `[0.1.0]: https://…` into the release body.
+          if awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { found = 1; next }
+              found && /^## \[/ { exit }
+              found && /^\[[^]]+\]: / { exit }
+              found { print }
+            ' CHANGELOG.md > notes.md && [ -s notes.md ]; then
+            echo "found a changelog section for $VERSION"
+          else
+            printf 'See [CHANGELOG.md](https://github.com/%s/blob/main/CHANGELOG.md).\n' \
+              '${{ github.repository }}' > notes.md
+            echo "::warning::CHANGELOG.md has no section for $VERSION; released with a pointer"
+          fi
+
+          IMAGE="${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          cat >> notes.md <<EOF
+
+          ---
+
+          ### Install
+
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
+          \`\`\`
+
+          Or pull the image directly:
+
+          \`\`\`sh
+          docker pull ${IMAGE}:${VERSION}
+          \`\`\`
+
+          \`linux/amd64\` and \`linux/arm64\`. Digest: \`${{ needs.image.outputs.digest }}\`
+          EOF
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='${{ inputs.tag || github.ref_name }}'
+
+          # A tag containing a hyphen is a prerelease by semver convention (v0.2.0-rc.1).
+          PRERELEASE=''
+          case "$TAG" in *-*) PRERELEASE='--prerelease' ;; esac
+
+          # Idempotent: a re-run after a partial failure edits the existing release rather
+          # than failing on "already exists".
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file notes.md --title "$TAG"
+          else
+            gh release create "$TAG" --notes-file notes.md --title "$TAG" $PRERELEASE
+          fi

@@ -1,14 +1,23 @@
 <div align="center">
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-paper.svg">
+  <img alt="" src="docs/assets/logo-ink.svg" width="64" height="64">
+</picture>
+
 # Platter
 
 **Simple, clean, easily deployable game servers driven by AI.**
 
 Self-hosted control panel for game servers. Minecraft-first, with the whole thing
-drivable by an AI agent over MCP — including mod suggestions that a human approves.
+drivable by an AI agent over MCP.
 
-[Quick start](#quick-start) · [What it does](#what-it-does) · [AI and MCP](#ai-and-mcp) ·
-[Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md)
+[![CI](https://github.com/thekozugroup/Platter/actions/workflows/ci.yml/badge.svg)](https://github.com/thekozugroup/Platter/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+[Quick start](#quick-start) · [What it looks like](#what-it-looks-like) ·
+[What it does](#what-it-does) · [AI and MCP](#ai-and-mcp) ·
+[Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -26,6 +35,23 @@ any part of a game server. See the [scope boundary](docs/ARCHITECTURE.md#1-scope
 
 ## Quick start
 
+```sh
+curl -fsSL https://raw.githubusercontent.com/thekozugroup/Platter/main/install.sh | sh
+```
+
+Open the address it prints and create the first account — that account owns the installation.
+There is no default password and no account is made for you.
+
+[`install.sh`](install.sh) is written to be read before it is run. It checks Docker and the
+port first, generates your `JWT_SECRET`, reads the Docker socket's group instead of guessing
+`999`, and detects this host's address instead of leaving `PUBLIC_HOST` at `127.0.0.1` — which
+would show every player an address nobody can reach. It writes `.env` and `docker-compose.yml`
+into `./platter` and nothing outside it. Run it again and it upgrades in place, never rewriting
+your `.env`. `--help` lists the options; `PLATTER_PORT` and `PLATTER_DIR` are honoured.
+
+<details>
+<summary>Or from a clone — needed until the first release is published, and for building it yourself</summary>
+
 ```bash
 git clone https://github.com/thekozugroup/Platter.git
 cd Platter
@@ -34,15 +60,35 @@ cp .env.example .env
 openssl rand -base64 48                 # paste as JWT_SECRET
 stat -c '%g' /var/run/docker.sock       # paste as DOCKER_GID
 
-docker compose up -d
-docker compose logs platter | grep -i password   # the generated owner password, printed once
+docker compose up -d                    # builds the image when it is not already present
 ```
 
-Open <http://localhost:8080>. That is the whole install: one container and a volume.
+The one-line installer pulls `ghcr.io/thekozugroup/platter:latest`, which the
+[release workflow](.github/workflows/release.yml) publishes on a version tag. Before that tag
+exists, use this path.
+
+</details>
+
+Either way it is one container and one volume. The API serves the built client from the same
+origin, so there is no reverse proxy to configure and no CORS policy to get wrong.
 
 > **Docker socket access is equivalent to root on the host.** Platter needs it to manage
 > containers. Read [DEPLOYMENT.md](docs/DEPLOYMENT.md) before exposing an instance to the
 > internet, and prefer a rootless daemon or a socket proxy for anything multi-tenant.
+
+## What it looks like
+
+<img alt="Platter's dashboard: two servers, allocation meters, and recent activity" src="docs/assets/screenshot-dashboard.png" width="100%">
+
+Every server you run, what is allocated, and what has happened lately. Colour is never the only
+signal — a status is always a word as well as a dot.
+
+<img alt="The mod browser: Modrinth results filtered to what a Fabric 1.21.1 server runs" src="docs/assets/screenshot-mods.png" width="100%">
+
+The mod browser, searching Modrinth live and narrowed to what this Fabric 1.21.1 server can
+actually run. Mod artwork is proxied through Platter rather than fetched from a registry CDN, so
+the content security policy stays at `img-src 'self'` — your browser never tells Modrinth which
+mods you are reading about.
 
 ## What it does
 
@@ -58,8 +104,8 @@ survival.platter.local
 with **no port at all**. It works with zero configuration on macOS and iOS, where Bonjour is
 built in. If mDNS is unavailable the address falls back to `host:port` and nothing breaks.
 
-There is a reachability probe that tells you the truth: *"reachable on your local network but not
-from the internet"* is the common real answer, and Platter says so rather than showing a green
+There is a reachability probe that tells you the truth: _"reachable on your local network but not
+from the internet"_ is the common real answer, and Platter says so rather than showing a green
 tick.
 
 ### Minecraft, properly
@@ -67,14 +113,14 @@ tick.
 The server type is the most consequential choice a new operator makes, so Platter explains it
 instead of offering a dropdown of twenty jar names. Supported via `itzg/minecraft-server`:
 
-| Group | Types |
-| --- | --- |
-| Vanilla | `VANILLA` |
-| Plugins (Bukkit API) | `PAPER` `PURPUR` `SPIGOT` `BUKKIT` `FOLIA` `PUFFERFISH` `LEAF` |
-| Mod loaders | `FABRIC` `FORGE` `NEOFORGE` `QUILT` |
-| Hybrid mods + plugins | `MOHIST` `MAGMA` `ARCLIGHT` `KETTING` `CRUCIBLE` |
-| Modpacks | `AUTO_CURSEFORGE` `MODRINTH` `FTBA` |
-| Other | `SPONGEVANILLA` `LIMBO` `GLOWSTONE` `CUSTOM` |
+| Group                 | Types                                                          |
+| --------------------- | -------------------------------------------------------------- |
+| Vanilla               | `VANILLA`                                                      |
+| Plugins (Bukkit API)  | `PAPER` `PURPUR` `SPIGOT` `BUKKIT` `FOLIA` `PUFFERFISH` `LEAF` |
+| Mod loaders           | `FABRIC` `FORGE` `NEOFORGE` `QUILT`                            |
+| Hybrid mods + plugins | `MOHIST` `MAGMA` `ARCLIGHT` `KETTING` `CRUCIBLE`               |
+| Modpacks              | `AUTO_CURSEFORGE` `MODRINTH` `FTBA`                            |
+| Other                 | `SPONGEVANILLA` `LIMBO` `GLOWSTONE` `CUSTOM`                   |
 
 Platter knows which of those take **mods** (`mods/`) and which take **plugins** (`plugins/`), so a
 Fabric mod never lands in a Paper plugins folder where it would quietly do nothing.
@@ -102,6 +148,15 @@ Enshrouded, Project Zomboid, Counter-Strike 2, Don't Starve Together, and Minecr
   is put in place.
 - **Users** — roles, per-server permissions for collaborators, scoped API keys, TOTP, audit log.
 
+### Mods: two paths, and it is obvious which one you are in
+
+**You browsing** press **Add to \<server\>** and it installs. If the plan holds a surprise — extra
+dependencies, a version that is not the one you were looking at — it stops and shows you the exact
+files first. If it does not, it just happens. Either way the jar's SHA-512 is checked before it is
+put in place.
+
+**An agent** cannot do that. See below.
+
 ## AI and MCP
 
 Platter exposes an **MCP server** over stdio and streamable HTTP, so Claude or any MCP client can
@@ -114,9 +169,9 @@ create servers, read logs, diagnose a crash, watch metrics and manage players.
     "platter": {
       "command": "docker",
       "args": ["exec", "-i", "platter", "node", "apps/api/dist/mcp/cli.js"],
-      "env": { "PLATTER_API_KEY": "plt_..." }
-    }
-  }
+      "env": { "PLATTER_API_KEY": "plt_..." },
+    },
+  },
 }
 ```
 
@@ -128,24 +183,29 @@ dependencies — and approve or reject. Approval re-resolves against current sta
 anything that changed since, so you cannot approve one thing and get another.
 
 This is enforced structurally, not by convention: the MCP module has no code path to the
-installer. Destructive tools need an explicit confirmation argument, every call is authorised
-against the API key's scopes and the same per-server permissions a human faces, and everything is
-audited with the agent's identity.
+installer, and a test parses the MCP source for banned imports, dynamic ones included.
+Destructive tools need an explicit confirmation argument, every call is authorised against the
+API key's scopes and the same per-server permissions a human faces, and everything is audited
+with the agent's identity.
+
+AI features hide cleanly when `ANTHROPIC_API_KEY` is unset. Nothing else is affected.
 
 ## Configuration
 
 Everything is environment variables; see [`.env.example`](.env.example) for the annotated set.
 The ones that matter:
 
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `JWT_SECRET` | — | **Required.** `openssl rand -base64 48` |
-| `PUBLIC_HOST` | `127.0.0.1` | The address players use. Set this deliberately. |
-| `PORT_RANGE_START/END` | `25000`–`25999` | Host ports Platter may allocate |
-| `DOCKER_GID` | `999` | `stat -c '%g' /var/run/docker.sock` |
-| `ANTHROPIC_API_KEY` | — | Optional. AI features hide cleanly when unset. |
-| `REGISTRATION_ENABLED` | `false` | Off by default — invite users from the admin area |
-| `DATABASE_URL` | SQLite | Postgres supported; see DEPLOYMENT.md |
+| Variable               | Default         | Notes                                             |
+| ---------------------- | --------------- | ------------------------------------------------- |
+| `JWT_SECRET`           | —               | **Required.** `openssl rand -base64 48`           |
+| `PUBLIC_HOST`          | `127.0.0.1`     | The address players use. Set this deliberately.   |
+| `PORT_RANGE_START/END` | `25000`–`25999` | Host ports Platter may allocate                   |
+| `DOCKER_GID`           | `999`           | `stat -c '%g' /var/run/docker.sock`               |
+| `ANTHROPIC_API_KEY`    | —               | Optional. AI features hide cleanly when unset.    |
+| `REGISTRATION_ENABLED` | `false`         | Off by default — invite users from the admin area |
+| `DATABASE_URL`         | SQLite          | Postgres supported; see DEPLOYMENT.md             |
+
+`install.sh` fills in the first four for you.
 
 ## Development
 
@@ -173,13 +233,16 @@ packages/shared   Domain vocabulary, lifecycle state machine, zod schemas — im
 apps/api          Fastify server: auth, routes, console WebSocket, orchestration,
                   scheduler, mods, MCP. Serves the built SPA, so it is one origin
 apps/web          React SPA — Shark UI components on the Ghost design system
-docs/             Architecture, design contract
+docs/             Architecture, design contract, deployment, security, MCP
+install.sh        The one-line installer
 ```
 
 ## Contributing
 
-Issues and pull requests welcome. `pnpm verify` must pass. Adding a game is usually a
-[blueprint](apps/api/src/blueprints/) — data, not code.
+Issues and pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). `pnpm verify` must
+pass. Adding a game is usually a [blueprint](apps/api/src/blueprints/) — data, not code.
+
+Security issues go through [SECURITY.md](SECURITY.md), never a public issue.
 
 ## License
 

@@ -24,15 +24,15 @@ Specifically **out of scope, permanently**:
   by hand. An operator must be able to `docker run` the same image and get the same server.
 
 **In scope**, and the reason there is any game-specific code at all — every item here is
-*administration*, the same operations an operator performs from a terminal:
+_administration_, the same operations an operator performs from a terminal:
 
-| Component | What it is | Why it is not "reimplementing Minecraft" |
-| --- | --- | --- |
-| RCON client | The standard remote-console protocol | It is how you run `whitelist add` without attaching to the container. A client, not a server. |
-| Query/ping client | Read-only player counts | Same protocol any server-list website speaks. |
-| `server.properties` reader/writer | Config file parsing | It is an INI-ish text file. Editing it is what a settings page does. |
-| Log pattern matching | Regex over stdout | Deriving "ready" / "crashed" / "player joined" from output the server already prints. |
-| Version and loader matrix | Which loaders support which versions | Metadata used to check mod compatibility before downloading. |
+| Component                         | What it is                           | Why it is not "reimplementing Minecraft"                                                      |
+| --------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| RCON client                       | The standard remote-console protocol | It is how you run `whitelist add` without attaching to the container. A client, not a server. |
+| Query/ping client                 | Read-only player counts              | Same protocol any server-list website speaks.                                                 |
+| `server.properties` reader/writer | Config file parsing                  | It is an INI-ish text file. Editing it is what a settings page does.                          |
+| Log pattern matching              | Regex over stdout                    | Deriving "ready" / "crashed" / "player joined" from output the server already prints.         |
+| Version and loader matrix         | Which loaders support which versions | Metadata used to check mod compatibility before downloading.                                  |
 
 If a future change requires modifying how the game itself executes, that is the signal that it
 belongs upstream in the image, not in Platter.

@@ -1,0 +1,76 @@
+name: Feature request
+description: Something Platter should do and does not.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Platter has a deliberately narrow
+        [scope boundary](https://github.com/thekozugroup/Platter/blob/main/docs/ARCHITECTURE.md#1-scope-boundary--what-platter-is-not):
+        it runs the same community container images you would run by hand, and does not fork,
+        patch or reimplement any part of a game server. A request that needs Platter to modify
+        the game itself is likely out of scope — but say it anyway, because the boundary is
+        worth arguing about and sometimes the answer is a blueprint rather than a no.
+
+        **Adding a new game is usually not a feature request.** It is a
+        [blueprint](https://github.com/thekozugroup/Platter/blob/main/apps/api/src/blueprints/) —
+        data, not code — and CONTRIBUTING.md walks through writing one. Open an issue if you
+        get stuck, or send the pull request directly.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem
+      description: |
+        Describe the situation you are in, not the feature you have in mind. The best
+        requests here have come from someone explaining what went wrong on their server.
+      placeholder: |
+        Three of us admin the same server. When one of us restarts it, the others have no
+        idea why it went down, and the audit log is admin-only.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do
+      description: If you have a specific shape in mind, say so. If you do not, that is fine too.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: |
+        The workaround matters. A request with a painful workaround is a stronger case than
+        one where nobody has needed it enough to work around at all.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Platter
+      options:
+        - Servers and lifecycle
+        - Console
+        - Files
+        - Backups
+        - Schedules
+        - Monitoring
+        - Mods and plugins
+        - Players
+        - Networking and addresses
+        - Users, roles and API keys
+        - AI / MCP
+        - Deployment and configuration
+        - Something else
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Would you be up for building it
+      description: Entirely optional, and a "no" costs nothing.
+      options:
+        - label: I would be willing to open a pull request for this

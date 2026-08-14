@@ -1,0 +1,108 @@
+name: Bug report
+description: Something in Platter does not do what it says it does.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The fields below are the ones that decide whether a bug
+        gets reproduced in ten minutes or sits open for a fortnight while we ask questions.
+
+        **Please do not report a security vulnerability here.** Issues are public. See
+        [SECURITY.md](https://github.com/thekozugroup/Platter/blob/main/SECURITY.md) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        I pressed "Add to server" on a Fabric mod. The panel said it was added, but the
+        jar is not in mods/ and the console shows nothing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Number them. If a step depends on a particular server type or mod, name it.
+      placeholder: |
+        1. Create a FABRIC server on 1.21.1
+        2. Mods tab, search "cloth config"
+        3. Open the first result, press "Add to Survival SMP"
+        4. Files tab, open mods/ — it is empty
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Platter version
+      description: |
+        Bottom of the sign-in screen, or `curl -s localhost:8080/api/v1/system/info`.
+        If you are running from a clone, the commit is more useful than the version.
+      placeholder: 0.1.0 (or commit a1b2c3d)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How is it installed
+      options:
+        - install.sh
+        - docker compose from a clone
+        - docker run
+        - Development (pnpm dev)
+        - Other (say so below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Host and Docker
+      description: |
+        Output of `docker version --format '{{.Server.Version}}'` and your OS. Paste
+        `uname -a` if you are on something unusual — the answer often turns on the kernel.
+      render: text
+      placeholder: |
+        Ubuntu 24.04, x86_64
+        Docker 27.3.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: game
+    attributes:
+      label: Which game, if it is game-specific
+      options:
+        - Not game-specific
+        - Minecraft — Java (vanilla)
+        - Minecraft — plugins (Paper, Purpur, Spigot…)
+        - Minecraft — mods (Fabric, Forge, NeoForge, Quilt)
+        - Minecraft — modpack (AUTO_CURSEFORGE, MODRINTH, FTBA)
+        - Minecraft — Bedrock
+        - Another game (say which below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        `docker compose logs --tail 200 platter`, or the game server's own console where the
+        fault is in the server rather than the panel.
+
+        **Read it before you paste it.** The log can contain your `PUBLIC_HOST`, player
+        names and IP addresses. It should never contain `JWT_SECRET` or an API key — if it
+        does, that is itself a bug worth reporting privately.
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, a `server.properties`, the mod's Modrinth URL — whatever you have.

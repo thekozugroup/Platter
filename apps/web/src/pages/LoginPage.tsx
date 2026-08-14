@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router';
+import { PlatterMark } from '@/components/common/platter-mark';
 import { Button } from '@/components/ui/button';
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldHelper,
-  FieldLabel,
-} from '@/components/ui/field';
+import { Field, FieldError, FieldGroup, FieldHelper, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   PasswordInput,
@@ -127,7 +122,8 @@ export function LoginPage() {
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
       <div className="flex flex-col justify-center px-6 py-12 sm:px-12">
         <div className="mx-auto w-full max-w-sm">
-          <p className="font-heading text-headline font-medium tracking-title text-label">
+          <p className="flex items-center gap-2 font-heading text-headline font-medium tracking-title text-label">
+            <PlatterMark className="size-5" />
             Platter
           </p>
           <h1 className="mt-6 text-title-1 text-label">Sign in</h1>
@@ -221,8 +217,8 @@ export function LoginPage() {
               reader does not have, in the most prominent empty space on the screen. */}
           {needsTotp ? (
             <p className="mt-8 text-caption text-label-tertiary">
-              Lost your authenticator? Use a recovery code from when you turned two-factor on —
-              an administrator can reset it for you if those are gone too.
+              Lost your authenticator? Use a recovery code from when you turned two-factor on — an
+              administrator can reset it for you if those are gone too.
             </p>
           ) : null}
         </div>

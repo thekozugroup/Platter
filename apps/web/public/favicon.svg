@@ -3,6 +3,11 @@
     Tab icon. The mark sits on a filled near-black tile rather than floating on the tab's
     own background: a bare glyph inherits whatever colour the browser chrome is and
     disappears entirely in a dark-themed tab strip.
+
+    The transform centres the glyph on its own bounding box (x 2..22, y 2..22), not on the
+    viewBox — centring on the viewBox pushes the tail into the corner radius. `apple-touch-icon
+    .png`, `icon-192.png` and `icon-512.png` are this file rasterised with the identical
+    transform, so the tab icon and the home-screen icon cannot drift apart.
   -->
   <rect width="24" height="24" rx="5" fill="#161616"/>
   <g transform="translate(2.4 2.4) scale(0.8)" fill="#f7f7f7">
