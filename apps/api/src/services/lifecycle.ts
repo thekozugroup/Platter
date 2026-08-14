@@ -274,7 +274,6 @@ async function loadBlueprintOrNull(server: ServerRow): Promise<Blueprint | null>
 // The container spec
 // ---------------------------------------------------------------------------
 
-
 function parseVariables(server: ServerRow): Record<string, string> {
   let parsed: unknown;
   try {
@@ -534,7 +533,10 @@ export async function installServer(serverId: string): Promise<void> {
  * to their rendered form and the container is rebuilt. World data is deliberately kept —
  * "reinstall" is how an operator fixes a broken config, not how they wipe a save.
  */
-export async function reinstallServer(serverId: string, actorId: string | null = null): Promise<void> {
+export async function reinstallServer(
+  serverId: string,
+  actorId: string | null = null,
+): Promise<void> {
   await withServerLock(serverId, async () => {
     const server = await requireServerRow(serverId);
     const status = statusOf(server);
@@ -547,7 +549,9 @@ export async function reinstallServer(serverId: string, actorId: string | null =
 
     if (WAS_ACTIVE.includes(server.status)) {
       cancelRunWatcher(serverId);
-      await setStatus(serverId, 'stopping', { message: `Stopping ${server.name} for the reinstall…` });
+      await setStatus(serverId, 'stopping', {
+        message: `Stopping ${server.name} for the reinstall…`,
+      });
       const exitCode = await stopInternal(serverId, {});
       await setStatus(serverId, 'offline', { exitCode, startedAt: null });
     }
@@ -624,7 +628,10 @@ async function runInstall(serverId: string, options: InstallOptions): Promise<vo
 
   // The same check the restart makes: a kill during the install has already put the server
   // where the operator asked for it, and auto-start would immediately contradict them.
-  if ((server.autoStart || options.startWhenDone === true) && !cancelledOperations.delete(serverId)) {
+  if (
+    (server.autoStart || options.startWhenDone === true) &&
+    !cancelledOperations.delete(serverId)
+  ) {
     await startInternal(serverId, `Starting ${server.name}…`);
   }
 }
@@ -1202,7 +1209,9 @@ export interface ReconcileResult {
  * down. Trusting the stored status after a restart is how a dashboard ends up showing
  * three running servers on a machine with none.
  */
-export async function reconcile(options: { logger?: FastifyBaseLogger } = {}): Promise<ReconcileResult> {
+export async function reconcile(
+  options: { logger?: FastifyBaseLogger } = {},
+): Promise<ReconcileResult> {
   if (options.logger) logger = options.logger;
 
   const result: ReconcileResult = {
@@ -1222,7 +1231,11 @@ export async function reconcile(options: { logger?: FastifyBaseLogger } = {}): P
       // Statuses are left exactly as they are. An unreachable node tells us nothing about
       // its containers, and marking its servers offline would be a guess presented as fact.
       result.unreachableNodes.push(node.id);
-      report('warn', { nodeId: node.id, reason: health.error }, 'skipping reconcile for an unreachable node');
+      report(
+        'warn',
+        { nodeId: node.id, reason: health.error },
+        'skipping reconcile for an unreachable node',
+      );
       continue;
     }
 
@@ -1272,7 +1285,11 @@ async function reconcileServer(
     // is the part that has to finish before traffic arrives; the pull is not.
     result.resumed += 1;
     void installServer(server.id).catch((error: unknown) => {
-      report('error', { err: error, serverId: server.id }, 'could not resume an interrupted install');
+      report(
+        'error',
+        { err: error, serverId: server.id },
+        'could not resume an interrupted install',
+      );
     });
     return;
   }
@@ -1352,7 +1369,9 @@ function pruneCrashRecords(now: number): void {
   // A cutoff record survives until a human acts on that server, so the map also needs a
   // hard ceiling: in a daemon that runs for months, "usually small" is not a bound.
   if (crashRecords.size <= MAX_CRASH_RECORDS) return;
-  const oldestFirst = [...crashRecords.entries()].sort((left, right) => left[1].touchedAt - right[1].touchedAt);
+  const oldestFirst = [...crashRecords.entries()].sort(
+    (left, right) => left[1].touchedAt - right[1].touchedAt,
+  );
   for (const [serverId] of oldestFirst.slice(0, crashRecords.size - MAX_CRASH_RECORDS)) {
     crashRecords.delete(serverId);
   }
@@ -1447,7 +1466,8 @@ async function checkLiveness(server: ServerRow, now: number): Promise<void> {
 
 async function maybeRestart(server: ServerRow, now: number): Promise<void> {
   const record = crashRecords.get(server.id);
-  if (!record || record.cutoff || record.nextAttemptAt === null || record.nextAttemptAt > now) return;
+  if (!record || record.cutoff || record.nextAttemptAt === null || record.nextAttemptAt > now)
+    return;
 
   record.nextAttemptAt = null;
   record.touchedAt = now;
@@ -1486,7 +1506,11 @@ export async function superviseOnce(now: number = Date.now()): Promise<void> {
         if (server.status === 'crashed') await maybeRestart(server, now);
         else await checkLiveness(server, now);
       } catch (error) {
-        report('warn', { err: error, serverId: server.id }, 'crash supervision failed for a server');
+        report(
+          'warn',
+          { err: error, serverId: server.id },
+          'crash supervision failed for a server',
+        );
       }
     }
 

@@ -194,9 +194,7 @@ function VariableField({
             </NativeSelectOption>
           ))}
         </NativeSelect>
-        {variable.description ? (
-          <FieldDescription>{variable.description}</FieldDescription>
-        ) : null}
+        {variable.description ? <FieldDescription>{variable.description}</FieldDescription> : null}
         <FieldError>{error}</FieldError>
       </Field>
     );
@@ -219,9 +217,7 @@ function VariableField({
             <PasswordInputTrigger aria-label={`Show ${variable.label.toLowerCase()}`} />
           </PasswordInputGroup>
         </PasswordInput>
-        {variable.description ? (
-          <FieldDescription>{variable.description}</FieldDescription>
-        ) : null}
+        {variable.description ? <FieldDescription>{variable.description}</FieldDescription> : null}
         <FieldError>{error}</FieldError>
       </Field>
     );

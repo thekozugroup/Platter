@@ -1,11 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import {
-  BLUEPRINT_CATEGORIES,
-  blueprintSchema,
-  blueprintSummarySchema,
-} from '@platter/shared';
+import { BLUEPRINT_CATEGORIES, blueprintSchema, blueprintSummarySchema } from '@platter/shared';
 import { getBlueprint, listBlueprintSummaries } from '../services/blueprints.js';
 
 /**

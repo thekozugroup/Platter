@@ -167,9 +167,13 @@ async function fetchAllowedUrl(
     try {
       next = new URL(location, target);
     } catch {
-      throw new PlatterError('service_unavailable', 'That mod download redirected somewhere unusable.', {
-        retryable: false,
-      });
+      throw new PlatterError(
+        'service_unavailable',
+        'That mod download redirected somewhere unusable.',
+        {
+          retryable: false,
+        },
+      );
     }
     target = assertAllowedUrl(source, next.toString());
   }

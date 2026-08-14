@@ -21,10 +21,15 @@ export function useSystemSettings(): UseQueryResult<SystemSettings> {
   });
 }
 
-export function useUpdateSystemSettings(): UseMutationResult<SystemSettings, Error, Partial<SystemSettings>> {
+export function useUpdateSystemSettings(): UseMutationResult<
+  SystemSettings,
+  Error,
+  Partial<SystemSettings>
+> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (patch: Partial<SystemSettings>) => api.patch<SystemSettings>('/system/settings', patch),
+    mutationFn: (patch: Partial<SystemSettings>) =>
+      api.patch<SystemSettings>('/system/settings', patch),
     onSuccess: (settings) => queryClient.setQueryData(queryKeys.system.settings(), settings),
   });
 }

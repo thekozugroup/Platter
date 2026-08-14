@@ -241,7 +241,9 @@ const serverIdArg = z
 const confirmArg = z
   .boolean()
   .default(false)
-  .describe('Must be true to actually perform this action. Called with false, the tool explains what would happen and changes nothing.');
+  .describe(
+    'Must be true to actually perform this action. Called with false, the tool explains what would happen and changes nothing.',
+  );
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -289,7 +291,11 @@ export async function readRecentLines(
   try {
     driver = await getDriver(server.nodeId);
   } catch (error) {
-    return { lines, timedOut, unavailable: describeFailure(error, 'The node could not be reached.') };
+    return {
+      lines,
+      timedOut,
+      unavailable: describeFailure(error, 'The node could not be reached.'),
+    };
   }
 
   const controller = new AbortController();
@@ -303,15 +309,26 @@ export async function readRecentLines(
   }, LOG_READ_DEADLINE_MS);
 
   try {
-    for await (const line of driver.streamLogs(server.id, { tail: limit, signal: controller.signal })) {
+    for await (const line of driver.streamLogs(server.id, {
+      tail: limit,
+      signal: controller.signal,
+    })) {
       lines.push(line);
       if (lines.length >= limit) break;
     }
   } catch (error) {
     if (error instanceof PlatterError && error.code === 'not_found') {
-      return { lines, timedOut, unavailable: 'This server has no container yet, so there is nothing to read.' };
+      return {
+        lines,
+        timedOut,
+        unavailable: 'This server has no container yet, so there is nothing to read.',
+      };
     }
-    return { lines, timedOut, unavailable: describeFailure(error, 'The console could not be read.') };
+    return {
+      lines,
+      timedOut,
+      unavailable: describeFailure(error, 'The console could not be read.'),
+    };
   } finally {
     clearTimeout(timer);
     signal.removeEventListener('abort', onCancel);
@@ -393,7 +410,10 @@ interface FilterOutcome<T> {
   gaveUp: boolean;
 }
 
-function filterWithBudget<T>(items: readonly T[], predicate: (item: T) => boolean): FilterOutcome<T> {
+function filterWithBudget<T>(
+  items: readonly T[],
+  predicate: (item: T) => boolean,
+): FilterOutcome<T> {
   const deadline = Date.now() + FILTER_BUDGET_MS;
   const kept: T[] = [];
   for (let index = 0; index < items.length; index += 1) {
@@ -467,7 +487,12 @@ const listServersTool = defineTool({
     total: z.number().int(),
     totalPages: z.number().int(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     assertScope(context.principal, 'server.view');
     // Parsed through the shared query schema so this path and the HTTP one cannot drift.
@@ -518,7 +543,12 @@ const getServerTool = defineTool({
       })
       .nullable(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const row = await authorizeServer(context.principal, args.serverId, 'server.view');
     // Redaction and the connect string are both applied by the DTO itself now, so every
@@ -553,7 +583,9 @@ const listBlueprintsTool = defineTool({
     'only blueprints with that capability (`mods` is the mod-browser flag — today only minecraft-java). ' +
     'Call get_blueprint for the variables you can set, and for the Minecraft server-type matrix.',
   input: z.object({
-    category: z.enum(['survival', 'sandbox', 'shooter', 'simulation', 'strategy', 'roleplay', 'other']).optional(),
+    category: z
+      .enum(['survival', 'sandbox', 'shooter', 'simulation', 'strategy', 'roleplay', 'other'])
+      .optional(),
     search: z.string().max(80).optional(),
     feature: z.enum(['console', 'rcon', 'mods', 'worldUpload', 'playerList']).optional(),
   }),
@@ -579,7 +611,12 @@ const listBlueprintsTool = defineTool({
     ),
     total: z.number().int(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   // No scope check, matching `routes/blueprints.ts`: the catalogue is what this build can
   // install, not information about anyone's servers. Gating it would only stop an agent
   // discovering what it may ask for.
@@ -644,8 +681,10 @@ const getBlueprintTool = defineTool({
     'values the TYPE variable accepts (VANILLA, PAPER, FABRIC, FORGE, PURPUR, …), each saying whether ' +
     'it takes mods, plugins or both, and whether it speaks RCON and the query protocol. Read that ' +
     'before choosing — Paper takes Bukkit plugins and not Fabric mods, and the two are not interchangeable.\n' +
-    'Variables the blueprint marks hidden are omitted: they are the blueprint\'s own and cannot be set.',
-  input: z.object({ key: z.string().min(1).max(64).describe('Blueprint key, e.g. minecraft-java.') }),
+    "Variables the blueprint marks hidden are omitted: they are the blueprint's own and cannot be set.",
+  input: z.object({
+    key: z.string().min(1).max(64).describe('Blueprint key, e.g. minecraft-java.'),
+  }),
   output: z.object({
     blueprint: z.object({
       key: z.string(),
@@ -694,7 +733,12 @@ const getBlueprintTool = defineTool({
     }),
     minecraftServerTypes: z.array(minecraftServerTypeSchema).nullable(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args) => {
     const blueprint = getBlueprint(args.key);
     return {
@@ -756,7 +800,7 @@ const createServerTool = defineTool({
     '`variables` sets blueprint variables by key; unknown keys are dropped and invalid values are ' +
     'refused with a per-field message. `limits` overrides memory/disk/CPU — omit it to take the ' +
     "blueprint's recommendation, which is usually right. `ports` pins specific host ports; omit it " +
-    'and Platter allocates from the node\'s range.\n' +
+    "and Platter allocates from the node's range.\n" +
     'With `startOnCreate` true (the default) the install begins immediately in the background: the ' +
     'call returns as soon as the record exists, with status `provisioning`. Poll get_server_status — ' +
     'a first install downloads the game and can take several minutes. This tool does not wait for it.',
@@ -783,7 +827,12 @@ const createServerTool = defineTool({
     installing: z.boolean(),
     nextStep: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
   handler: async (args, context) => {
     assertScope(context.principal, 'server.create');
     const server = await createServer(args, context.principal.user, context.logger);
@@ -833,7 +882,7 @@ const deleteServerTool = defineTool({
     'configuration, installed mods — is destroyed, and its ports are returned to the pool. ' +
     'This cannot be undone and does not create a backup first.\n' +
     'Two confirmations are required and both must be supplied in the same call: `confirm` must be ' +
-    'true, and `confirmServerName` must exactly match the server\'s current name. Called without ' +
+    "true, and `confirmServerName` must exactly match the server's current name. Called without " +
     'them, the tool reports what would be destroyed and deletes nothing. Ask the human before ' +
     'calling this with confirmation.',
   input: z.object({
@@ -852,7 +901,12 @@ const deleteServerTool = defineTool({
     status: z.string(),
     message: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.delete');
     const status = presentStatus(server);
@@ -905,8 +959,8 @@ const powerServerTool = defineTool({
   name: 'power_server',
   title: 'Start, stop, restart or kill a server',
   description:
-    'Changes a server\'s power state. `start` boots it (installing first if it never has); `stop` ' +
-    'sends the blueprint\'s graceful shutdown and waits for the process to exit; `restart` is a stop ' +
+    "Changes a server's power state. `start` boots it (installing first if it never has); `stop` " +
+    "sends the blueprint's graceful shutdown and waits for the process to exit; `restart` is a stop " +
     'followed by a start; `kill` is an immediate SIGKILL that does not let the game save.\n' +
     'stop, restart and kill disconnect every player and require `confirm: true`. Called without it, ' +
     'the tool reports the current state and does nothing. `force: true` skips the graceful stop ' +
@@ -914,7 +968,7 @@ const powerServerTool = defineTool({
     'Only the transitions the lifecycle allows are accepted: you cannot start a server that is ' +
     'installing, or stop one that is already offline. A refusal names the actions that are legal ' +
     'from the current status. stop and restart block until the process has actually exited, which ' +
-    'is up to the blueprint\'s grace period; start returns once the container is up, before the ' +
+    "is up to the blueprint's grace period; start returns once the container is up, before the " +
     'game has finished booting — poll get_server_status for that.',
   input: z.object({
     serverId: serverIdArg,
@@ -922,7 +976,9 @@ const powerServerTool = defineTool({
     force: z
       .boolean()
       .default(false)
-      .describe('Skip the graceful stop command and signal the process directly. Ignored for start.'),
+      .describe(
+        'Skip the graceful stop command and signal the process directly. Ignored for start.',
+      ),
     confirm: confirmArg,
   }),
   output: z.object({
@@ -934,7 +990,12 @@ const powerServerTool = defineTool({
     allowedActions: z.array(z.string()),
     message: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     // Parsed through the shared request schema, so this tool and the HTTP endpoint accept
     // exactly the same set of actions.
@@ -1007,13 +1068,13 @@ const sendConsoleCommandTool = defineTool({
   description:
     'Sends one command to a running server, exactly as typing it into the web console would. ' +
     'The server must be running.\n' +
-    'When the game speaks RCON and Platter can reach it, the command goes over RCON and the game\'s ' +
-    'reply comes back in `output`. Otherwise it is written to the container\'s stdin, which is ' +
+    "When the game speaks RCON and Platter can reach it, the command goes over RCON and the game's " +
+    "reply comes back in `output`. Otherwise it is written to the container's stdin, which is " +
     'fire-and-forget: `output` is null and the result only shows up in the log — read it with ' +
     'get_logs. `delivery` says which path was used.\n' +
     'A command cannot contain a newline: stdin is line-oriented, so a second line would be a second ' +
     'command that nothing authorised and nothing audited. Every call is written to the audit log ' +
-    'with the calling agent\'s identity. For kicks, bans and whitelisting prefer the dedicated ' +
+    "with the calling agent's identity. For kicks, bans and whitelisting prefer the dedicated " +
     'tools — they validate the player name and report refusals properly.',
   input: z.object({
     serverId: serverIdArg,
@@ -1028,7 +1089,12 @@ const sendConsoleCommandTool = defineTool({
     output: z.string().nullable(),
     note: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.write');
     const { command } = consoleCommandRequestSchema.parse({ command: args.command });
@@ -1091,7 +1157,12 @@ const getServerStatusTool = defineTool({
     lastCrashAt: z.string().nullable(),
     sampledAt: z.string(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const stats = await getServerStats(server);
@@ -1166,7 +1237,12 @@ const getLogsTool = defineTool({
     unavailable: z.string().nullable(),
     note: z.string(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.read');
     const limit = Math.min(args.lines, CAPS.logLines);
@@ -1190,7 +1266,9 @@ const getLogsTool = defineTool({
     const notes: string[] = [];
     if (args.lines > CAPS.logLines) notes.push(`Capped at ${CAPS.logLines} lines.`);
     if (read.timedOut && read.lines.length < limit) {
-      notes.push('The console had fewer lines than requested, or was still quiet when the read ended.');
+      notes.push(
+        'The console had fewer lines than requested, or was still quiet when the read ended.',
+      );
     }
     if (filterGaveUp) notes.push('The filter ran out of time; later lines were not examined.');
     if (budgeted.dropped > 0) {
@@ -1253,10 +1331,19 @@ const searchLogsTool = defineTool({
     ),
     unavailable: z.string().nullable(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.read');
-    const read = await readRecentLines(server, Math.min(args.window, CAPS.logLines), context.signal);
+    const read = await readRecentLines(
+      server,
+      Math.min(args.window, CAPS.logLines),
+      context.signal,
+    );
     const entries = toLogEntries(read.lines);
     const pattern = compileFilter(args.pattern, args.caseSensitive);
 
@@ -1266,7 +1353,9 @@ const searchLogsTool = defineTool({
     // Context multiplies the payload by up to seven, so the byte budget is applied to the
     // matches themselves — newest kept, oldest dropped — before the context is attached.
     const budgeted = withinLogBudget(
-      outcome.kept.slice(0, args.maxMatches).map((item) => ({ ...item, content: item.entry.content })),
+      outcome.kept
+        .slice(0, args.maxMatches)
+        .map((item) => ({ ...item, content: item.entry.content })),
       Math.floor(CAPS.logBytes / (1 + 2 * args.contextLines)),
     );
 
@@ -1362,7 +1451,12 @@ const getMetricsTool = defineTool({
       })
       .nullable(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const spanMs = RANGE_MS[args.range];
@@ -1437,27 +1531,32 @@ const LOG_SIGNATURES: ReadonlyArray<{ code: string; pattern: RegExp; detail: str
   {
     code: 'eula_not_accepted',
     pattern: /you need to agree to the eula/i,
-    detail: 'The Minecraft EULA has not been accepted. Set the EULA variable to true and reinstall.',
+    detail:
+      'The Minecraft EULA has not been accepted. Set the EULA variable to true and reinstall.',
   },
   {
     code: 'port_in_use',
     pattern: /address already in use|failed to bind to port/i,
-    detail: 'The server could not bind its port. Another process holds it, or the allocation is stale.',
+    detail:
+      'The server could not bind its port. Another process holds it, or the allocation is stale.',
   },
   {
     code: 'jvm_out_of_memory',
     pattern: /java\.lang\.OutOfMemoryError/,
-    detail: 'The JVM exhausted its heap. Raise memoryMb, or reduce view distance and loaded chunks.',
+    detail:
+      'The JVM exhausted its heap. Raise memoryMb, or reduce view distance and loaded chunks.',
   },
   {
     code: 'unsupported_java_version',
     pattern: /UnsupportedClassVersionError|has been compiled by a more recent version of the Java/i,
-    detail: 'The game build needs a newer Java than the image is running. Pin a matching image tag.',
+    detail:
+      'The game build needs a newer Java than the image is running. Pin a matching image tag.',
   },
   {
     code: 'corrupt_world',
     pattern: /failed to load|chunk .*corrupt|level\.dat.*(missing|corrupt)/i,
-    detail: 'The world data could not be loaded. Restoring a backup is usually faster than repairing it.',
+    detail:
+      'The world data could not be loaded. Restoring a backup is usually faster than repairing it.',
   },
   {
     code: 'exception_thrown',
@@ -1471,7 +1570,7 @@ const diagnoseCrashTool = defineTool({
   title: 'Assemble crash evidence',
   description:
     'Gathers everything Platter knows about why a server stopped, in one call: the recorded exit ' +
-    'code and crash time, the container runtime\'s own view (whether it exists, whether it was ' +
+    "code and crash time, the container runtime's own view (whether it exists, whether it was " +
     'OOM-killed, when it finished), current disk and memory against the configured limits, the ' +
     'blueprint crash patterns that matched, and the tail of the console.\n' +
     '`observations` are mechanical readings, each carrying the line or number it came from — they ' +
@@ -1512,7 +1611,12 @@ const diagnoseCrashTool = defineTool({
     logs: z.array(logEntrySchema),
     logsUnavailable: z.string().nullable(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.read');
     const status = presentStatus(server);
@@ -1564,7 +1668,8 @@ const diagnoseCrashTool = defineTool({
     if (exitCode === 137) {
       observations.push({
         code: 'sigkill_exit',
-        detail: 'Exit 137 is SIGKILL: the process was killed rather than asked to stop. Usually an out-of-memory kill or a stop that outran its grace period.',
+        detail:
+          'Exit 137 is SIGKILL: the process was killed rather than asked to stop. Usually an out-of-memory kill or a stop that outran its grace period.',
         evidence: 'exitCode 137',
       });
     } else if (exitCode !== null && exitCode !== 0) {
@@ -1577,7 +1682,8 @@ const diagnoseCrashTool = defineTool({
     if (container !== null && !container.exists && server.installedAt !== null) {
       observations.push({
         code: 'container_missing',
-        detail: 'The container no longer exists. Starting the server recreates it from the stored configuration; the data directory is untouched.',
+        detail:
+          'The container no longer exists. Starting the server recreates it from the stored configuration; the data directory is untouched.',
         evidence: null,
       });
     }
@@ -1602,7 +1708,11 @@ const diagnoseCrashTool = defineTool({
     for (const signature of LOG_SIGNATURES) {
       const hit = logs.find((entry) => signature.pattern.test(entry.content));
       if (hit) {
-        observations.push({ code: signature.code, detail: signature.detail, evidence: hit.content });
+        observations.push({
+          code: signature.code,
+          detail: signature.detail,
+          evidence: hit.content,
+        });
       }
     }
 
@@ -1628,7 +1738,8 @@ const diagnoseCrashTool = defineTool({
     if (observations.length === 0) {
       observations.push({
         code: 'no_signal',
-        detail: 'Nothing in the runtime state or the console tail explains a failure. If the server is behaving badly rather than exiting, get_metrics over a wider window is the next place to look.',
+        detail:
+          'Nothing in the runtime state or the console tail explains a failure. If the server is behaving badly rather than exiting, get_metrics over a wider window is the next place to look.',
         evidence: null,
       });
     }
@@ -1716,7 +1827,9 @@ function toVersionOut(version: CompactableVersion): z.infer<typeof modVersionOut
     publishedAt: version.publishedAt,
     filename: version.file.filename,
     sizeBytes: version.file.sizeBytes,
-    requiredDependencies: version.dependencies.filter((dependency) => dependency.kind === 'required').length,
+    requiredDependencies: version.dependencies.filter(
+      (dependency) => dependency.kind === 'required',
+    ).length,
   };
 }
 
@@ -1728,7 +1841,7 @@ const searchModsTool = defineTool({
     "pre-filtered to the server's loader and game version, and to projects that run server-side — a " +
     'client-only shader will not appear. Only games whose blueprint sets the `mods` feature are ' +
     'supported (today: minecraft-java); anything else is refused with a sentence saying so.\n' +
-    'Arguments: `query` is free text; `category` narrows by the provider\'s own category slug; ' +
+    "Arguments: `query` is free text; `category` narrows by the provider's own category slug; " +
     '`gameVersion` overrides the server\'s version, and "any" drops the version filter entirely for a ' +
     `wider look; \`source\` restricts to one provider. \`limit\` is capped at ${CAPS.modHits}.\n` +
     '`sources` reports each provider separately, so a provider that is down or unconfigured shows as ' +
@@ -1753,7 +1866,12 @@ const searchModsTool = defineTool({
     ),
     note: z.string(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const result = await searchServerMods(
@@ -1807,7 +1925,7 @@ const getModTool = defineTool({
   description:
     'Everything about one mod, and whether this server can load it: the full project description, ' +
     'author, licence, gallery images, source and issue links, download count, and the versions this ' +
-    "server could actually run, newest first. `installed` is non-null when Platter already put it on " +
+    'server could actually run, newest first. `installed` is non-null when Platter already put it on ' +
     'this server. When nothing is compatible, `incompatibleReason` names the constraint that failed ' +
     '(wrong loader, wrong game version, client-side only) rather than returning an empty list.\n' +
     'This is the detail a human needs to judge a suggestion, so read it before proposing and quote ' +
@@ -1817,7 +1935,11 @@ const getModTool = defineTool({
   input: z.object({
     serverId: serverIdArg,
     source: modSourceSchema,
-    project: z.string().min(1).max(128).describe('Modrinth slug or id, or a CurseForge numeric id.'),
+    project: z
+      .string()
+      .min(1)
+      .max(128)
+      .describe('Modrinth slug or id, or a CurseForge numeric id.'),
   }),
   output: z.object({
     mod: modSummaryOutSchema.extend({
@@ -1847,10 +1969,21 @@ const getModTool = defineTool({
     incompatibleReason: z.string().nullable(),
     note: z.string(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
-    const detail = await getServerMod(server, args.source, args.project, context.signal, context.logger);
+    const detail = await getServerMod(
+      server,
+      args.source,
+      args.project,
+      context.signal,
+      context.logger,
+    );
     const description = truncate(detail.mod.description, CAPS.modDescription);
     const versions = detail.compatibleVersions.slice(0, CAPS.modVersions);
 
@@ -1929,7 +2062,12 @@ const listInstalledModsTool = defineTool({
     total: z.number().int(),
     truncated: z.boolean(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const installed = await listInstalledMods(server);
@@ -1983,7 +2121,12 @@ const checkModUpdatesTool = defineTool({
     total: z.number().int(),
     note: z.string(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const updates = await checkModUpdates(server, context.signal, context.logger);
@@ -2024,7 +2167,11 @@ const proposeModTool = defineTool({
   input: z.object({
     serverId: serverIdArg,
     source: modSourceSchema,
-    project: z.string().min(1).max(128).describe('Modrinth slug or id, or a CurseForge numeric id.'),
+    project: z
+      .string()
+      .min(1)
+      .max(128)
+      .describe('Modrinth slug or id, or a CurseForge numeric id.'),
     version: z
       .string()
       .min(1)
@@ -2036,7 +2183,9 @@ const proposeModTool = defineTool({
       .trim()
       .min(3)
       .max(2000)
-      .describe('Why this mod belongs on this server, in your own words. The reviewer reads this first.'),
+      .describe(
+        'Why this mod belongs on this server, in your own words. The reviewer reads this first.',
+      ),
   }),
   output: z.object({
     proposalId: z.string(),
@@ -2051,12 +2200,19 @@ const proposeModTool = defineTool({
     versionId: z.string(),
     versionNumber: z.string(),
     installable: z.boolean(),
-    dependencies: z.array(z.object({ title: z.string(), versionNumber: z.string(), reason: z.string() })),
+    dependencies: z.array(
+      z.object({ title: z.string(), versionNumber: z.string(), reason: z.string() }),
+    ),
     problems: z.array(z.object({ severity: z.string(), title: z.string(), message: z.string() })),
     installed: z.literal(false),
     nextStep: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
   handler: async (args, context) => {
     // `ai.use`, not `files.write`: proposing is the agent-facing half of the workflow and is
     // grantable without any ability to change the server. Approving needs `files.write`, and
@@ -2105,7 +2261,7 @@ const proposeModTool = defineTool({
       // install anything" is fixed by the contract rather than by this line.
       installed: false as const,
       nextStep: resolution.installable
-        ? 'Nothing was installed. Tell the human this is waiting in the Platter web UI under the server\'s Mods tab, and what they should look at before approving.'
+        ? "Nothing was installed. Tell the human this is waiting in the Platter web UI under the server's Mods tab, and what they should look at before approving."
         : 'Nothing was installed, and this proposal cannot be approved as it stands — see `problems`. Tell the human what would have to change.',
     };
   },
@@ -2149,7 +2305,12 @@ const getProposalStatusTool = defineTool({
     total: z.number().int(),
     truncated: z.boolean(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     await authorizeServer(context.principal, args.serverId, 'server.view');
 
@@ -2192,7 +2353,9 @@ const playerNameArg = z
   .trim()
   .min(1)
   .max(32)
-  .describe('The player name exactly as the game knows it. The game is the authority on what is valid.');
+  .describe(
+    'The player name exactly as the game knows it. The game is the authority on what is valid.',
+  );
 
 const reasonArg = z
   .string()
@@ -2237,7 +2400,12 @@ const listPlayersTool = defineTool({
     total: z.number().int(),
     truncated: z.boolean(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const roster = await getPlayerRoster(server.id);
@@ -2276,7 +2444,7 @@ const kickPlayerTool = defineTool({
     'Disconnects a player who is currently online. They can rejoin immediately — this is a nudge, ' +
     'not a ban. Requires a running server with RCON reachable; if the game refuses (no such player, ' +
     'not online) its own words come back as the error.\n' +
-    'The kick is sent as a console command and is written to the audit log with the calling agent\'s ' +
+    "The kick is sent as a console command and is written to the audit log with the calling agent's " +
     'identity. `reason` is shown to the player.',
   input: z.object({ serverId: serverIdArg, player: playerNameArg, reason: reasonArg }),
   output: z.object({
@@ -2285,7 +2453,12 @@ const kickPlayerTool = defineTool({
     action: z.literal('kick'),
     output: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.write');
     const output = await kickPlayer(server.id, args.player, args.reason ?? null, {
@@ -2309,7 +2482,7 @@ const banPlayerTool = defineTool({
     "game's own ban list and survives restarts; lifting it is a manual step in the web console.\n" +
     'Requires `confirm: true`. Called without it, the tool explains what would happen and bans ' +
     'nobody — ask the human first unless they have already asked for this specific ban. Requires a ' +
-    'running server with RCON reachable. Audited with the calling agent\'s identity. To disconnect ' +
+    "running server with RCON reachable. Audited with the calling agent's identity. To disconnect " +
     'someone without barring them, use kick_player.',
   input: z.object({
     serverId: serverIdArg,
@@ -2324,7 +2497,12 @@ const banPlayerTool = defineTool({
     output: z.string().nullable(),
     message: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.write');
 
@@ -2365,11 +2543,11 @@ const whitelistPlayerTool = defineTool({
   title: 'Add or remove a whitelist entry',
   description:
     "Adds a player to, or removes them from, the server's whitelist. Requires a running server with " +
-    'RCON reachable, and the change is written to the game\'s whitelist file, so it survives restarts.\n' +
+    "RCON reachable, and the change is written to the game's whitelist file, so it survives restarts.\n" +
     'Note that this only changes the list. Whether the whitelist is *enforced* is a separate server ' +
     'setting — check `whitelistEnabled` from list_players; if it is false, adding someone grants ' +
     'nothing and removing them bars nobody. Removing an entry does not disconnect a player who is ' +
-    'already on. Audited with the calling agent\'s identity.',
+    "already on. Audited with the calling agent's identity.",
   input: z.object({
     serverId: serverIdArg,
     player: playerNameArg,
@@ -2383,7 +2561,12 @@ const whitelistPlayerTool = defineTool({
     output: z.string(),
     note: z.string(),
   }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'console.write');
     const output = await setWhitelisted(server.id, args.player, args.action === 'add', {
@@ -2453,7 +2636,12 @@ const getServerAddressTool = defineTool({
       }),
     ),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const dto = await loadServerDto(server.id, context.logger);
@@ -2574,7 +2762,12 @@ const checkReachabilityTool = defineTool({
     ),
     summary: z.string(),
   }),
-  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
     const dto = await loadServerDto(server.id, context.logger);
@@ -2636,7 +2829,8 @@ const checkReachabilityTool = defineTool({
           protocol: allocation.protocol,
           reachable: null,
           latencyMs: null,
-          detail: 'UDP ports cannot be probed by connecting. This is not a failure — the port may well be fine.',
+          detail:
+            'UDP ports cannot be probed by connecting. This is not a failure — the port may well be fine.',
         };
       }),
     );

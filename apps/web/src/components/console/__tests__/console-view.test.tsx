@@ -167,7 +167,9 @@ describe('ConsoleView', () => {
     // Announcements are muted while paused, so scrolling does not re-read the buffer.
     expect(log).toHaveAttribute('aria-live', 'off');
 
-    rerender(<ConsoleView connectionState="open" lines={manyLines(23)} serverName="Survival SMP" />);
+    rerender(
+      <ConsoleView connectionState="open" lines={manyLines(23)} serverName="Survival SMP" />,
+    );
     expect(screen.getByRole('button', { name: /3 new lines/ })).toBeInTheDocument();
   });
 
@@ -252,7 +254,9 @@ describe('ConsoleView', () => {
     expect(screen.getByRole('button', { name: 'Clear the console view' })).toBeInTheDocument();
 
     rerender(<ConsoleView connectionState="open" lines={manyLines(3)} serverName="Survival SMP" />);
-    expect(screen.queryByRole('button', { name: 'Clear the console view' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Clear the console view' }),
+    ).not.toBeInTheDocument();
   });
 });
 

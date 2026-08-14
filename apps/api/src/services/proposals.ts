@@ -204,7 +204,11 @@ function planFacts(resolution: Resolution): string[] {
     .sort();
 }
 
-function materialFacts(detail: ModDetail, version: ModVersion, resolution: Resolution): MaterialFacts {
+function materialFacts(
+  detail: ModDetail,
+  version: ModVersion,
+  resolution: Resolution,
+): MaterialFacts {
   return {
     plan: planFacts(resolution),
     projectId: detail.projectId,
@@ -602,7 +606,11 @@ export async function approve(
   const resolution = trimResolution(plan.resolution);
   const changes = [
     ...diffMaterial(
-      materialFacts(proposal.snapshot.detail, proposal.snapshot.version, proposal.snapshot.resolution),
+      materialFacts(
+        proposal.snapshot.detail,
+        proposal.snapshot.version,
+        proposal.snapshot.resolution,
+      ),
       materialFacts(plan.detail, plan.version, resolution),
     ),
     ...diffPresentation(proposal.snapshot.detail, plan.detail),

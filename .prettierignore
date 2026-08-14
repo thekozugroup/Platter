@@ -1,0 +1,13 @@
+# Prettier 3 already reads .gitignore, so build output, coverage and node_modules are covered
+# there. This file is only for things that are committed but must not be reformatted.
+
+# The lockfile is generated, and its formatting is pnpm's business. Rewriting it risks a
+# mismatch that `pnpm install --frozen-lockfile` — which is what CI and the Docker build both
+# run — would fail on.
+pnpm-lock.yaml
+
+# Vendored Shark UI. These 95 components are installed from a registry, not written here, and
+# DESIGN.md §1 says to modify a file in `components/ui/` only to fix a real bug, never for
+# style. Without this the format gate demands a repo-wide edit that the design contract
+# forbids, and every future `shadcn add` lands a file that fails CI until it is reformatted.
+apps/web/src/components/ui/

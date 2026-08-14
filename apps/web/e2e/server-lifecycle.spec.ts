@@ -104,8 +104,10 @@ test.describe('a Minecraft server, from nothing to gone', () => {
      * interface.
      */
     const bind = await platter.primaryBindHost(serverId);
-    expect(bind, 'the allocation should bind a wildcard, or the next assertion proves nothing')
-      .toMatch(/^(0\.0\.0\.0|::)$/);
+    expect(
+      bind,
+      'the allocation should bind a wildcard, or the next assertion proves nothing',
+    ).toMatch(/^(0\.0\.0\.0|::)$/);
 
     const shown = ((await address.textContent()) ?? '').trim();
     expect(shown).not.toBe('');
@@ -186,9 +188,9 @@ test.describe('a Minecraft server, from nothing to gone', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Servers' })).toBeVisible();
     await expect(page.getByRole('link', { name: SERVER_NAME })).toHaveCount(0);
     // The sidebar is the other place it was listed, and it has to agree.
-    await expect(
-      page.getByRole('navigation').getByRole('link', { name: SERVER_NAME }),
-    ).toHaveCount(0);
+    await expect(page.getByRole('navigation').getByRole('link', { name: SERVER_NAME })).toHaveCount(
+      0,
+    );
 
     serverId = '';
   });

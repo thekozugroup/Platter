@@ -114,7 +114,13 @@ export const enshroudedBlueprint: BlueprintDefinition = {
     // data volume so backups and the file editor see it.
     { key: 'SERVER_QUERYPORT', label: 'Game port', type: 'number', default: 15637, hidden: true },
     { key: 'SERVER_IP', label: 'Bind address', type: 'string', default: '0.0.0.0', hidden: true },
-    { key: 'SERVER_SAVE_DIR', label: 'Save directory', type: 'string', default: './savegame', hidden: true },
+    {
+      key: 'SERVER_SAVE_DIR',
+      label: 'Save directory',
+      type: 'string',
+      default: './savegame',
+      hidden: true,
+    },
   ],
   signals: {
     // The server prints `[Session] 'HostOnline' (up)!` once it is reachable.

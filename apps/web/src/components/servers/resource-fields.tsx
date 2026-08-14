@@ -91,7 +91,10 @@ export function resourceBounds(
   return {
     memory: {
       min: memoryMin,
-      max: Math.max(memoryMin, floorTo(Math.min(memoryCeiling, LIMITS.maxMemoryMb), MEMORY_STEP_MB)),
+      max: Math.max(
+        memoryMin,
+        floorTo(Math.min(memoryCeiling, LIMITS.maxMemoryMb), MEMORY_STEP_MB),
+      ),
       step: MEMORY_STEP_MB,
     },
     disk: {
@@ -101,7 +104,10 @@ export function resourceBounds(
     },
     cpu: {
       min: LIMITS.minCpuCores,
-      max: Math.max(CPU_STEP_CORES, ceilTo(Math.min(cpuCeiling, LIMITS.maxCpuCores), CPU_STEP_CORES)),
+      max: Math.max(
+        CPU_STEP_CORES,
+        ceilTo(Math.min(cpuCeiling, LIMITS.maxCpuCores), CPU_STEP_CORES),
+      ),
       step: CPU_STEP_CORES,
     },
   };
@@ -296,9 +302,9 @@ export function ResourceFields({
           className="rounded-sm border border-warning/25 bg-warning-subtle px-3 py-2 text-subhead text-warning"
           role="alert"
         >
-          {capacity?.nodeName ?? 'This node'} has only enough room for the minimum this game
-          needs. Free space by deleting a server, or lower another server’s limits, before
-          creating this one.
+          {capacity?.nodeName ?? 'This node'} has only enough room for the minimum this game needs.
+          Free space by deleting a server, or lower another server’s limits, before creating this
+          one.
         </p>
       ) : null}
     </div>

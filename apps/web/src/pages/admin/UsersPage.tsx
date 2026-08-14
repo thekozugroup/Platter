@@ -206,11 +206,7 @@ function RowActions({
           <Pencil aria-hidden />
           Edit account
         </MenuItem>
-        <MenuItem
-          disabled={Boolean(suspendReason)}
-          title={suspendReason}
-          value="toggle-suspend"
-        >
+        <MenuItem disabled={Boolean(suspendReason)} title={suspendReason} value="toggle-suspend">
           <UserX aria-hidden />
           {user.suspended ? 'Reactivate' : 'Suspend'}
         </MenuItem>
@@ -268,15 +264,18 @@ export function UsersPage() {
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   function updateParams(changes: Record<string, string>) {
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      for (const [key, value] of Object.entries(changes)) {
-        if (value === '') next.delete(key);
-        else next.set(key, value);
-      }
-      if (!('page' in changes)) next.delete('page');
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const [key, value] of Object.entries(changes)) {
+          if (value === '') next.delete(key);
+          else next.set(key, value);
+        }
+        if (!('page' in changes)) next.delete('page');
+        return next;
+      },
+      { replace: true },
+    );
   }
 
   useEffect(() => {
@@ -543,7 +542,11 @@ export function UsersPage() {
                         </TableCell>
                         <TableCell
                           className="text-footnote text-label-secondary"
-                          title={user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : undefined}
+                          title={
+                            user.lastLoginAt
+                              ? new Date(user.lastLoginAt).toLocaleString()
+                              : undefined
+                          }
                         >
                           {lastLoginText(user)}
                         </TableCell>
@@ -642,7 +645,9 @@ export function UsersPage() {
                 submitForm();
               }}
               roleLockedReason={
-                editingUser && editingUser.role === 'owner' && (ownerCount === undefined || ownerCount <= 1)
+                editingUser &&
+                editingUser.role === 'owner' &&
+                (ownerCount === undefined || ownerCount <= 1)
                   ? 'Platter needs at least one owner. Promote someone else to owner first.'
                   : undefined
               }
@@ -694,9 +699,9 @@ function SuspendDialog({ user, onClose }: { user: User | null; onClose: () => vo
         {nextSuspended && user && user.serverCount > 0 ? (
           <AlertDialogBody className="text-subhead text-label-secondary">
             {user.serverCount} {user.serverCount === 1 ? 'server' : 'servers'} they own{' '}
-            {user.serverCount === 1 ? 'stops' : 'stop'} too — Platter shuts each one down as part
-            of the suspension. Nothing is deleted, and un-suspending the account does not start
-            them back up on its own.
+            {user.serverCount === 1 ? 'stops' : 'stop'} too — Platter shuts each one down as part of
+            the suspension. Nothing is deleted, and un-suspending the account does not start them
+            back up on its own.
           </AlertDialogBody>
         ) : null}
         <AlertDialogFooter>
@@ -712,7 +717,9 @@ function SuspendDialog({ user, onClose }: { user: User | null; onClose: () => vo
                   onSuccess: () => {
                     onClose();
                     toast.create({
-                      title: nextSuspended ? `${user.displayName} suspended` : `${user.displayName} reactivated`,
+                      title: nextSuspended
+                        ? `${user.displayName} suspended`
+                        : `${user.displayName} reactivated`,
                       type: 'success',
                     });
                   },
@@ -749,7 +756,8 @@ function DeleteDialog({ user, onClose }: { user: User | null; onClose: () => voi
 
   const candidates = useQuery({
     queryKey: [...queryKeys.users.all, 'reassign-candidates'] as const,
-    queryFn: () => api.get<Paginated<User>>('/users', { query: { perPage: 100, suspended: false } }),
+    queryFn: () =>
+      api.get<Paginated<User>>('/users', { query: { perPage: 100, suspended: false } }),
     enabled: owesServers,
   });
   const options = (candidates.data?.data ?? []).filter((candidate) => candidate.id !== user?.id);
@@ -771,9 +779,9 @@ function DeleteDialog({ user, onClose }: { user: User | null; onClose: () => voi
         {owesServers && user ? (
           <AlertDialogBody className="flex flex-col gap-3">
             <p className="text-subhead text-label-secondary">
-              {user.displayName} owns {user.serverCount} {user.serverCount === 1 ? 'server' : 'servers'}.
-              Platter will not delete an account that still owns servers — choose who receives
-              them.
+              {user.displayName} owns {user.serverCount}{' '}
+              {user.serverCount === 1 ? 'server' : 'servers'}. Platter will not delete an account
+              that still owns servers — choose who receives them.
             </p>
             <Field required>
               <FieldLabel>Reassign their servers to</FieldLabel>

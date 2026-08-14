@@ -19,9 +19,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 /** True when the environment asks for a proxy at all. */
 export function proxyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(
-    env.HTTP_PROXY ?? env.http_proxy ?? env.HTTPS_PROXY ?? env.https_proxy,
-  );
+  return Boolean(env.HTTP_PROXY ?? env.http_proxy ?? env.HTTPS_PROXY ?? env.https_proxy);
 }
 
 /**

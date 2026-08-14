@@ -70,7 +70,10 @@ const reachabilityResponseSchema = z.object({
 });
 
 const zoneRecordLineSchema = z.object({ name: z.string(), line: z.string() });
-const wildcardARecordSchema = zoneRecordLineSchema.extend({ target: z.string(), ttl: z.number().int() });
+const wildcardARecordSchema = zoneRecordLineSchema.extend({
+  target: z.string(),
+  ttl: z.number().int(),
+});
 const zoneSrvRecordSchema = zoneRecordLineSchema.extend({
   service: z.string(),
   protocol: z.enum(['tcp', 'udp']),

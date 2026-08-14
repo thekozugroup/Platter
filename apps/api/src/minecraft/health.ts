@@ -78,9 +78,7 @@ function toNumber(raw: string | undefined): number | null {
  */
 export function parseTps(output: string): TpsReading | null {
   const text = stripFormatting(output);
-  const line = text
-    .split(/\r?\n/)
-    .find((candidate) => /tps from last/i.test(candidate));
+  const line = text.split(/\r?\n/).find((candidate) => /tps from last/i.test(candidate));
   if (line === undefined) return null;
 
   const colon = line.indexOf(':');
@@ -100,7 +98,9 @@ export function parseTps(output: string): TpsReading | null {
   ) {
     return null;
   }
-  if ([oneMinute, fiveMinutes, fifteenMinutes].some((value) => value < 0 || value > MAX_PLAUSIBLE_TPS)) {
+  if (
+    [oneMinute, fiveMinutes, fifteenMinutes].some((value) => value < 0 || value > MAX_PLAUSIBLE_TPS)
+  ) {
     return null;
   }
 

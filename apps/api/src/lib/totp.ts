@@ -57,7 +57,11 @@ export function totpStepFor(secret: string, token: string): number | null {
  * below it closes the replay window a plain "is this code right" check leaves open for up
  * to 90 seconds — long enough for a phishing proxy to relay a code a human just typed.
  */
-export function verifyTotp(secret: string, token: string, lastStep: number | null = null): number | null {
+export function verifyTotp(
+  secret: string,
+  token: string,
+  lastStep: number | null = null,
+): number | null {
   const step = totpStepFor(secret, token);
   if (step === null) return null;
   if (lastStep !== null && step <= lastStep) return null;

@@ -1,6 +1,16 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseInfiniteQueryResult, UseMutationResult, UseQueryResult } from '@tanstack/react-query';
-import type { CreateServerRequest, Paginated, Server, ServerStatus, ServerSummary } from '@platter/shared';
+import type {
+  UseInfiniteQueryResult,
+  UseMutationResult,
+  UseQueryResult,
+} from '@tanstack/react-query';
+import type {
+  CreateServerRequest,
+  Paginated,
+  Server,
+  ServerStatus,
+  ServerSummary,
+} from '@platter/shared';
 import { api } from '@/lib/api-client.js';
 import { queryKeys } from '@/lib/query.js';
 

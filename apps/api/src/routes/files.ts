@@ -216,7 +216,11 @@ const fileRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const entry = await copyServerPath(request.params.serverId, request.body.from, request.body.to);
+      const entry = await copyServerPath(
+        request.params.serverId,
+        request.body.from,
+        request.body.to,
+      );
       reply.code(201);
       return entry;
     },

@@ -55,11 +55,7 @@ export function CopyField({
   const Icon = state === 'copied' ? Check : state === 'failed' ? Close : Copy;
 
   return (
-    <div
-      aria-label={label}
-      className={cn('flex min-w-0 flex-col gap-1', className)}
-      role="group"
-    >
+    <div aria-label={label} className={cn('flex min-w-0 flex-col gap-1', className)} role="group">
       {showLabel ? (
         <span className="text-caption font-medium text-label-tertiary">{label}</span>
       ) : null}
@@ -110,10 +106,7 @@ export function CopyField({
       */}
       <span
         aria-live="polite"
-        className={cn(
-          'text-caption',
-          state === 'failed' ? 'text-danger' : 'sr-only',
-        )}
+        className={cn('text-caption', state === 'failed' ? 'text-danger' : 'sr-only')}
         role="status"
       >
         {state === 'copied' ? `${label} copied` : null}

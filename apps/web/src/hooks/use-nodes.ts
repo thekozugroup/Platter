@@ -100,7 +100,8 @@ export function useDeleteNode(): UseMutationResult<{ ok: true }, Error, string> 
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (nodeId: string) => api.delete<{ ok: true }>(`/nodes/${nodeId}`),
-    onSuccess: (_result, nodeId) => queryClient.removeQueries({ queryKey: queryKeys.nodes.detail(nodeId) }),
+    onSuccess: (_result, nodeId) =>
+      queryClient.removeQueries({ queryKey: queryKeys.nodes.detail(nodeId) }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.all }),
   });
 }

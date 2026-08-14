@@ -53,7 +53,8 @@ export function formatRelativeTime(input: string | number | Date, now: Date = ne
 
   for (const [limit, unit] of divisions) {
     if (abs < limit) {
-      const perUnit = unit === 'second' ? 1 : unit === 'minute' ? 60 : unit === 'hour' ? 3600 : 86400;
+      const perUnit =
+        unit === 'second' ? 1 : unit === 'minute' ? 60 : unit === 'hour' ? 3600 : 86400;
       return formatter.format(Math.round(deltaSeconds / perUnit), unit);
     }
   }

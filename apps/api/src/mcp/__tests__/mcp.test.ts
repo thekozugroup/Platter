@@ -345,7 +345,10 @@ describe('protocol errors', () => {
     const session = await connect(fullKey.token);
     try {
       await expect(
-        session.client.callTool({ name: 'get_logs', arguments: { serverId: SERVER_ID, lines: 50_000 } }),
+        session.client.callTool({
+          name: 'get_logs',
+          arguments: { serverId: SERVER_ID, lines: 50_000 },
+        }),
       ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
     } finally {
       await session.close();
@@ -652,7 +655,13 @@ describe('the installer is not reachable from this module', () => {
     for (const match of source.matchAll(named)) {
       const bindings = (match[1] ?? '')
         .split(',')
-        .map((entry) => entry.replace(/^\s*type\s+/, '').split(/\s+as\s+/)[0]?.trim() ?? '')
+        .map(
+          (entry) =>
+            entry
+              .replace(/^\s*type\s+/, '')
+              .split(/\s+as\s+/)[0]
+              ?.trim() ?? '',
+        )
         .filter((entry) => entry.length > 0);
       found.push({ specifier: match[2] ?? '', bindings });
     }
@@ -679,7 +688,9 @@ describe('the installer is not reachable from this module', () => {
       const source = await readFile(path.join(srcRoot, relative), 'utf8');
 
       for (const entry of importsOf(source)) {
-        expect(entry.specifier, `${relative} imports ${entry.specifier}`).not.toMatch(/mods\/install/);
+        expect(entry.specifier, `${relative} imports ${entry.specifier}`).not.toMatch(
+          /mods\/install/,
+        );
         for (const binding of entry.bindings) {
           expect(BANNED_BINDINGS.has(binding), `${relative} imports ${binding}`).toBe(false);
         }
@@ -745,9 +756,9 @@ describe('resources', () => {
   it('fails an unknown resource URI rather than returning empty contents', async () => {
     const session = await connect(fullKey.token);
     try {
-      await expect(
-        session.client.readResource({ uri: 'platter://nope' }),
-      ).rejects.toBeInstanceOf(McpError);
+      await expect(session.client.readResource({ uri: 'platter://nope' })).rejects.toBeInstanceOf(
+        McpError,
+      );
     } finally {
       await session.close();
     }
@@ -774,9 +785,9 @@ describe('resources', () => {
         const viaTool = await call(session.client, 'list_servers', {});
         expect(viaTool.isError).toBe(true);
 
-        await expect(
-          session.client.readResource({ uri: 'platter://servers' }),
-        ).rejects.toThrow(/server\.view/);
+        await expect(session.client.readResource({ uri: 'platter://servers' })).rejects.toThrow(
+          /server\.view/,
+        );
 
         await expect(
           session.client.readResource({ uri: `platter://servers/${SERVER_ID}/config` }),

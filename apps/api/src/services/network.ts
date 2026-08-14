@@ -70,7 +70,9 @@ async function findBlueprint(key: string): Promise<Blueprint | null> {
   }
 }
 
-function primaryAllocation<T extends { primary: boolean }>(allocations: readonly T[]): T | undefined {
+function primaryAllocation<T extends { primary: boolean }>(
+  allocations: readonly T[],
+): T | undefined {
   return allocations.find((allocation) => allocation.primary) ?? allocations[0];
 }
 
@@ -102,10 +104,16 @@ function toWireAllocation(row: Allocation, blueprint: Blueprint | null): ServerA
   };
 }
 
-function toWireAllocations(rows: readonly Allocation[], blueprint: Blueprint | null): ServerAllocation[] {
+function toWireAllocations(
+  rows: readonly Allocation[],
+  blueprint: Blueprint | null,
+): ServerAllocation[] {
   return rows
     .map((row) => toWireAllocation(row, blueprint))
-    .sort((left, right) => Number(right.primary) - Number(left.primary) || left.hostPort - right.hostPort);
+    .sort(
+      (left, right) =>
+        Number(right.primary) - Number(left.primary) || left.hostPort - right.hostPort,
+    );
 }
 
 async function resolveHostname(serverId: string): Promise<string> {
@@ -168,7 +176,9 @@ export async function updateZoneSettings(input: UpdateZoneInput): Promise<Networ
       const ip = input.publicIp.trim();
       if (isIP(ip) === 0) {
         throw badRequest('That is not a valid IP address.', {
-          publicIp: ['Use a plain IPv4 or IPv6 address — your router usually shows this on its status page.'],
+          publicIp: [
+            'Use a plain IPv4 or IPv6 address — your router usually shows this on its status page.',
+          ],
         });
       }
       await prisma.setting.upsert({
@@ -339,7 +349,12 @@ export async function getServerAddress(serverId: string): Promise<ServerNetworkA
     throw invalidState('This server does not have a usable address yet.');
   }
 
-  const { hostnameResolves, srvCoversPort } = addressFacts(serverId, server.blueprintKey, address, zone);
+  const { hostnameResolves, srvCoversPort } = addressFacts(
+    serverId,
+    server.blueprintKey,
+    address,
+    zone,
+  );
   const mdnsAvailable = isMdnsEligible(zone) && isMdnsAvailable() && isAdvertised(serverId);
   const minecraftSrv = srvCoversPort;
 
@@ -428,9 +443,13 @@ export interface ChangePortResult {
 }
 
 function portConflict(hostPort: number, node: NodeRow): PlatterError {
-  return new PlatterError('no_allocation_available', `Port ${hostPort} is already in use on ${node.name}.`, {
-    details: { hostPort: [`Port ${hostPort} is already in use on ${node.name}.`] },
-  });
+  return new PlatterError(
+    'no_allocation_available',
+    `Port ${hostPort} is already in use on ${node.name}.`,
+    {
+      details: { hostPort: [`Port ${hostPort} is already in use on ${node.name}.`] },
+    },
+  );
 }
 
 export async function changeServerPort(
@@ -474,14 +493,20 @@ export async function changeServerPort(
     throw error;
   }
 
-  return { allocation: toWireAllocation(updated, blueprint), requiresRestart: server.containerId !== null };
+  return {
+    allocation: toWireAllocation(updated, blueprint),
+    requiresRestart: server.containerId !== null,
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Reachability
 // ---------------------------------------------------------------------------
 
-export async function checkServerReachability(serverId: string, portName?: string): Promise<ProbeResult> {
+export async function checkServerReachability(
+  serverId: string,
+  portName?: string,
+): Promise<ProbeResult> {
   const { node, allocations } = await loadContext(serverId);
   const target = portName
     ? allocations.find((allocation) => allocation.portName === portName)

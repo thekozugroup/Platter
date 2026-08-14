@@ -246,8 +246,8 @@ function WhitelistCard({
         </CardTitle>
         <CardDescription>
           When the whitelist is on, only the names below can join. Operators can always join.
-          Platter changes this list by sending a command to the running server, so it has to be
-          up before you can add or remove anyone.
+          Platter changes this list by sending a command to the running server, so it has to be up
+          before you can add or remove anyone.
         </CardDescription>
       </CardHeader>
 
@@ -652,9 +652,9 @@ export function AccessLists({
         <Alert variant="warning">
           <AlertTitle className="font-sans">These lists cannot be changed right now</AlertTitle>
           <AlertDescription>
-            {blockedTitle ? `${blockedTitle}. ` : ''}Every change here is a console command
-            Platter sends to the running server, so the three lists below can be read but not
-            edited. Each disabled control carries the reason.
+            {blockedTitle ? `${blockedTitle}. ` : ''}Every change here is a console command Platter
+            sends to the running server, so the three lists below can be read but not edited. Each
+            disabled control carries the reason.
           </AlertDescription>
         </Alert>
       ) : null}

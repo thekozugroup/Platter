@@ -114,7 +114,8 @@ export function useProposals(
 ): UseQueryResult<{ data: ModProposal[] }> {
   return useQuery({
     queryKey: proposalsKeys.list(serverId, status),
-    queryFn: () => api.get<{ data: ModProposal[] }>(`/servers/${serverId}/proposals`, { query: { status } }),
+    queryFn: () =>
+      api.get<{ data: ModProposal[] }>(`/servers/${serverId}/proposals`, { query: { status } }),
   });
 }
 
@@ -134,10 +135,13 @@ export interface CreateProposalInput {
   rationale: string;
 }
 
-export function useCreateProposal(serverId: string): UseMutationResult<ModProposal, Error, CreateProposalInput> {
+export function useCreateProposal(
+  serverId: string,
+): UseMutationResult<ModProposal, Error, CreateProposalInput> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateProposalInput) => api.post<ModProposal>(`/servers/${serverId}/proposals`, body),
+    mutationFn: (body: CreateProposalInput) =>
+      api.post<ModProposal>(`/servers/${serverId}/proposals`, body),
     onSuccess: (proposal) => {
       queryClient.setQueryData(proposalsKeys.detail(serverId, proposal.id), proposal);
     },
@@ -191,9 +195,14 @@ export function useApproveProposal(
         { expect: [409] },
       ),
     onSuccess: (outcome) => {
-      queryClient.setQueryData(proposalsKeys.detail(serverId, outcome.proposal.id), outcome.proposal);
+      queryClient.setQueryData(
+        proposalsKeys.detail(serverId, outcome.proposal.id),
+        outcome.proposal,
+      );
       if (outcome.status === 'installed') {
-        void queryClient.invalidateQueries({ queryKey: ['servers', serverId, 'mods', 'installed'] });
+        void queryClient.invalidateQueries({
+          queryKey: ['servers', serverId, 'mods', 'installed'],
+        });
       }
     },
     onError: (error, { title }) => {
@@ -212,12 +221,15 @@ export interface RejectProposalInput {
   note?: string;
 }
 
-export function useRejectProposal(serverId: string): UseMutationResult<ModProposal, Error, RejectProposalInput> {
+export function useRejectProposal(
+  serverId: string,
+): UseMutationResult<ModProposal, Error, RejectProposalInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ proposalId, note }: RejectProposalInput) =>
       api.post<ModProposal>(`/servers/${serverId}/proposals/${proposalId}/reject`, { note }),
-    onSuccess: (proposal) => queryClient.setQueryData(proposalsKeys.detail(serverId, proposal.id), proposal),
+    onSuccess: (proposal) =>
+      queryClient.setQueryData(proposalsKeys.detail(serverId, proposal.id), proposal),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: proposalsKeys.all(serverId) }),
   });
 }

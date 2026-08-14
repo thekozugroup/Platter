@@ -60,7 +60,9 @@ export function useConsole(serverId: string): UseConsoleResult {
         pendingRef.current = [];
         setLines((previous) => {
           const merged = previous.length === 0 ? incoming : previous.concat(incoming);
-          return merged.length > LINE_BUFFER_CAP ? merged.slice(merged.length - LINE_BUFFER_CAP) : merged;
+          return merged.length > LINE_BUFFER_CAP
+            ? merged.slice(merged.length - LINE_BUFFER_CAP)
+            : merged;
         });
       }, FLUSH_INTERVAL_MS),
     [],
@@ -87,7 +89,9 @@ export function useConsole(serverId: string): UseConsoleResult {
         pendingRef.current = [];
         if (!mountedRef.current) return;
         setLines(
-          backlog.length > LINE_BUFFER_CAP ? backlog.slice(backlog.length - LINE_BUFFER_CAP) : backlog,
+          backlog.length > LINE_BUFFER_CAP
+            ? backlog.slice(backlog.length - LINE_BUFFER_CAP)
+            : backlog,
         );
       },
       onStatus: (status, exitCode) => {
@@ -128,7 +132,10 @@ export function useConsole(serverId: string): UseConsoleResult {
     (command: string) => socketRef.current?.sendCommand(command) ?? false,
     [],
   );
-  const requestBacklog = useCallback((count?: number) => socketRef.current?.requestBacklog(count), []);
+  const requestBacklog = useCallback(
+    (count?: number) => socketRef.current?.requestBacklog(count),
+    [],
+  );
   const clear = useCallback(() => setLines([]), []);
   const dismissNotice = useCallback(() => setNotice(null), []);
 

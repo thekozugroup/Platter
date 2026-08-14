@@ -101,14 +101,18 @@ function srvRecord(hostname: string, port: number): RawRecord {
 
 function recordsFor(advertisement: ServerAdvertisement): RawRecord[] {
   const records = hostRecords(advertisement.hostname);
-  if (advertisement.minecraftSrv) records.push(srvRecord(advertisement.hostname, advertisement.port));
+  if (advertisement.minecraftSrv)
+    records.push(srvRecord(advertisement.hostname, advertisement.port));
   return records;
 }
 
 function markUnavailable(reason: string, logger?: FastifyBaseLogger): void {
   if (unavailableReason) return;
   unavailableReason = reason;
-  logger?.warn({ reason }, 'mDNS is unavailable on this host; servers fall back to host:port addresses');
+  logger?.warn(
+    { reason },
+    'mDNS is unavailable on this host; servers fall back to host:port addresses',
+  );
 }
 
 function ensureInstance(logger?: FastifyBaseLogger): Bonjour | null {
@@ -160,12 +164,18 @@ function removeEntry(serverId: string, logger?: FastifyBaseLogger): void {
  * server stops so a dead entry does not keep answering queries for a container that is no
  * longer running.
  */
-export function registerServer(advertisement: ServerAdvertisement, logger?: FastifyBaseLogger): void {
+export function registerServer(
+  advertisement: ServerAdvertisement,
+  logger?: FastifyBaseLogger,
+): void {
   if (!advertisement.hostname.toLowerCase().endsWith('.local')) {
     // Every resolver only routes `.local` names to multicast (RFC 6762 §3). A record
     // under any other domain would sit in the registry and simply never be queried —
     // that domain is what `zone.ts` exists for instead.
-    logger?.debug({ hostname: advertisement.hostname }, 'hostname is not under .local; skipping mDNS');
+    logger?.debug(
+      { hostname: advertisement.hostname },
+      'hostname is not under .local; skipping mDNS',
+    );
     return;
   }
 

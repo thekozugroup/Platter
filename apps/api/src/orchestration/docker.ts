@@ -323,24 +323,26 @@ export class DockerDriver implements OrchestrationDriver {
       } catch {
         return;
       }
-      const errorText = typeof event === 'object' && event !== null
-        ? (event as { error?: unknown }).error
-        : undefined;
+      const errorText =
+        typeof event === 'object' && event !== null
+          ? (event as { error?: unknown }).error
+          : undefined;
       if (typeof errorText === 'string') {
         failed = errorText;
         return;
       }
       if (!onProgress) return;
 
-      const status = typeof event === 'object' && event !== null
-        ? (event as { status?: unknown }).status
-        : undefined;
-      const id = typeof event === 'object' && event !== null
-        ? (event as { id?: unknown }).id
-        : undefined;
-      const detail = typeof event === 'object' && event !== null
-        ? (event as { progressDetail?: unknown }).progressDetail
-        : undefined;
+      const status =
+        typeof event === 'object' && event !== null
+          ? (event as { status?: unknown }).status
+          : undefined;
+      const id =
+        typeof event === 'object' && event !== null ? (event as { id?: unknown }).id : undefined;
+      const detail =
+        typeof event === 'object' && event !== null
+          ? (event as { progressDetail?: unknown }).progressDetail
+          : undefined;
 
       const current = numberAt(detail, 'current');
       const total = numberAt(detail, 'total');
@@ -704,7 +706,10 @@ export class DockerDriver implements OrchestrationDriver {
       const containers = await this.docker.listContainers({
         all: true,
         filters: {
-          label: [`${DRIVER_LABELS.serverId}=${serverId}`, `${DRIVER_LABELS.nodeId}=${this.nodeId}`],
+          label: [
+            `${DRIVER_LABELS.serverId}=${serverId}`,
+            `${DRIVER_LABELS.nodeId}=${this.nodeId}`,
+          ],
         },
       });
       const found = containers[0];
@@ -821,14 +826,22 @@ export class DockerDriver implements OrchestrationDriver {
       return new PlatterError('not_found', 'That container no longer exists.', { cause: error });
     }
     if (status === 409) {
-      return new PlatterError('conflict', 'The container runtime refused: it conflicts with something that already exists.', {
-        cause: error,
-      });
+      return new PlatterError(
+        'conflict',
+        'The container runtime refused: it conflicts with something that already exists.',
+        {
+          cause: error,
+        },
+      );
     }
-    return new PlatterError('driver_error', `The container runtime rejected the ${action} request.`, {
-      cause: error,
-      retryable: true,
-    });
+    return new PlatterError(
+      'driver_error',
+      `The container runtime rejected the ${action} request.`,
+      {
+        cause: error,
+        retryable: true,
+      },
+    );
   }
 }
 

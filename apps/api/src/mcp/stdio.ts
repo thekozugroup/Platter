@@ -34,9 +34,7 @@ export function stderrLogger(level = 'info'): FastifyBaseLogger {
   const emit =
     (severity: string) =>
     (...args: unknown[]): void => {
-      const parts = args.map((arg) =>
-        typeof arg === 'string' ? arg : safeStringify(arg),
-      );
+      const parts = args.map((arg) => (typeof arg === 'string' ? arg : safeStringify(arg)));
       process.stderr.write(`[platter-mcp] ${severity} ${parts.join(' ')}\n`);
     };
 

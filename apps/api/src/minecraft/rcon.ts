@@ -438,9 +438,7 @@ export class RconConnection {
       };
 
       try {
-        socket.write(
-          encodeRconPacket({ id, type: RCON_TYPE.auth, body: this.endpoint.password }),
-        );
+        socket.write(encodeRconPacket({ id, type: RCON_TYPE.auth, body: this.endpoint.password }));
       } catch (error) {
         settle(rconError('unreachable', `Could not write to RCON on ${this.label}.`, error));
       }

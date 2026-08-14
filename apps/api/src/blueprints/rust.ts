@@ -144,7 +144,8 @@ export const rustBlueprint: BlueprintDefinition = {
     {
       key: 'RUST_UPDATE_CHECKING',
       label: 'Check for updates while running',
-      description: 'Restarts the server when Facepunch ships a build. Off keeps it up until you say.',
+      description:
+        'Restarts the server when Facepunch ships a build. Off keeps it up until you say.',
       type: 'boolean',
       default: false,
       advanced: true,

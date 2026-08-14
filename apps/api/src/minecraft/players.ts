@@ -54,8 +54,7 @@ export function assertReason(reason: string | null | undefined, limit = 200): st
 }
 
 /** Dotted quad or a bare IPv6 form. Bans take an address, not a hostname. */
-const IP_PATTERN =
-  /^(?:(?:\d{1,3}\.){3}\d{1,3}|(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4})$/;
+const IP_PATTERN = /^(?:(?:\d{1,3}\.){3}\d{1,3}|(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4})$/;
 
 export function assertIpAddress(ip: string): string {
   const trimmed = ip.trim();

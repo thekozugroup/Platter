@@ -13,7 +13,10 @@ import type { BlueprintDefinition, EnvironmentHook } from './index.js';
  * the value it is told, not the port it listens on. Platter maps a host port that is almost
  * never 8211, so without this the server appears in the list at an address nobody can reach.
  */
-export const palworldEnvironment: EnvironmentHook = ({ values, server }): Record<string, string> => {
+export const palworldEnvironment: EnvironmentHook = ({
+  values,
+  server,
+}): Record<string, string> => {
   if ((values['PUBLIC_PORT'] ?? '').length > 0) return {};
   const game = server.allocations.find((allocation) => allocation.name === 'game');
   return game ? { PUBLIC_PORT: String(game.hostPort) } : {};

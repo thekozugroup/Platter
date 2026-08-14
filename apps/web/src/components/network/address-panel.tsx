@@ -109,9 +109,7 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
           </dd>
         </div>
         <div className="flex flex-col gap-1.5">
-          <dt className="text-caption font-medium text-label-tertiary">
-            IP address and port
-          </dt>
+          <dt className="text-caption font-medium text-label-tertiary">IP address and port</dt>
           <dd>
             <CopyField label="IP address and port" value={ipPort} />
           </dd>
@@ -128,9 +126,9 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
             <AlertTitle className="font-sans">Advertised on this network</AlertTitle>
             <AlertDescription>
               <code className="font-mono">{address.fqdn}</code> is being announced over mDNS, so
-              anything on the same network resolves it with no DNS setup at all. It does not
-              leave the local network — anyone connecting from outside needs the IP address, or
-              a real domain.
+              anything on the same network resolves it with no DNS setup at all. It does not leave
+              the local network — anyone connecting from outside needs the IP address, or a real
+              domain.
             </AlertDescription>
           </Alert>
         ) : (
@@ -139,9 +137,9 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
               The <code className="font-mono">.local</code> name is not being announced
             </AlertTitle>
             <AlertDescription>
-              {serverName} is not currently advertised over mDNS — the responder announces a
-              server only while it is running, and some networks block multicast entirely. Give
-              players <code className="font-mono">{ipPort}</code> until it comes back.
+              {serverName} is not currently advertised over mDNS — the responder announces a server
+              only while it is running, and some networks block multicast entirely. Give players{' '}
+              <code className="font-mono">{ipPort}</code> until it comes back.
             </AlertDescription>
           </Alert>
         )
@@ -151,8 +149,8 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
             Using the <code className="font-mono">{address.zone}</code> zone
           </AlertTitle>
           <AlertDescription>
-            This name resolves through your own DNS rather than mDNS, so it works from anywhere
-            the records are published. The records to paste are further down this page.
+            This name resolves through your own DNS rather than mDNS, so it works from anywhere the
+            records are published. The records to paste are further down this page.
           </AlertDescription>
         </Alert>
       )}

@@ -8,7 +8,15 @@ import { api } from '@/lib/api-client.js';
  * `@platter/shared` — mirrored here for the reason documented at the top of `use-mods.ts`.
  */
 
-export const METRIC_NAMES = ['cpu', 'memory', 'disk', 'networkRx', 'networkTx', 'players', 'tps'] as const;
+export const METRIC_NAMES = [
+  'cpu',
+  'memory',
+  'disk',
+  'networkRx',
+  'networkTx',
+  'players',
+  'tps',
+] as const;
 export type MetricName = (typeof METRIC_NAMES)[number];
 
 export const METRIC_RESOLUTIONS = ['raw', '1m', '5m'] as const;

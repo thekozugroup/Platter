@@ -38,11 +38,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu';
 import {
   Dialog,
   DialogBody,
@@ -52,16 +48,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Field, FieldError, FieldHelper, FieldLabel } from '@/components/ui/field';
-import {
-  FileUpload,
-  FileUploadDropzone,
-  FileUploadTrigger,
-} from '@/components/ui/file-upload';
+import { FileUpload, FileUploadDropzone, FileUploadTrigger } from '@/components/ui/file-upload';
 import { Input } from '@/components/ui/input';
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
 import {
   useCompressPaths,
@@ -365,14 +364,14 @@ export function FileBrowser({
                   task.id === id ? { ...task, status: 'done', loaded: file.size } : task,
                 ),
               );
-              void queryClient.invalidateQueries({ queryKey: queryKeys.files.list(serverId, path) });
+              void queryClient.invalidateQueries({
+                queryKey: queryKeys.files.list(serverId, path),
+              });
             })
             .catch((cause: unknown) => {
               setUploads((previous) =>
                 previous.map((task) =>
-                  task.id === id
-                    ? { ...task, status: 'failed', error: errorMessage(cause) }
-                    : task,
+                  task.id === id ? { ...task, status: 'failed', error: errorMessage(cause) } : task,
                 ),
               );
             })
@@ -534,13 +533,13 @@ export function FileBrowser({
                           aria-label={
                             allSelected ? 'Clear the selection' : 'Select everything in this folder'
                           }
-                          checked={
-                            allSelected ? true : selected.size > 0 ? 'indeterminate' : false
-                          }
+                          checked={allSelected ? true : selected.size > 0 ? 'indeterminate' : false}
                           className="hit-target"
                           onCheckedChange={({ checked }) =>
                             setSelected(
-                              checked === true ? new Set(entries.map((row) => row.path)) : new Set(),
+                              checked === true
+                                ? new Set(entries.map((row) => row.path))
+                                : new Set(),
                             )
                           }
                         />
@@ -635,7 +634,9 @@ export function FileBrowser({
             </h3>
             <Button
               className="h-11 px-3 text-caption"
-              onClick={() => setUploads((previous) => previous.filter((t) => t.status === 'uploading'))}
+              onClick={() =>
+                setUploads((previous) => previous.filter((t) => t.status === 'uploading'))
+              }
               variant="ghost"
             >
               Clear finished
@@ -647,7 +648,10 @@ export function FileBrowser({
               return (
                 <li className="flex flex-col gap-1" key={task.id}>
                   <div className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 truncate text-footnote text-label" title={task.name}>
+                    <span
+                      className="min-w-0 flex-1 truncate text-footnote text-label"
+                      title={task.name}
+                    >
                       {task.name}
                     </span>
                     <span className="tabular shrink-0 font-mono text-caption text-label-tertiary">
@@ -1104,7 +1108,10 @@ function OpenControl({
     <>
       <Icon
         aria-hidden
-        className={cn('size-4 shrink-0', entry.type === 'directory' ? 'text-label' : 'text-label-tertiary')}
+        className={cn(
+          'size-4 shrink-0',
+          entry.type === 'directory' ? 'text-label' : 'text-label-tertiary',
+        )}
       />
       <span className="truncate">{entry.name}</span>
     </>

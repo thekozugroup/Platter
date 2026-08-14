@@ -91,7 +91,9 @@ describe('assignHostnames', () => {
   });
 
   it("does not let one server's hostname depend on an unrelated name", () => {
-    const withoutOther = assignHostnames([{ id: 'srv_01CCCCCCCCCCCCCCCCCCCCCC', name: 'Creative' }]);
+    const withoutOther = assignHostnames([
+      { id: 'srv_01CCCCCCCCCCCCCCCCCCCCCC', name: 'Creative' },
+    ]);
     const withOther = assignHostnames([
       { id: 'srv_01CCCCCCCCCCCCCCCCCCCCCC', name: 'Creative' },
       { id: 'srv_01DDDDDDDDDDDDDDDDDDDDDD', name: 'Modded' },

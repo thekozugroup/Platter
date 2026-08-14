@@ -20,7 +20,11 @@ function parentOf(filePath: string): string {
   return index === -1 ? '' : filePath.slice(0, index);
 }
 
-function invalidateDirs(queryClient: ReturnType<typeof useQueryClient>, serverId: string, dirs: Iterable<string>) {
+function invalidateDirs(
+  queryClient: ReturnType<typeof useQueryClient>,
+  serverId: string,
+  dirs: Iterable<string>,
+) {
   for (const dir of new Set(dirs)) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.files.list(serverId, dir) });
   }
@@ -48,7 +52,8 @@ export function useFileContent(
 ): UseQueryResult<ReadFileResponse> {
   return useQuery({
     queryKey: queryKeys.files.content(serverId, path),
-    queryFn: () => api.get<ReadFileResponse>(`/servers/${serverId}/files/content`, { query: { path } }),
+    queryFn: () =>
+      api.get<ReadFileResponse>(`/servers/${serverId}/files/content`, { query: { path } }),
     enabled: options.enabled ?? true,
   });
 }
@@ -59,28 +64,35 @@ export interface WriteFileInput {
 }
 
 /** Not optimistic: a save that silently "succeeded" and then bounced would cost real work. */
-export function useWriteFile(serverId: string): UseMutationResult<FileEntry, Error, WriteFileInput> {
+export function useWriteFile(
+  serverId: string,
+): UseMutationResult<FileEntry, Error, WriteFileInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ path, content }: WriteFileInput) =>
       api.put<FileEntry>(`/servers/${serverId}/files/content`, { path, content }),
     onSuccess: (_entry, { path, content }) => {
-      queryClient.setQueryData<ReadFileResponse>(queryKeys.files.content(serverId, path), (previous) => ({
-        path,
-        content,
-        sizeBytes: previous?.sizeBytes ?? content.length,
-        truncated: false,
-        mimeType: previous?.mimeType ?? null,
-      }));
+      queryClient.setQueryData<ReadFileResponse>(
+        queryKeys.files.content(serverId, path),
+        (previous) => ({
+          path,
+          content,
+          sizeBytes: previous?.sizeBytes ?? content.length,
+          truncated: false,
+          mimeType: previous?.mimeType ?? null,
+        }),
+      );
     },
-    onSettled: (_entry, _error, { path }) => invalidateDirs(queryClient, serverId, [parentOf(path)]),
+    onSettled: (_entry, _error, { path }) =>
+      invalidateDirs(queryClient, serverId, [parentOf(path)]),
   });
 }
 
 export function useCreateDirectory(serverId: string): UseMutationResult<FileEntry, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (path: string) => api.post<FileEntry>(`/servers/${serverId}/files/directories`, { path }),
+    mutationFn: (path: string) =>
+      api.post<FileEntry>(`/servers/${serverId}/files/directories`, { path }),
     onSuccess: (_entry, path) => invalidateDirs(queryClient, serverId, [parentOf(path)]),
   });
 }
@@ -111,7 +123,9 @@ export function useRenamePath(
       if (fromDir !== toDir) return { previous: undefined, dir: fromDir };
 
       await queryClient.cancelQueries({ queryKey: queryKeys.files.list(serverId, fromDir) });
-      const previous = queryClient.getQueryData<ListFilesResponse>(queryKeys.files.list(serverId, fromDir));
+      const previous = queryClient.getQueryData<ListFilesResponse>(
+        queryKeys.files.list(serverId, fromDir),
+      );
       if (previous) {
         const toName = to.slice(to.lastIndexOf('/') + 1);
         queryClient.setQueryData<ListFilesResponse>(queryKeys.files.list(serverId, fromDir), {
@@ -141,7 +155,8 @@ export interface CopyPathInput {
 export function useCopyPath(serverId: string): UseMutationResult<FileEntry, Error, CopyPathInput> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ from, to }: CopyPathInput) => api.post<FileEntry>(`/servers/${serverId}/files/copy`, { from, to }),
+    mutationFn: ({ from, to }: CopyPathInput) =>
+      api.post<FileEntry>(`/servers/${serverId}/files/copy`, { from, to }),
     onSuccess: (_entry, { to }) => invalidateDirs(queryClient, serverId, [parentOf(to)]),
   });
 }
@@ -152,10 +167,13 @@ export interface DeletePathsResult {
 
 /** Not optimistic: deletion is destructive, and "undo by re-adding to the list" is not
  *  actually a rollback of anything that happened on disk. */
-export function useDeletePaths(serverId: string): UseMutationResult<DeletePathsResult, Error, string[]> {
+export function useDeletePaths(
+  serverId: string,
+): UseMutationResult<DeletePathsResult, Error, string[]> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (paths: string[]) => api.post<DeletePathsResult>(`/servers/${serverId}/files/delete`, { paths }),
+    mutationFn: (paths: string[]) =>
+      api.post<DeletePathsResult>(`/servers/${serverId}/files/delete`, { paths }),
     onSuccess: (result) => invalidateDirs(queryClient, serverId, result.deleted.map(parentOf)),
   });
 }
@@ -165,7 +183,9 @@ export interface CompressPathsInput {
   destination?: string;
 }
 
-export function useCompressPaths(serverId: string): UseMutationResult<FileEntry, Error, CompressPathsInput> {
+export function useCompressPaths(
+  serverId: string,
+): UseMutationResult<FileEntry, Error, CompressPathsInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ paths, destination }: CompressPathsInput) =>
@@ -179,11 +199,16 @@ export interface ExtractArchiveInput {
   destination?: string;
 }
 
-export function useExtractArchive(serverId: string): UseMutationResult<FileEntry, Error, ExtractArchiveInput> {
+export function useExtractArchive(
+  serverId: string,
+): UseMutationResult<FileEntry, Error, ExtractArchiveInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ path, destination }: ExtractArchiveInput) =>
-      api.post<FileEntry>(`/servers/${serverId}/files/extract`, { path, destination: destination ?? '' }),
+      api.post<FileEntry>(`/servers/${serverId}/files/extract`, {
+        path,
+        destination: destination ?? '',
+      }),
     onSuccess: (_entry, { destination, path }) =>
       invalidateDirs(queryClient, serverId, [destination ?? parentOf(path)]),
   });
@@ -195,7 +220,9 @@ export interface UploadFileInput {
   file: File;
 }
 
-export function useUploadFile(serverId: string): UseMutationResult<FileEntry, Error, UploadFileInput> {
+export function useUploadFile(
+  serverId: string,
+): UseMutationResult<FileEntry, Error, UploadFileInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ path, file }: UploadFileInput) => {

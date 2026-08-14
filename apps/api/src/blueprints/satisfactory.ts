@@ -124,11 +124,17 @@ export const satisfactoryBlueprint: BlueprintDefinition = {
 
     // Fixed by the blueprint: these have to agree with `ports` above.
     { key: 'SERVERGAMEPORT', label: 'Game port', type: 'number', default: 7777, hidden: true },
-    { key: 'SERVERMESSAGINGPORT', label: 'Messaging port', type: 'number', default: 8888, hidden: true },
+    {
+      key: 'SERVERMESSAGINGPORT',
+      label: 'Messaging port',
+      type: 'number',
+      default: 8888,
+      hidden: true,
+    },
   ],
   signals: {
     // From the image's own captured server.log: the API listener is the last thing to come up.
-    ready: ["Server API listening on", 'LogHttpListener: Created new HttpListener'],
+    ready: ['Server API listening on', 'LogHttpListener: Created new HttpListener'],
     crash: ['LowLevelFatalError', 'Fatal error', 'Signal 11 caught', 'Assertion failed'],
     // Satisfactory logs nothing usable on join or leave, and it exposes no player-count API
     // Platter can reach. Better an empty list than a pattern that never fires.

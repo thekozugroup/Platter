@@ -36,8 +36,8 @@ function MissingScreen({ modulePath }: { modulePath: string }) {
         <EmptyState
           description={
             <>
-              This route is wired up, but <code className="font-mono">{modulePath}</code> does
-              not exist yet. It appears as soon as the file lands.
+              This route is wired up, but <code className="font-mono">{modulePath}</code> does not
+              exist yet. It appears as soon as the file lands.
             </>
           }
           size="sm"
@@ -156,8 +156,8 @@ function RequireRole({ minimum }: { minimum: UserRole }) {
             <>
               Administration is limited to {ROLE_EXPLANATION[minimum]}. You are signed in as{' '}
               <strong className="font-medium text-label">{user?.displayName}</strong>,{' '}
-              {ROLE_EXPLANATION[user?.role ?? 'member']}. Ask an administrator to change your
-              role if you need this.
+              {ROLE_EXPLANATION[user?.role ?? 'member']}. Ask an administrator to change your role
+              if you need this.
             </>
           }
           title="You don’t have access to this"

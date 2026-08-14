@@ -231,7 +231,10 @@ class ApiClient {
     body: unknown,
     options: { signal?: AbortSignal } = {},
   ): AsyncGenerator<string> {
-    const headers = new Headers({ 'content-type': 'application/json', accept: 'text/event-stream' });
+    const headers = new Headers({
+      'content-type': 'application/json',
+      accept: 'text/event-stream',
+    });
     if (this.#accessToken) headers.set('authorization', `Bearer ${this.#accessToken}`);
 
     let response: Response;
@@ -307,7 +310,9 @@ async function toApiError(response: Response): Promise<ApiError> {
       message: parsed.error.message,
       status: response.status,
       ...(parsed.error.details ? { details: parsed.error.details } : {}),
-      ...(parsed.error.requestId ?? requestId ? { requestId: parsed.error.requestId ?? requestId } : {}),
+      ...((parsed.error.requestId ?? requestId)
+        ? { requestId: parsed.error.requestId ?? requestId }
+        : {}),
     });
   }
 

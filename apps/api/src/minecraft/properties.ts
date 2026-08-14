@@ -485,7 +485,13 @@ export const MINECRAFT_PROPERTIES: readonly MinecraftPropertyDescriptor[] = [
   { key: 'spawn-animals', label: 'Spawn animals', kind: 'boolean' },
   { key: 'spawn-npcs', label: 'Spawn villagers', kind: 'boolean' },
   { key: 'enable-command-block', label: 'Enable command blocks', kind: 'boolean' },
-  { key: 'op-permission-level', label: 'Operator permission level', kind: 'number', min: 0, max: 4 },
+  {
+    key: 'op-permission-level',
+    label: 'Operator permission level',
+    kind: 'number',
+    min: 0,
+    max: 4,
+  },
   {
     key: 'player-idle-timeout',
     label: 'Idle kick (minutes)',
@@ -648,9 +654,6 @@ export async function readServerProperties(serverId: string): Promise<Properties
   }
 }
 
-export async function writeServerProperties(
-  serverId: string,
-  file: PropertiesFile,
-): Promise<void> {
+export async function writeServerProperties(serverId: string, file: PropertiesFile): Promise<void> {
   await writeFile(serverPropertiesPath(serverId), file.toString(), 'utf8');
 }

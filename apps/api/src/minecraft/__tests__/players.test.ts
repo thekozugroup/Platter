@@ -39,9 +39,11 @@ describe('list output', () => {
   });
 
   it('reads the Spigot format', () => {
-    expect(
-      parseListOutput('There are 2 out of maximum 30 players online.\nAlice, Bob'),
-    ).toEqual({ online: 2, max: 30, players: ['Alice', 'Bob'] });
+    expect(parseListOutput('There are 2 out of maximum 30 players online.\nAlice, Bob')).toEqual({
+      online: 2,
+      max: 30,
+      players: ['Alice', 'Bob'],
+    });
   });
 
   it('reads the 1.13-era wording without "of"', () => {
@@ -172,10 +174,7 @@ describe('log signals', () => {
 
   it('reads a join off the real blueprint patterns', () => {
     expect(
-      matchPlayerEvent(
-        '[12:00:01] [Server thread/INFO]: Alice joined the game',
-        signals,
-      ),
+      matchPlayerEvent('[12:00:01] [Server thread/INFO]: Alice joined the game', signals),
     ).toEqual({ kind: 'join', name: 'Alice' });
   });
 
@@ -199,7 +198,10 @@ describe('log signals', () => {
       matchPlayerEvent('[12:01:00] [Server thread/INFO]: <Alice> anyone joined the game?', signals),
     ).toBeNull();
     expect(
-      matchPlayerEvent('[12:01:00] [Server thread/INFO]: [Not Secure] <Bob> Alice left the game', signals),
+      matchPlayerEvent(
+        '[12:01:00] [Server thread/INFO]: [Not Secure] <Bob> Alice left the game',
+        signals,
+      ),
     ).toBeNull();
   });
 

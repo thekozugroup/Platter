@@ -2,7 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WS_CLOSE } from '@platter/shared';
 import { prisma } from '../../db.js';
-import { buildTestApp, closeTestHarness, createTestUser, ensureTestNode, resetDatabase } from '../helpers.js';
+import {
+  buildTestApp,
+  closeTestHarness,
+  createTestUser,
+  ensureTestNode,
+  resetDatabase,
+} from '../helpers.js';
 
 /**
  * The console handshake, over a real socket.

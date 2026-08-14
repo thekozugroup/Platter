@@ -171,8 +171,7 @@ export function DashboardPage() {
 
   const activity = useQuery({
     queryKey: queryKeys.audit.list({ perPage: 8 }),
-    queryFn: () =>
-      api.get<Paginated<AuditEntry>>('/audit', { query: { perPage: 8 } }),
+    queryFn: () => api.get<Paginated<AuditEntry>>('/audit', { query: { perPage: 8 } }),
     refetchInterval: ACTIVITY_REFRESH_MS,
   });
 
@@ -238,10 +237,12 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        actions={<PageAction to="/servers/new">
+        actions={
+          <PageAction to="/servers/new">
             <Plus aria-hidden />
             New server
-          </PageAction>}
+          </PageAction>
+        }
         description={
           greeting
             ? `${greeting} Everything you are running, and anything that needs you.`
@@ -344,7 +345,9 @@ export function DashboardPage() {
                 detail={summary.playersKnown ? 'Across every server' : 'No server reports players'}
                 label="Players online"
                 size="sm"
-                value={servers.isPending || !summary.playersKnown ? '—' : String(summary.playersOnline)}
+                value={
+                  servers.isPending || !summary.playersKnown ? '—' : String(summary.playersOnline)
+                }
               />
             </div>
 

@@ -44,7 +44,14 @@ const MINECRAFT_FULL: Blueprint = {
   description: 'Minecraft on the itzg image.',
   image: 'itzg/minecraft-server:2026.8.0-java21',
   ports: [
-    { name: 'game', label: 'Game', containerPort: 25565, protocol: 'tcp', primary: true, bindLocal: false },
+    {
+      name: 'game',
+      label: 'Game',
+      containerPort: 25565,
+      protocol: 'tcp',
+      primary: true,
+      bindLocal: false,
+    },
   ],
   variables: [
     {
@@ -265,7 +272,12 @@ describe('blueprintSubtitle', () => {
 
   it('does not repeat itself when the blueprint is the game', () => {
     expect(
-      blueprintSubtitle('valheim', { ...MINECRAFT, key: 'valheim', name: 'Valheim', game: 'Valheim' }),
+      blueprintSubtitle('valheim', {
+        ...MINECRAFT,
+        key: 'valheim',
+        name: 'Valheim',
+        game: 'Valheim',
+      }),
     ).toBe('Valheim');
   });
 
@@ -432,7 +444,9 @@ describe('DashboardPage', () => {
     mockApi(serverFixture());
     renderScreen(<DashboardPage />);
 
-    expect(await screen.findByText('Ada Lovelace sent restart to Survival SMP')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Ada Lovelace sent restart to Survival SMP'),
+    ).toBeInTheDocument();
   });
 
   it('measures allocation against the node when the account can read it', async () => {
@@ -502,6 +516,8 @@ describe('CreateServerPage', () => {
     expect(screen.queryByLabelText('CurseForge pack slug')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('checkbox', { name: /Minecraft EULA/i }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Create server' })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Create server' })).toBeEnabled(),
+    );
   });
 });

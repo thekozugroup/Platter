@@ -126,7 +126,9 @@ describe('AuthProvider silent refresh', () => {
   });
 
   it('resolves to anonymous — never stuck on loading — when there is no cookie', async () => {
-    mockFetch(() => json({ error: { code: 'token_expired', message: 'You are not signed in.' } }, 401));
+    mockFetch(() =>
+      json({ error: { code: 'token_expired', message: 'You are not signed in.' } }, 401),
+    );
 
     render(
       <Harness>

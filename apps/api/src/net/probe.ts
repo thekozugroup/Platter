@@ -110,7 +110,11 @@ function bindUdp(port: number, timeoutMs: number): Promise<boolean> {
  * ports Platter itself has handed out, so this is what catches a port already held by an
  * unrelated process before the operator finds out from a container that refuses to start.
  */
-export function isPortFree(port: number, protocol: ProbeProtocol, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<boolean> {
+export function isPortFree(
+  port: number,
+  protocol: ProbeProtocol,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<boolean> {
   return protocol === 'udp' ? bindUdp(port, timeoutMs) : bindTcp(port, timeoutMs);
 }
 
@@ -181,7 +185,8 @@ function probeUdp(host: string, port: number, timeoutMs: number): Promise<Outcom
       () =>
         settle({
           ok: null,
-          detail: 'No response within the timeout — normal for UDP even when the server is healthy.',
+          detail:
+            'No response within the timeout — normal for UDP even when the server is healthy.',
         }),
       timeoutMs,
     );

@@ -22,7 +22,8 @@ const SECRET_VERB =
 const SECRET_FLAG = /^--?(?:[a-z0-9-]*[-_])?(?:password|passwd|secret|token|key|auth)(?:=(.*))?$/i;
 
 /** A `KEY=value` argument whose key reads as a secret. */
-const SECRET_ASSIGNMENT = /^([A-Za-z0-9_.-]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY)[A-Za-z0-9_.-]*)=(.*)$/i;
+const SECRET_ASSIGNMENT =
+  /^([A-Za-z0-9_.-]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY)[A-Za-z0-9_.-]*)=(.*)$/i;
 
 export const REDACTED = '[redacted]';
 

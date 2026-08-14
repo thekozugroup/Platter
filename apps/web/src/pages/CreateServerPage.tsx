@@ -1,13 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  LIMITS,
-  formatMegabytes,
-  type Blueprint,
-  type Node,
-  type Server,
-} from '@platter/shared';
+import { LIMITS, formatMegabytes, type Blueprint, type Node, type Server } from '@platter/shared';
 import { GameIcon } from '@/components/common/game-icon';
 import { ErrorState } from '@/components/common/error-state';
 import { PageBody, PageHeader } from '@/components/layout/page-header';
@@ -101,7 +95,10 @@ function pickCapacity(nodes: readonly Node[]): ResourceCapacity | null {
   const freeMemory = (node: Node) =>
     Math.max(0, Math.floor(node.memoryTotalMb * node.overcommitRatio) - node.memoryAllocatedMb);
 
-  const best = pool.reduce((winner, node) => (freeMemory(node) > freeMemory(winner) ? node : winner), first);
+  const best = pool.reduce(
+    (winner, node) => (freeMemory(node) > freeMemory(winner) ? node : winner),
+    first,
+  );
 
   return {
     nodeName: best.name,
@@ -171,7 +168,11 @@ export function CreateServerPage() {
 
   const steps = useMemo<StepDefinition[]>(() => {
     const list: StepDefinition[] = [
-      { key: 'game', title: 'Game', blurb: 'What this server runs. Everything after this adapts to it.' },
+      {
+        key: 'game',
+        title: 'Game',
+        blurb: 'What this server runs. Everything after this adapts to it.',
+      },
     ];
     if (showTypeStep) {
       list.push({
@@ -181,8 +182,16 @@ export function CreateServerPage() {
       });
     }
     list.push(
-      { key: 'details', title: 'Name and size', blurb: 'What to call it, and how much of the machine it gets.' },
-      { key: 'settings', title: 'Settings', blurb: 'The game’s own options. Sensible defaults are already filled in.' },
+      {
+        key: 'details',
+        title: 'Name and size',
+        blurb: 'What to call it, and how much of the machine it gets.',
+      },
+      {
+        key: 'settings',
+        title: 'Settings',
+        blurb: 'The game’s own options. Sensible defaults are already filled in.',
+      },
     );
     return list;
   }, [showTypeStep]);
@@ -356,7 +365,9 @@ export function CreateServerPage() {
   function submit() {
     if (!blueprintKey || !blueprint || !limits || !bounds) return;
 
-    const problems = steps.map((step) => blockerFor(step.key)).filter((problem) => problem !== null);
+    const problems = steps
+      .map((step) => blockerFor(step.key))
+      .filter((problem) => problem !== null);
     if (problems.length > 0) return;
 
     setFormError(null);
@@ -588,9 +599,7 @@ export function CreateServerPage() {
                   {...(currentBlocker ? { 'aria-describedby': 'create-blocker' } : {})}
                   className="h-11 rounded-button px-5 text-subhead font-medium"
                   disabled={Boolean(currentBlocker)}
-                  onClick={() =>
-                    setStepIndex((current) => Math.min(steps.length - 1, current + 1))
-                  }
+                  onClick={() => setStepIndex((current) => Math.min(steps.length - 1, current + 1))}
                   size="lg"
                 >
                   Next

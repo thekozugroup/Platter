@@ -38,8 +38,8 @@ export function NetworkPage() {
               Ports
             </h2>
             <p className="max-w-prose text-subhead text-label-secondary">
-              Each port is published from the node to the container. Changing one takes effect
-              on the next start.
+              Each port is published from the node to the container. Changing one takes effect on
+              the next start.
             </p>
           </div>
           <PortTable serverId={server.id} />
@@ -51,8 +51,8 @@ export function NetworkPage() {
               Can anyone connect?
             </h2>
             <p className="max-w-prose text-subhead text-label-secondary">
-              Platter opens a real connection to the port from the machine it runs on. That
-              proves the local side and nothing more.
+              Platter opens a real connection to the port from the machine it runs on. That proves
+              the local side and nothing more.
             </p>
           </div>
           <ReachabilityCheck allocations={server.allocations} serverId={server.id} />
@@ -112,8 +112,8 @@ function ZoneRecords() {
           DNS records
         </h2>
         <p className="max-w-prose text-subhead text-label-secondary">
-          Paste these at your DNS provider so the hostnames resolve from anywhere, not only on
-          this network.
+          Paste these at your DNS provider so the hostnames resolve from anywhere, not only on this
+          network.
         </p>
       </div>
 
@@ -123,9 +123,9 @@ function ZoneRecords() {
             Nothing to publish for <code className="font-mono">{zone.zone}</code>
           </AlertTitle>
           <AlertDescription>
-            A <code className="font-mono">.local</code> zone resolves over mDNS on the local
-            network and is not something a DNS provider will host. Point Platter at a real
-            domain in administrator settings, and the records to publish appear here.
+            A <code className="font-mono">.local</code> zone resolves over mDNS on the local network
+            and is not something a DNS provider will host. Point Platter at a real domain in
+            administrator settings, and the records to publish appear here.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -134,17 +134,15 @@ function ZoneRecords() {
         <Alert variant="warning">
           <AlertTitle className="font-sans">No public IP is set</AlertTitle>
           <AlertDescription>
-            The wildcard record below points at a placeholder. Set the public IP in
-            administrator settings, or edit the address by hand before publishing it.
+            The wildcard record below points at a placeholder. Set the public IP in administrator
+            settings, or edit the address by hand before publishing it.
           </AlertDescription>
         </Alert>
       ) : null}
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <h3 className="font-sans text-subhead font-semibold text-label">
-            Wildcard A record
-          </h3>
+          <h3 className="font-sans text-subhead font-semibold text-label">Wildcard A record</h3>
           <p className="text-caption text-label-tertiary">
             One record covers every server: <code className="font-mono">{zone.wildcardA.name}</code>{' '}
             → <code className="font-mono">{zone.wildcardA.target}</code>, TTL{' '}
@@ -157,8 +155,8 @@ function ZoneRecords() {
           <div className="flex flex-col gap-1.5">
             <h3 className="font-sans text-subhead font-semibold text-label">SRV records</h3>
             <p className="text-caption text-label-tertiary">
-              These are what let a player type the hostname with no port. One per Minecraft:
-              Java server.
+              These are what let a player type the hostname with no port. One per Minecraft: Java
+              server.
             </p>
             <ul className="flex flex-col gap-2">
               {zone.srvRecords.map((record) => (
@@ -171,9 +169,7 @@ function ZoneRecords() {
         ) : null}
 
         <div className="flex flex-col gap-1.5">
-          <h3 className="font-sans text-subhead font-semibold text-label">
-            The whole zone file
-          </h3>
+          <h3 className="font-sans text-subhead font-semibold text-label">The whole zone file</h3>
           <p className="text-caption text-label-tertiary">
             For a provider that accepts a BIND-style import rather than one record at a time.
           </p>

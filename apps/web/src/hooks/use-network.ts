@@ -84,10 +84,13 @@ export function useServerAddress(serverId: string): UseQueryResult<ServerAddress
   });
 }
 
-export function useServerAllocations(serverId: string): UseQueryResult<{ data: ServerAllocation[] }> {
+export function useServerAllocations(
+  serverId: string,
+): UseQueryResult<{ data: ServerAllocation[] }> {
   return useQuery({
     queryKey: networkKeys.allocations(serverId),
-    queryFn: () => api.get<{ data: ServerAllocation[] }>(`/servers/${serverId}/network/allocations`),
+    queryFn: () =>
+      api.get<{ data: ServerAllocation[] }>(`/servers/${serverId}/network/allocations`),
   });
 }
 
@@ -109,9 +112,12 @@ export function useChangeAllocationPort(
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ portName, hostPort }: ChangeAllocationPortInput) =>
-      api.patch<ChangeAllocationPortResult>(`/servers/${serverId}/network/allocations/${portName}`, {
-        hostPort,
-      }),
+      api.patch<ChangeAllocationPortResult>(
+        `/servers/${serverId}/network/allocations/${portName}`,
+        {
+          hostPort,
+        },
+      ),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: networkKeys.allocations(serverId) });
       void queryClient.invalidateQueries({ queryKey: networkKeys.address(serverId) });
@@ -123,10 +129,16 @@ export function useChangeAllocationPort(
  * "Test connection" is a manual action, not a background poll — `enabled: false` so the
  * hook only fires when the screen calls `refetch()`.
  */
-export function useReachabilityCheck(serverId: string, portName?: string): UseQueryResult<ReachabilityResult> {
+export function useReachabilityCheck(
+  serverId: string,
+  portName?: string,
+): UseQueryResult<ReachabilityResult> {
   return useQuery({
     queryKey: ['servers', serverId, 'network', 'reachability', portName ?? null] as const,
-    queryFn: () => api.get<ReachabilityResult>(`/servers/${serverId}/network/reachability`, { query: { portName } }),
+    queryFn: () =>
+      api.get<ReachabilityResult>(`/servers/${serverId}/network/reachability`, {
+        query: { portName },
+      }),
     enabled: false,
     staleTime: 0,
   });

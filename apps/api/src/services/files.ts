@@ -1,6 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { cp, lstat, mkdir, open, readdir, realpath as fsRealpath, rename, rm, writeFile } from 'node:fs/promises';
+import {
+  cp,
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  realpath as fsRealpath,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -50,7 +60,11 @@ interface ResolvedServerPath {
 }
 
 function isEnoent(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as NodeJS.ErrnoException).code === 'ENOENT';
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as NodeJS.ErrnoException).code === 'ENOENT'
+  );
 }
 
 /**
@@ -59,7 +73,9 @@ function isEnoent(error: unknown): boolean {
  * nothing for them to dereference, and treating them literally is what lets `mkdir` and
  * `writeFile` target a path that is not there yet.
  */
-async function realpathDeepestExisting(target: string): Promise<{ real: string; missing: string[] }> {
+async function realpathDeepestExisting(
+  target: string,
+): Promise<{ real: string; missing: string[] }> {
   let current = target;
   const missing: string[] = [];
   for (;;) {
@@ -163,7 +179,8 @@ function translateFsError(error: unknown, fallback: string): PlatterError {
   if (code === 'EEXIST') return alreadyExists('file or folder');
   if (code === 'ENOTEMPTY') return conflict('That folder is not empty.');
   if (code === 'EISDIR') return badRequest('That path is a folder, not a file.');
-  if (code === 'ENOSPC') return new PlatterError('internal_error', 'The node is out of disk space.');
+  if (code === 'ENOSPC')
+    return new PlatterError('internal_error', 'The node is out of disk space.');
   return internal(fallback, error);
 }
 
@@ -311,7 +328,10 @@ function compareEntries(a: FileEntry, b: FileEntry): number {
 // Listing and reading
 // ---------------------------------------------------------------------------
 
-export async function listServerFiles(serverId: string, relPath: string): Promise<ListFilesResponse> {
+export async function listServerFiles(
+  serverId: string,
+  relPath: string,
+): Promise<ListFilesResponse> {
   const resolved = await resolveServerPath(serverId, relPath);
   if (!resolved.exists) throw notFound('folder');
   const stat = await lstat(resolved.absolute);
@@ -363,20 +383,31 @@ export interface DownloadableFile {
   mimeType: string | null;
 }
 
-export async function getServerFileForDownload(serverId: string, relPath: string): Promise<DownloadableFile> {
+export async function getServerFileForDownload(
+  serverId: string,
+  relPath: string,
+): Promise<DownloadableFile> {
   const resolved = await resolveServerPath(serverId, relPath);
   if (!resolved.exists) throw notFound('file');
   const stat = await lstat(resolved.absolute);
   if (!stat.isFile()) throw badRequest('That is not a regular file.');
   const name = path.basename(resolved.absolute);
-  return { absolutePath: resolved.absolute, name, sizeBytes: stat.size, mimeType: mimeTypeOf(name, 'file') };
+  return {
+    absolutePath: resolved.absolute,
+    name,
+    sizeBytes: stat.size,
+    mimeType: mimeTypeOf(name, 'file'),
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Writing — atomic so a crash mid-save never truncates a config file
 // ---------------------------------------------------------------------------
 
-async function atomicWrite(targetAbsolute: string, write: (tempPath: string) => Promise<void>): Promise<void> {
+async function atomicWrite(
+  targetAbsolute: string,
+  write: (tempPath: string) => Promise<void>,
+): Promise<void> {
   const dir = path.dirname(targetAbsolute);
   const temp = path.join(dir, `.platter-tmp-${randomUUID()}`);
   try {
@@ -400,7 +431,11 @@ async function assertWritableFileTarget(resolved: ResolvedServerPath): Promise<v
   }
 }
 
-export async function writeServerFile(serverId: string, relPath: string, content: string): Promise<FileEntry> {
+export async function writeServerFile(
+  serverId: string,
+  relPath: string,
+  content: string,
+): Promise<FileEntry> {
   const resolved = await resolveServerPath(serverId, relPath);
   await assertWritableFileTarget(resolved);
   await atomicWrite(resolved.absolute, (temp) => writeFile(temp, content, 'utf8'));
@@ -447,7 +482,11 @@ export async function createServerDirectory(serverId: string, relPath: string): 
   return buildEntry(resolved);
 }
 
-export async function renameServerPath(serverId: string, from: string, to: string): Promise<FileEntry> {
+export async function renameServerPath(
+  serverId: string,
+  from: string,
+  to: string,
+): Promise<FileEntry> {
   // Same rule as delete: renaming a shortcut moves the shortcut, not what it points at.
   const link = await resolveLinkItself(serverId, from);
   const source = link ?? (await resolveSourceForRename(serverId, from));
@@ -475,7 +514,11 @@ async function resolveSourceForRename(
   return src;
 }
 
-export async function copyServerPath(serverId: string, from: string, to: string): Promise<FileEntry> {
+export async function copyServerPath(
+  serverId: string,
+  from: string,
+  to: string,
+): Promise<FileEntry> {
   const src = await resolveServerPath(serverId, from);
   if (!src.exists) throw notFound('file or folder');
 
@@ -544,7 +587,9 @@ export async function compressServerPaths(
   destination?: string,
 ): Promise<FileEntry> {
   const root = serverDataDir(serverId);
-  const sources = await Promise.all(relPaths.map((relPath) => resolveServerPath(serverId, relPath)));
+  const sources = await Promise.all(
+    relPaths.map((relPath) => resolveServerPath(serverId, relPath)),
+  );
   for (const source of sources) {
     if (!source.exists) throw notFound('file or folder');
   }

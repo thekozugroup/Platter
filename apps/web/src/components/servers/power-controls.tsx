@@ -289,8 +289,8 @@ export function PowerControls({
             </AlertDialogTitle>
             <AlertDialogDescription>
               This sends SIGKILL. The game gets no chance to save, so anything since the last
-              autosave is lost and a world killed mid-write can come back corrupt. Use Stop
-              unless the server is already wedged.
+              autosave is lost and a world killed mid-write can come back corrupt. Use Stop unless
+              the server is already wedged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody className="text-subhead text-label-secondary">

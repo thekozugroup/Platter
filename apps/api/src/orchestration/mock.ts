@@ -62,9 +62,11 @@ export interface MockDriverOptions {
   readyLine?: string;
 }
 
-export type ExecHandler = (
-  command: readonly string[],
-) => { exitCode: number; stdout: string; stderr: string };
+export type ExecHandler = (command: readonly string[]) => {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+};
 
 interface MockContainer {
   id: string;
@@ -170,10 +172,17 @@ export class MockDriver implements OrchestrationDriver {
   }
 
   /** Simulates an unexpected exit: the case the crash supervisor exists for. */
-  crash(serverId: string, options: { exitCode?: number; message?: string; oom?: boolean } = {}): void {
+  crash(
+    serverId: string,
+    options: { exitCode?: number; message?: string; oom?: boolean } = {},
+  ): void {
     const container = this.containers.get(serverId);
     if (!container || !container.running) return;
-    this.emit(container, 'stderr', options.message ?? '[Server thread/ERROR]: Encountered an unexpected exception');
+    this.emit(
+      container,
+      'stderr',
+      options.message ?? '[Server thread/ERROR]: Encountered an unexpected exception',
+    );
     this.finish(container, options.exitCode ?? 1, options.oom ?? false);
   }
 
@@ -291,7 +300,11 @@ export class MockDriver implements OrchestrationDriver {
 
     const timeoutMs = Math.max(0, options.timeoutSeconds) * 1000;
     const escalated = this.stopDelayMs > timeoutMs;
-    this.emit(container, 'stdout', `[Server thread/INFO]: Received ${options.signal}, stopping the server`);
+    this.emit(
+      container,
+      'stdout',
+      `[Server thread/INFO]: Received ${options.signal}, stopping the server`,
+    );
     // The clock moves on the container, not globally: `stop` resolves once the container
     // has exited, and a test that has not advanced time should not see other servers age.
     container.uptimeMs += Math.min(this.stopDelayMs, timeoutMs);
@@ -348,8 +361,10 @@ export class MockDriver implements OrchestrationDriver {
       running: container.running,
       state: container.state,
       exitCode: container.exitCode,
-      startedAt: container.startedAtMs === null ? null : new Date(container.startedAtMs).toISOString(),
-      finishedAt: container.finishedAtMs === null ? null : new Date(container.finishedAtMs).toISOString(),
+      startedAt:
+        container.startedAtMs === null ? null : new Date(container.startedAtMs).toISOString(),
+      finishedAt:
+        container.finishedAtMs === null ? null : new Date(container.finishedAtMs).toISOString(),
       restarting: container.restarting,
       oomKilled: container.oomKilled,
     };
@@ -439,9 +454,10 @@ export class MockDriver implements OrchestrationDriver {
     const root = resolveInside(container.spec.dataHostPath, container.spec.dataPath, target);
     const info = await stat(root).catch(() => null);
     if (!info) throw new PlatterError('not_found', 'That path does not exist on the server.');
-    const pack = createTar({ cwd: info.isDirectory() ? root : path.dirname(root), portable: true }, [
-      info.isDirectory() ? '.' : path.basename(root),
-    ]);
+    const pack = createTar(
+      { cwd: info.isDirectory() ? root : path.dirname(root), portable: true },
+      [info.isDirectory() ? '.' : path.basename(root)],
+    );
     return Readable.from(pack);
   }
 

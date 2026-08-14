@@ -197,7 +197,10 @@ function assertSignals(blueprint: Blueprint): void {
       try {
         new RegExp(pattern);
       } catch (error) {
-        throw internal(`Blueprint "${blueprint.key}" has an invalid ${name} pattern: ${pattern}`, error);
+        throw internal(
+          `Blueprint "${blueprint.key}" has an invalid ${name} pattern: ${pattern}`,
+          error,
+        );
       }
     }
   }
@@ -260,7 +263,8 @@ function loadCatalogue(): ReadonlyMap<string, Blueprint> {
   for (const key of ENVIRONMENT_HOOKS.keys()) {
     // A hook whose blueprint was renamed would otherwise silently stop running, and the only
     // symptom would be a Minecraft server sized wrong.
-    if (!catalogue.has(key)) fail(key, 'an environment hook is registered for a blueprint that does not exist');
+    if (!catalogue.has(key))
+      fail(key, 'an environment hook is registered for a blueprint that does not exist');
   }
 
   return catalogue;
@@ -379,7 +383,11 @@ function validateOne(
     case 'password': {
       // For text, `min`/`max` bound the length — there is nothing else to compare.
       if (variable.min !== null && raw.length < variable.min) {
-        addError(errors, variable.key, `${variable.label} needs at least ${variable.min} characters.`);
+        addError(
+          errors,
+          variable.key,
+          `${variable.label} needs at least ${variable.min} characters.`,
+        );
         return null;
       }
       if (variable.max !== null && raw.length > variable.max) {

@@ -32,7 +32,9 @@ const scheduleIdParamSchema = z.object({ serverId: z.string().min(1).max(64), id
 const listSchedulesResponseSchema = z.object({ data: z.array(scheduleSchema) });
 
 function toScheduleAction(value: string): ScheduleAction {
-  return (SCHEDULE_ACTIONS as readonly string[]).includes(value) ? (value as ScheduleAction) : 'command';
+  return (SCHEDULE_ACTIONS as readonly string[]).includes(value)
+    ? (value as ScheduleAction)
+    : 'command';
 }
 
 function toLastRunStatus(value: string | null): 'success' | 'failed' | 'skipped' | null {
@@ -166,7 +168,8 @@ const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: scheduleSchema },
       },
     },
-    async (request) => toScheduleWire(await loadOwnedSchedule(request.params.serverId, request.params.id)),
+    async (request) =>
+      toScheduleWire(await loadOwnedSchedule(request.params.serverId, request.params.id)),
   );
 
   app.patch(
@@ -209,7 +212,9 @@ const scheduleRoutes: FastifyPluginAsync = async (fastify) => {
       // the outgoing action would add friction without closing anything.
       await assertMayScheduleAction(request, merged.action);
 
-      const nextRunAt = merged.enabled ? computeNextRun(merged.cron, merged.timezone, new Date()) : null;
+      const nextRunAt = merged.enabled
+        ? computeNextRun(merged.cron, merged.timezone, new Date())
+        : null;
 
       const row = await prisma.schedule.update({
         where: { id: existing.id },

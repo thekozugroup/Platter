@@ -123,7 +123,9 @@ async function completeLogin(
 function parseRecoveryHashes(raw: string): string[] {
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string')
+      : [];
   } catch {
     return [];
   }
@@ -610,7 +612,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ['auth'],
         summary: 'Turn off two-factor authentication',
-        description: 'Requires a current code, so a hijacked access token alone cannot remove the second factor.',
+        description:
+          'Requires a current code, so a hijacked access token alone cannot remove the second factor.',
         body: totpConfirmRequestSchema,
         response: { 200: okSchema },
       },
@@ -675,7 +678,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
       if (!(await verifyPassword(user.passwordHash, password))) throw invalidCredentials();
       if (user.suspended) throw forbidden('This account is suspended.');
-      if (!user.totpEnabled) throw badRequest('Two-factor authentication is not on for this account.');
+      if (!user.totpEnabled)
+        throw badRequest('Two-factor authentication is not on for this account.');
 
       const hashes = parseRecoveryHashes(user.recoveryCodes);
       const presented = hashRecoveryCode(recoveryCode);

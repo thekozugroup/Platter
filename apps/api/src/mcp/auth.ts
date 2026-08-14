@@ -78,7 +78,9 @@ const API_KEY_TOUCH_INTERVAL_MS = 60_000;
  * default. A bearer value that is not a `plt_` key is ignored rather than rejected here, so
  * the caller reports "no credentials" instead of "bad credentials" for a JWT.
  */
-export function extractApiKey(headers: Readonly<Record<string, string | string[] | undefined>>): string | null {
+export function extractApiKey(
+  headers: Readonly<Record<string, string | string[] | undefined>>,
+): string | null {
   const direct = headers['x-api-key'];
   const header = Array.isArray(direct) ? direct[0] : direct;
   if (typeof header === 'string' && header.length > 0) return header;

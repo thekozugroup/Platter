@@ -263,7 +263,9 @@ describe('allocatePorts', () => {
     await prisma.allocation.updateMany({ data: { serverId: null } });
 
     // One port, two needed: the second has nowhere to go.
-    const failure = await allocatePorts(NODE_ID, {}, [GAME, QUERY]).catch((error: unknown) => error);
+    const failure = await allocatePorts(NODE_ID, {}, [GAME, QUERY]).catch(
+      (error: unknown) => error,
+    );
     expect(failure).toBeInstanceOf(PlatterError);
     expect((failure as PlatterError).code).toBe('no_allocation_available');
   });

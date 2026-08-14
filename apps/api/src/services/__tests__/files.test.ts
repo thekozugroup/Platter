@@ -96,7 +96,9 @@ describe('path safety', () => {
     const archivePath = path.join(root(), 'evil.tar.gz');
     await pipeline(pack, createWriteStream(archivePath));
 
-    await expect(files.extractServerArchive(SERVER_ID, 'evil.tar.gz', 'dest')).rejects.toMatchObject({
+    await expect(
+      files.extractServerArchive(SERVER_ID, 'evil.tar.gz', 'dest'),
+    ).rejects.toMatchObject({
       code: 'bad_request',
     });
     // The entry's real target — one level above the extraction folder, i.e. the server
@@ -116,9 +118,7 @@ describe('atomic write', () => {
       },
     });
 
-    await expect(
-      files.writeServerFileStream(SERVER_ID, 'config.txt', failing),
-    ).rejects.toThrow();
+    await expect(files.writeServerFileStream(SERVER_ID, 'config.txt', failing)).rejects.toThrow();
 
     const after = await files.readServerFile(SERVER_ID, 'config.txt');
     expect(after.content).toBe('ORIGINAL-CONTENT');
@@ -131,7 +131,9 @@ describe('atomic write', () => {
     const stream = Readable.from(['some bytes']) as Readable & { truncated?: boolean };
     stream.truncated = true;
 
-    await expect(files.writeServerFileStream(SERVER_ID, 'upload.bin', stream)).rejects.toMatchObject({
+    await expect(
+      files.writeServerFileStream(SERVER_ID, 'upload.bin', stream),
+    ).rejects.toMatchObject({
       code: 'payload_too_large',
     });
 
@@ -144,7 +146,10 @@ describe('atomic write', () => {
 describe('listing and metadata', () => {
   it('flags a text file editable and a binary-extension file not', async () => {
     await writeFile(path.join(root(), 'notes.txt'), 'hello world');
-    await writeFile(path.join(root(), 'image.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]));
+    await writeFile(
+      path.join(root(), 'image.png'),
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]),
+    );
 
     const listing = await files.listServerFiles(SERVER_ID, '');
     const text = listing.entries.find((entry) => entry.name === 'notes.txt');
@@ -184,7 +189,9 @@ describe('mutations', () => {
     await files.writeServerFile(SERVER_ID, 'a.txt', 'hi');
     const entry = await files.renameServerPath(SERVER_ID, 'a.txt', 'b.txt');
     expect(entry.path).toBe('b.txt');
-    await expect(files.readServerFile(SERVER_ID, 'a.txt')).rejects.toMatchObject({ code: 'not_found' });
+    await expect(files.readServerFile(SERVER_ID, 'a.txt')).rejects.toMatchObject({
+      code: 'not_found',
+    });
   });
 
   it('copies a file without disturbing the original', async () => {
@@ -195,7 +202,9 @@ describe('mutations', () => {
   });
 
   it('refuses to delete the server root', async () => {
-    await expect(files.deleteServerPaths(SERVER_ID, [''])).rejects.toMatchObject({ code: 'bad_request' });
+    await expect(files.deleteServerPaths(SERVER_ID, [''])).rejects.toMatchObject({
+      code: 'bad_request',
+    });
   });
 
   it('deletes files and is idempotent about ones already gone', async () => {
@@ -244,7 +253,9 @@ describe('compress / extract', () => {
     const archivePath = path.join(root(), 'mixed.tar.gz');
     await pipeline(pack, createWriteStream(archivePath));
 
-    await expect(files.extractServerArchive(SERVER_ID, 'mixed.tar.gz', 'dest')).rejects.toMatchObject({
+    await expect(
+      files.extractServerArchive(SERVER_ID, 'mixed.tar.gz', 'dest'),
+    ).rejects.toMatchObject({
       code: 'bad_request',
     });
 

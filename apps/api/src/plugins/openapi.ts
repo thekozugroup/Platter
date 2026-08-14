@@ -36,7 +36,8 @@ const openapiPlugin: FastifyPluginAsync = async (app) => {
             type: 'apiKey',
             name: 'X-API-Key',
             in: 'header',
-            description: 'Long-lived key of the form `plt_xxxxxxxx.<secret>`, shown once at creation.',
+            description:
+              'Long-lived key of the form `plt_xxxxxxxx.<secret>`, shown once at creation.',
           },
         },
       },

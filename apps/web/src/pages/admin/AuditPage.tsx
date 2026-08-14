@@ -201,14 +201,17 @@ export function AuditPage() {
   const untilDay = searchParams.get('until') ?? '';
 
   function updateParams(changes: Record<string, string>) {
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      for (const [key, value] of Object.entries(changes)) {
-        if (value === '') next.delete(key);
-        else next.set(key, value);
-      }
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const [key, value] of Object.entries(changes)) {
+          if (value === '') next.delete(key);
+          else next.set(key, value);
+        }
+        return next;
+      },
+      { replace: true },
+    );
   }
 
   const filters: AuditFilters = {
@@ -243,7 +246,9 @@ export function AuditPage() {
   }, [audit.hasNextPage, audit.isFetchingNextPage]);
 
   const dateError =
-    sinceDay && untilDay && sinceDay > untilDay ? 'The start of the range is after its end.' : undefined;
+    sinceDay && untilDay && sinceDay > untilDay
+      ? 'The start of the range is after its end.'
+      : undefined;
 
   return (
     <>
@@ -422,7 +427,9 @@ export function AuditPage() {
                       </time>
                     </div>
                     {agent ? (
-                      <p className="font-mono text-caption text-label-tertiary">{agentDetail(entry)}</p>
+                      <p className="font-mono text-caption text-label-tertiary">
+                        {agentDetail(entry)}
+                      </p>
                     ) : null}
                   </li>
                 );

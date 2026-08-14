@@ -226,7 +226,8 @@ export function describeAudit(entry: AuditEntry): string {
     if (action) phrase = `sent ${action} to ${target}`;
   } else if (entry.action === 'file.written' || entry.action === 'file.renamed') {
     const path = stringMetadata(entry, 'path');
-    if (path) phrase = `${entry.action === 'file.written' ? 'edited' : 'renamed'} ${path} on ${target}`;
+    if (path)
+      phrase = `${entry.action === 'file.written' ? 'edited' : 'renamed'} ${path} on ${target}`;
   }
 
   return `${actor} ${phrase}.`;

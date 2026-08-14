@@ -1,4 +1,12 @@
-import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { LogLine } from '@platter/shared';
 import { formatCount } from '@platter/shared';
 import { ArrowDown } from 'pixelarticons/react/ArrowDown.js';
@@ -216,9 +224,7 @@ export function ConsoleView({
 
       const glyph = charProbe.getBoundingClientRect().width / PROBE_WIDTH;
       const available = probe.getBoundingClientRect().width;
-      setCharsPerRow(
-        glyph > 0 && available > 0 ? Math.max(1, Math.floor(available / glyph)) : 0,
-      );
+      setCharsPerRow(glyph > 0 && available > 0 ? Math.max(1, Math.floor(available / glyph)) : 0);
       setViewport((previous) =>
         previous.height === element.clientHeight && previous.top === element.scrollTop
           ? previous
@@ -284,7 +290,9 @@ export function ConsoleView({
     ? Math.ceil(viewport.height / ROW_HEIGHT) + OVERSCAN_ROWS * 2
     : UNMEASURED_ROWS;
 
-  const firstRow = measured ? Math.max(0, Math.floor(viewport.top / ROW_HEIGHT) - OVERSCAN_ROWS) : 0;
+  const firstRow = measured
+    ? Math.max(0, Math.floor(viewport.top / ROW_HEIGHT) - OVERSCAN_ROWS)
+    : 0;
   const startIndex = visible.length === 0 ? 0 : indexAtRow(firstRow);
   const endIndex = Math.min(visible.length, indexAtRow(firstRow + visibleRows) + 1);
 
@@ -334,10 +342,7 @@ export function ConsoleView({
   // -- export ----------------------------------------------------------------------------
 
   const plainText = useCallback(
-    () =>
-      visible
-        .map((line) => (showTimes ? `${line.time} ${line.text}` : line.text))
-        .join('\n'),
+    () => visible.map((line) => (showTimes ? `${line.time} ${line.text}` : line.text)).join('\n'),
     [visible, showTimes],
   );
 
@@ -466,9 +471,7 @@ export function ConsoleView({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label={
-                filtering ? 'Copy the filtered lines' : 'Copy the whole console buffer'
-              }
+              aria-label={filtering ? 'Copy the filtered lines' : 'Copy the whole console buffer'}
               className="hit-target size-11 text-console-dim hover:bg-console-fg/10 hover:text-console-fg"
               onClick={() => void copyAll()}
               size="icon-lg"
@@ -663,10 +666,7 @@ function Highlighted({ text, needle }: { text: string; needle: string }) {
   while (found !== -1 && target.length > 0) {
     if (found > cursor) parts.push(text.slice(cursor, found));
     parts.push(
-      <mark
-        className="bg-[var(--pl-console-highlight)] text-console-fg"
-        key={`${piece}-${found}`}
-      >
+      <mark className="bg-[var(--pl-console-highlight)] text-console-fg" key={`${piece}-${found}`}>
         {text.slice(found, found + target.length)}
       </mark>,
     );

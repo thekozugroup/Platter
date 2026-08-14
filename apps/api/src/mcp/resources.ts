@@ -1,4 +1,8 @@
-import type { Resource, ResourceTemplate, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type {
+  Resource,
+  ResourceTemplate,
+  ReadResourceResult,
+} from '@modelcontextprotocol/sdk/types.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 import { formatAddress, listServersQuerySchema } from '@platter/shared';
 import { MINECRAFT_SERVER_TYPES } from '../blueprints/index.js';
@@ -175,7 +179,10 @@ function readBlueprints(): ReadResourceResult {
   });
 }
 
-async function readServerConfig(serverId: string, context: ToolContext): Promise<ReadResourceResult> {
+async function readServerConfig(
+  serverId: string,
+  context: ToolContext,
+): Promise<ReadResourceResult> {
   const uri = serverConfigUri(serverId);
   const row = await authorizeServer(context.principal, serverId, 'server.view');
   const dto = await loadServerDto(row.id, context.logger);
@@ -191,7 +198,12 @@ async function readServerConfig(serverId: string, context: ToolContext): Promise
     description: dto.description,
     status: dto.status,
     blueprint: blueprint
-      ? { key: blueprint.key, name: blueprint.name, game: blueprint.game, features: blueprint.features }
+      ? {
+          key: blueprint.key,
+          name: blueprint.name,
+          game: blueprint.game,
+          features: blueprint.features,
+        }
       : { key: dto.blueprintKey, name: null, game: null, features: null },
     node: node ? { id: dto.nodeId, name: node.name, publicHost: node.publicHost } : null,
     limits: dto.limits,
@@ -221,10 +233,15 @@ async function readServerLogs(serverId: string, context: ToolContext): Promise<R
   }
 
   const body = toLogEntries(read.lines)
-    .map((entry) => `${entry.timestamp} ${entry.stream === 'stderr' ? 'ERR' : 'OUT'} ${entry.content}`)
+    .map(
+      (entry) => `${entry.timestamp} ${entry.stream === 'stderr' ? 'ERR' : 'OUT'} ${entry.content}`,
+    )
     .join('\n');
 
-  return text(uri, `# ${row.name} (${presentStatus(row)}) — last ${read.lines.length} lines\n${body}\n`);
+  return text(
+    uri,
+    `# ${row.name} (${presentStatus(row)}) — last ${read.lines.length} lines\n${body}\n`,
+  );
 }
 
 /**

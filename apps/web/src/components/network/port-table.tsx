@@ -117,7 +117,12 @@ function ReachabilityCell({
           {verdict.headline}
         </span>
       ) : query.isError ? (
-        <span className={cn('inline-flex items-center rounded-pill border px-2 py-0.5 text-caption font-medium', TONE_PILL.danger)}>
+        <span
+          className={cn(
+            'inline-flex items-center rounded-pill border px-2 py-0.5 text-caption font-medium',
+            TONE_PILL.danger,
+          )}
+        >
           Check failed
         </span>
       ) : (
@@ -282,9 +287,7 @@ export function PortTable({ serverId, className }: PortTableProps) {
                   </div>
                   <code className="tabular shrink-0 font-mono text-body text-label">
                     {allocation.hostPort}
-                    <span className="text-caption text-label-tertiary">
-                      /{allocation.protocol}
-                    </span>
+                    <span className="text-caption text-label-tertiary">/{allocation.protocol}</span>
                   </code>
                 </div>
 
@@ -303,11 +306,7 @@ export function PortTable({ serverId, className }: PortTableProps) {
         </ul>
       )}
 
-      <ChangePortDialog
-        allocation={editing}
-        onClose={() => setEditing(null)}
-        serverId={serverId}
-      />
+      <ChangePortDialog allocation={editing} onClose={() => setEditing(null)} serverId={serverId} />
     </div>
   );
 }
@@ -378,101 +377,98 @@ function ChangePortForm({
 
   return (
     <>
-        <DialogHeader>
-          <DialogTitle className="font-sans text-title-3 font-semibold">
-            Change the {purposeFor(allocation.name).label.toLowerCase()} port
-          </DialogTitle>
-          <DialogDescription>
-            Platter checks the new port against every other allocation on the node, and against
-            the operating system itself.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogHeader>
+        <DialogTitle className="font-sans text-title-3 font-semibold">
+          Change the {purposeFor(allocation.name).label.toLowerCase()} port
+        </DialogTitle>
+        <DialogDescription>
+          Platter checks the new port against every other allocation on the node, and against the
+          operating system itself.
+        </DialogDescription>
+      </DialogHeader>
 
-        <DialogBody>
-          {change.isSuccess ? (
-            /* Monochrome: this reports what happened, not the state of anything. Status
+      <DialogBody>
+        {change.isSuccess ? (
+          /* Monochrome: this reports what happened, not the state of anything. Status
                colour is reserved for status. */
-            <Alert variant="info">
-              <AlertTitle className="font-sans">
-                Port changed to {change.data.allocation.hostPort}
-              </AlertTitle>
-              <AlertDescription>
-                {change.data.requiresRestart
-                  ? 'The container that is already running keeps its current mapping. Restart the server for the new port to take effect, and tell players the new address.'
-                  : 'It takes effect the next time this server starts.'}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <form
-              className="flex flex-col gap-4"
-              id="change-port-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setTouched(true);
-                if (localError !== null || unchanged) return;
-                change.mutate({ portName: allocation.name, hostPort: parsed });
-              }}
-            >
-              <Field invalid={shownError !== null}>
-                <FieldLabel>New port</FieldLabel>
-                <Input
-                  aria-describedby={helpId}
-                  className="h-11"
-                  inputMode="numeric"
-                  max={LIMITS.maxPort}
-                  min={LIMITS.minPort}
-                  name="hostPort"
-                  onBlur={() => setTouched(true)}
-                  onChange={(event) => setValue(event.target.value)}
-                  type="number"
-                  value={value}
-                />
-                {shownError ? (
-                  <FieldError>{shownError}</FieldError>
-                ) : (
-                  <FieldDescription>
-                    Between {LIMITS.minPort} and {LIMITS.maxPort}.
-                  </FieldDescription>
-                )}
-              </Field>
+          <Alert variant="info">
+            <AlertTitle className="font-sans">
+              Port changed to {change.data.allocation.hostPort}
+            </AlertTitle>
+            <AlertDescription>
+              {change.data.requiresRestart
+                ? 'The container that is already running keeps its current mapping. Restart the server for the new port to take effect, and tell players the new address.'
+                : 'It takes effect the next time this server starts.'}
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <form
+            className="flex flex-col gap-4"
+            id="change-port-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setTouched(true);
+              if (localError !== null || unchanged) return;
+              change.mutate({ portName: allocation.name, hostPort: parsed });
+            }}
+          >
+            <Field invalid={shownError !== null}>
+              <FieldLabel>New port</FieldLabel>
+              <Input
+                aria-describedby={helpId}
+                className="h-11"
+                inputMode="numeric"
+                max={LIMITS.maxPort}
+                min={LIMITS.minPort}
+                name="hostPort"
+                onBlur={() => setTouched(true)}
+                onChange={(event) => setValue(event.target.value)}
+                type="number"
+                value={value}
+              />
+              {shownError ? (
+                <FieldError>{shownError}</FieldError>
+              ) : (
+                <FieldDescription>
+                  Between {LIMITS.minPort} and {LIMITS.maxPort}.
+                </FieldDescription>
+              )}
+            </Field>
 
-              <p className="text-caption text-label-tertiary" id={helpId}>
-                Changing this changes the address players type. If you have forwarded a port on
-                your router, forward the new one too.
-              </p>
-            </form>
-          )}
-        </DialogBody>
+            <p className="text-caption text-label-tertiary" id={helpId}>
+              Changing this changes the address players type. If you have forwarded a port on your
+              router, forward the new one too.
+            </p>
+          </form>
+        )}
+      </DialogBody>
 
-        <DialogFooter>
-          <DialogClose asChild>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button className="h-11 rounded-button px-5 text-subhead font-medium" variant="outline">
+            {change.isSuccess ? 'Done' : 'Cancel'}
+          </Button>
+        </DialogClose>
+        {change.isSuccess ? null : (
+          <div className="flex flex-col items-end gap-1">
             <Button
+              {...(unchanged ? { 'aria-describedby': `${helpId}-same` } : {})}
               className="h-11 rounded-button px-5 text-subhead font-medium"
-              variant="outline"
+              disabled={unchanged}
+              form="change-port-form"
+              isLoading={change.isPending}
+              type="submit"
             >
-              {change.isSuccess ? 'Done' : 'Cancel'}
+              Change port
             </Button>
-          </DialogClose>
-          {change.isSuccess ? null : (
-            <div className="flex flex-col items-end gap-1">
-              <Button
-                {...(unchanged ? { 'aria-describedby': `${helpId}-same` } : {})}
-                className="h-11 rounded-button px-5 text-subhead font-medium"
-                disabled={unchanged}
-                form="change-port-form"
-                isLoading={change.isPending}
-                type="submit"
-              >
-                Change port
-              </Button>
-              {unchanged ? (
-                <span className="text-caption text-label-tertiary" id={`${helpId}-same`}>
-                  That is the port it already uses.
-                </span>
-              ) : null}
-            </div>
-          )}
-        </DialogFooter>
+            {unchanged ? (
+              <span className="text-caption text-label-tertiary" id={`${helpId}-same`}>
+                That is the port it already uses.
+              </span>
+            ) : null}
+          </div>
+        )}
+      </DialogFooter>
     </>
   );
 }

@@ -24,7 +24,10 @@ import { formatAddress } from '@platter/shared';
  * (and its bracketed and mapped spellings), and the empty string.
  */
 function isUnroutableHost(host: string): boolean {
-  const bare = host.trim().replace(/^\[|]$/g, '').toLowerCase();
+  const bare = host
+    .trim()
+    .replace(/^\[|]$/g, '')
+    .toLowerCase();
   return (
     bare.length === 0 ||
     bare === '0.0.0.0' ||

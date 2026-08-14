@@ -6,11 +6,7 @@ import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { create as tarCreate, extract as tarExtract } from 'tar';
 import type { Backup as BackupRow } from '@prisma/client';
-import {
-  BACKUP_STATUSES,
-  type Backup,
-  type BackupStatus,
-} from '@platter/shared';
+import { BACKUP_STATUSES, type Backup, type BackupStatus } from '@platter/shared';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { conflict, internal, invalidState, notFound } from '../lib/errors.js';
@@ -207,7 +203,10 @@ function defaultBackupName(): string {
   return `Backup ${new Date().toISOString()}`;
 }
 
-export async function createBackup(serverId: string, options: CreateBackupOptions = {}): Promise<BackupRow> {
+export async function createBackup(
+  serverId: string,
+  options: CreateBackupOptions = {},
+): Promise<BackupRow> {
   // Checked and set with no `await` between them, which is what makes this atomic: two
   // concurrent calls both awaiting the lookups below would otherwise both see the guard
   // clear and both start a backup. Nothing here is a lock in any other sense — it lives in
@@ -230,7 +229,9 @@ export async function createBackup(serverId: string, options: CreateBackupOption
     // A `pending`/`running` row with nobody in this process actually writing to it means a
     // previous process died mid-backup. Failing it here — rather than refusing every future
     // backup for this server forever — is what makes that self-healing.
-    const stuck = await prisma.backup.findFirst({ where: { serverId, status: { in: ['pending', 'running'] } } });
+    const stuck = await prisma.backup.findFirst({
+      where: { serverId, status: { in: ['pending', 'running'] } },
+    });
     if (stuck) {
       await prisma.backup.update({
         where: { id: stuck.id },
@@ -327,7 +328,9 @@ async function quiesce(serverId: string): Promise<() => Promise<void>> {
 }
 
 async function runBackup(row: BackupRow, ignore: readonly string[]): Promise<void> {
-  await prisma.backup.update({ where: { id: row.id }, data: { status: 'running' } }).catch(() => undefined);
+  await prisma.backup
+    .update({ where: { id: row.id }, data: { status: 'running' } })
+    .catch(() => undefined);
 
   const dataDir = serverDataDir(row.serverId);
   const archivePath = backupArchivePath(row.serverId, row.id);
@@ -351,7 +354,12 @@ async function runBackup(row: BackupRow, ignore: readonly string[]): Promise<voi
     await rename(temp, archivePath);
     await prisma.backup.update({
       where: { id: row.id },
-      data: { status: 'completed', sizeBytes: BigInt(sizeBytes), checksum, completedAt: new Date() },
+      data: {
+        status: 'completed',
+        sizeBytes: BigInt(sizeBytes),
+        checksum,
+        completedAt: new Date(),
+      },
     });
     if (row.automatic) await enforceRetention(row.serverId);
   } catch (error) {
@@ -460,7 +468,9 @@ export async function getBackupDownload(serverId: string, id: string): Promise<B
 function toBackupStatus(value: string): BackupStatus {
   // A row this build does not recognise is reported as failed rather than mislabelled as
   // whichever status happens to be first in the union.
-  return (BACKUP_STATUSES as readonly string[]).includes(value) ? (value as BackupStatus) : 'failed';
+  return (BACKUP_STATUSES as readonly string[]).includes(value)
+    ? (value as BackupStatus)
+    : 'failed';
 }
 
 /** BigInt -> number at the wire boundary. Safe for anything short of an exabyte world. */
@@ -537,7 +547,9 @@ async function hashFile(filePath: string): Promise<string> {
 
 async function emptyDirectory(dir: string): Promise<void> {
   const entries = await readdir(dir);
-  await Promise.all(entries.map((entry) => rm(path.join(dir, entry), { recursive: true, force: true })));
+  await Promise.all(
+    entries.map((entry) => rm(path.join(dir, entry), { recursive: true, force: true })),
+  );
 }
 
 const RESTORE_STOPS: readonly string[] = ['starting', 'running', 'restarting'];
@@ -569,7 +581,9 @@ async function performRestore(row: BackupRow, options: RestoreOptions): Promise<
     if (!server) throw notFound('server');
 
     if (server.suspended) {
-      throw invalidState(`${server.name} is suspended, so this backup cannot be restored right now.`);
+      throw invalidState(
+        `${server.name} is suspended, so this backup cannot be restored right now.`,
+      );
     }
 
     let stoppedServer = false;
@@ -603,7 +617,10 @@ async function performRestore(row: BackupRow, options: RestoreOptions): Promise<
   });
 }
 
-export async function restoreBackup(backupId: string, options: RestoreOptions = {}): Promise<RestoreResult> {
+export async function restoreBackup(
+  backupId: string,
+  options: RestoreOptions = {},
+): Promise<RestoreResult> {
   // Claims the row atomically: only a `completed` backup can move to `restoring`, so two
   // concurrent restores of the same backup — or a restore racing its own deletion — see
   // exactly one winner.
@@ -626,13 +643,19 @@ export async function restoreBackup(backupId: string, options: RestoreOptions = 
       actorId: options.actorId ?? null,
       targetId: row.id,
       targetName: row.name,
-      metadata: { serverId: row.serverId, truncate: options.truncate ?? false, stoppedServer: result.stoppedServer },
+      metadata: {
+        serverId: row.serverId,
+        truncate: options.truncate ?? false,
+        stoppedServer: result.stoppedServer,
+      },
     });
     return result;
   } finally {
     // `restoring` is a transient busy-state on the row, not a statement about the
     // archive: whether the restore succeeded or failed, the backup itself is still the
     // same valid archive it was before, so it always goes back to `completed`.
-    await prisma.backup.update({ where: { id: backupId }, data: { status: 'completed' } }).catch(() => undefined);
+    await prisma.backup
+      .update({ where: { id: backupId }, data: { status: 'completed' } })
+      .catch(() => undefined);
   }
 }

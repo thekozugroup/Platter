@@ -75,36 +75,34 @@ describe('generated marks', () => {
     expect(mark.getAttribute('style')).toMatch(/linear-gradient/);
   });
 
-  it.each([
-    'Fabric API',
-    'WorldEdit',
-    'Citizens',
-    'Iris Shaders',
-    'Simple Voice Chat',
-    'Chunky',
-  ])('prints %s’s monogram at 4.5:1 or better', (title) => {
-    // Each of these hashed to a hue where the old hard-coded 48% lightness put white
-    // between 2.2:1 and 2.6:1. `GameIcon.legibleLightness` solves the stop per hue.
-    const { container } = render(<ModIcon iconUrl={null} title={title} />);
-    const mark = container.firstElementChild as HTMLElement;
+  it.each(['Fabric API', 'WorldEdit', 'Citizens', 'Iris Shaders', 'Simple Voice Chat', 'Chunky'])(
+    'prints %s’s monogram at 4.5:1 or better',
+    (title) => {
+      // Each of these hashed to a hue where the old hard-coded 48% lightness put white
+      // between 2.2:1 and 2.6:1. `GameIcon.legibleLightness` solves the stop per hue.
+      const { container } = render(<ModIcon iconUrl={null} title={title} />);
+      const mark = container.firstElementChild as HTMLElement;
 
-    // jsdom serialises the `hsl()` stops to `rgb()`, which is what we want to measure.
-    const stops = [...(mark.getAttribute('style') ?? '').matchAll(/rgb\((\d+), (\d+), (\d+)\)/g)];
-    expect(stops).toHaveLength(2);
+      // jsdom serialises the `hsl()` stops to `rgb()`, which is what we want to measure.
+      const stops = [...(mark.getAttribute('style') ?? '').matchAll(/rgb\((\d+), (\d+), (\d+)\)/g)];
+      expect(stops).toHaveLength(2);
 
-    const channel = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    const contrastWithWhite = (rgb: number[]) => {
-      const [r = 0, g = 0, b = 0] = rgb.map((v) => channel(v / 255));
-      return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05);
-    };
+      const channel = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+      const contrastWithWhite = (rgb: number[]) => {
+        const [r = 0, g = 0, b = 0] = rgb.map((v) => channel(v / 255));
+        return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05);
+      };
 
-    for (const stop of stops) {
-      expect(contrastWithWhite(stop.slice(1, 4).map(Number))).toBeGreaterThanOrEqual(4.5);
-    }
-  });
+      for (const stop of stops) {
+        expect(contrastWithWhite(stop.slice(1, 4).map(Number))).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
 
   it('does not round a mod’s own artwork either', () => {
-    const { container } = render(<ModIcon iconUrl="https://example.test/i.png" title="WorldEdit" />);
+    const { container } = render(
+      <ModIcon iconUrl="https://example.test/i.png" title="WorldEdit" />,
+    );
     const img = container.querySelector('img');
     expect(img?.className).not.toContain('rounded');
   });

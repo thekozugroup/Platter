@@ -173,7 +173,9 @@ function AccessCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Access</CardTitle>
-        <CardDescription>Who can get an account without one already being created for them.</CardDescription>
+        <CardDescription>
+          Who can get an account without one already being created for them.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -185,8 +187,8 @@ function AccessCard() {
                   ? 'Anyone who can reach this installation can create their own account.'
                   : 'New accounts can only be created by an admin, from the Users page.'}{' '}
                 Set with the <code className="font-mono">REGISTRATION_ENABLED</code> environment
-                variable — change it in your compose file or <code className="font-mono">.env</code>,
-                then restart Platter.
+                variable — change it in your compose file or <code className="font-mono">.env</code>
+                , then restart Platter.
               </FieldHelper>
             </div>
             {info.isPending ? (
@@ -231,8 +233,8 @@ function DefaultsCard() {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Defaults and limits</CardTitle>
         <CardDescription>
-          What Platter enforces for every server on this installation, regardless of who creates
-          it. These are compiled into this build, not a per-instance setting yet.
+          What Platter enforces for every server on this installation, regardless of who creates it.
+          These are compiled into this build, not a per-instance setting yet.
         </CardDescription>
       </CardHeader>
       <CardContent>

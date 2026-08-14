@@ -26,9 +26,7 @@ describe('capacityLevel', () => {
 
 describe('CapacityBar', () => {
   it('is a meter, and reads out used, allocated and free as one accessible string', () => {
-    render(
-      <CapacityBar allocated={3072} format={mb} label="Memory" total={8192} used={2048} />,
-    );
+    render(<CapacityBar allocated={3072} format={mb} label="Memory" total={8192} used={2048} />);
 
     const meter = screen.getByRole('meter', { name: 'Memory' });
     expect(meter).toHaveAttribute('aria-valuenow', '3072');
@@ -72,9 +70,7 @@ describe('CapacityBar', () => {
   });
 
   it('says full at the critical threshold, not only in colour', () => {
-    render(
-      <CapacityBar allocated={7900} format={mb} label="Memory" total={8192} used={7800} />,
-    );
+    render(<CapacityBar allocated={7900} format={mb} label="Memory" total={8192} used={7800} />);
 
     expect(screen.getByText(/^full/i)).toBeInTheDocument();
   });

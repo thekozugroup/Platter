@@ -171,7 +171,11 @@ async function driverFor(): Promise<MockDriver> {
   return driver;
 }
 
-async function waitForStatus(expected: string, serverId = SERVER_ID, timeoutMs = 3000): Promise<void> {
+async function waitForStatus(
+  expected: string,
+  serverId = SERVER_ID,
+  timeoutMs = 3000,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     if ((await statusOf(serverId)) === expected) return;
@@ -184,7 +188,8 @@ async function waitForStatus(expected: string, serverId = SERVER_ID, timeoutMs =
 
 async function caught(promise: Promise<unknown>): Promise<PlatterError> {
   const error = await promise.then(() => null).catch((reason: unknown) => reason);
-  if (!(error instanceof PlatterError)) throw new Error(`expected a PlatterError, got ${String(error)}`);
+  if (!(error instanceof PlatterError))
+    throw new Error(`expected a PlatterError, got ${String(error)}`);
   return error;
 }
 
@@ -334,7 +339,9 @@ describe('power actions', () => {
     expect(error.code).toBe('invalid_state');
 
     await lifecycle.startServer(SERVER_ID, OWNER_ID);
-    const multiline = await caught(lifecycle.sendCommand(SERVER_ID, 'say hi\nop someone', OWNER_ID));
+    const multiline = await caught(
+      lifecycle.sendCommand(SERVER_ID, 'say hi\nop someone', OWNER_ID),
+    );
     expect(multiline.code).toBe('bad_request');
   });
 
@@ -461,7 +468,10 @@ describe('log-detected crashes', () => {
     // A fatal line from a process that has not exited: `checkLiveness` only ever notices a
     // container that is already gone, so without a consumer for this signal the server sits
     // at `running` forever with nobody able to play on it.
-    getLogHub(SERVER_ID).append({ stream: 'stdout', content: '[main/FATAL]: Failed to load world' });
+    getLogHub(SERVER_ID).append({
+      stream: 'stdout',
+      content: '[main/FATAL]: Failed to load world',
+    });
 
     await waitForStatus('crashed');
     expect((await (await driverFor()).inspect(SERVER_ID)).running).toBe(false);

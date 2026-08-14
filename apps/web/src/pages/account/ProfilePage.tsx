@@ -21,7 +21,11 @@ import {
   PasswordInputTrigger,
 } from '@/components/ui/password-input';
 import { QrCode, QrCodeFrame } from '@/components/ui/qr-code';
-import { SegmentGroup, SegmentGroupItem, SegmentGroupItemText } from '@/components/ui/segment-group';
+import {
+  SegmentGroup,
+  SegmentGroupItem,
+  SegmentGroupItemText,
+} from '@/components/ui/segment-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { ApiError, api, errorMessage } from '@/lib/api-client.js';
@@ -91,7 +95,11 @@ function ProfileCard({ user }: { user: SessionUser }) {
     },
     onError: (error: unknown) => {
       setFieldErrors(error instanceof ApiError ? error.fieldErrors : {});
-      toast.create({ title: 'Could not save your profile', description: errorMessage(error), type: 'error' });
+      toast.create({
+        title: 'Could not save your profile',
+        description: errorMessage(error),
+        type: 'error',
+      });
     },
   });
 
@@ -223,8 +231,8 @@ function PasswordCard() {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Password</CardTitle>
         <CardDescription>
-          Changing it signs out every device, including this one. You will sign in again
-          straight away.
+          Changing it signs out every device, including this one. You will sign in again straight
+          away.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -350,8 +358,8 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Two-factor authentication</CardTitle>
         <CardDescription>
-          A six-digit code from an authenticator app, on top of your password. Platter never
-          sends codes by email or SMS.
+          A six-digit code from an authenticator app, on top of your password. Platter never sends
+          codes by email or SMS.
         </CardDescription>
       </CardHeader>
 
@@ -459,10 +467,7 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
         {!user.totpEnabled && setupData ? (
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-              <QrCode
-                className="[--qr-code-size:--spacing(40)]"
-                value={setupData.otpauthUrl}
-              >
+              <QrCode className="[--qr-code-size:--spacing(40)]" value={setupData.otpauthUrl}>
                 <QrCodeFrame />
               </QrCode>
 
@@ -470,14 +475,10 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
                 <p className="text-subhead text-label-secondary">
                   Scan this with your authenticator app, then enter the code it shows.
                 </p>
-                <CopyField
-                  label="Setup key"
-                  showLabel
-                  value={setupData.secret}
-                />
+                <CopyField label="Setup key" showLabel value={setupData.secret} />
                 <p className="text-caption text-label-tertiary">
-                  Use the key if you cannot scan the square — for example when the app is on
-                  the same device.
+                  Use the key if you cannot scan the square — for example when the app is on the
+                  same device.
                 </p>
               </div>
             </div>
@@ -486,8 +487,8 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
               <AlertTitle className="font-sans">Save your recovery codes now</AlertTitle>
               <AlertDescription>
                 <p>
-                  These are the only way back in if you lose the authenticator. They are shown
-                  once and are not stored in a form we can read back.
+                  These are the only way back in if you lose the authenticator. They are shown once
+                  and are not stored in a form we can read back.
                 </p>
                 <ul className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-footnote text-label sm:grid-cols-3">
                   {setupData.recoveryCodes.map((recoveryCode) => (
@@ -580,7 +581,11 @@ function ApiKeysCard() {
       void queryClient.invalidateQueries({ queryKey: ['auth', 'keys'] });
     },
     onError: (error: unknown) =>
-      toast.create({ title: 'Could not create the key', description: errorMessage(error), type: 'error' }),
+      toast.create({
+        title: 'Could not create the key',
+        description: errorMessage(error),
+        type: 'error',
+      }),
   });
 
   const revoke = useMutation({
@@ -590,7 +595,11 @@ function ApiKeysCard() {
       toast.create({ title: 'Key revoked', type: 'success' });
     },
     onError: (error: unknown) =>
-      toast.create({ title: 'Could not revoke the key', description: errorMessage(error), type: 'error' }),
+      toast.create({
+        title: 'Could not revoke the key',
+        description: errorMessage(error),
+        type: 'error',
+      }),
   });
 
   return (
@@ -598,8 +607,8 @@ function ApiKeysCard() {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>API keys</CardTitle>
         <CardDescription>
-          Long-lived credentials for scripts, Prometheus and the MCP transport. A key cannot
-          change your password or create more keys.
+          Long-lived credentials for scripts, Prometheus and the MCP transport. A key cannot change
+          your password or create more keys.
         </CardDescription>
       </CardHeader>
 
@@ -609,16 +618,12 @@ function ApiKeysCard() {
             <AlertTitle className="font-sans">Copy this token now</AlertTitle>
             <AlertDescription>
               <p>
-                This is the only time <strong className="font-medium text-label">{issued.name}</strong>{' '}
-                is readable. Platter stores a hash, so it cannot show it again.
+                This is the only time{' '}
+                <strong className="font-medium text-label">{issued.name}</strong> is readable.
+                Platter stores a hash, so it cannot show it again.
               </p>
               <CopyField label="API token" value={issued.token} />
-              <Button
-                className="w-fit"
-                onClick={() => setIssued(null)}
-                size="sm"
-                variant="outline"
-              >
+              <Button className="w-fit" onClick={() => setIssued(null)} size="sm" variant="outline">
                 I have saved it
               </Button>
             </AlertDescription>
@@ -655,7 +660,9 @@ function ApiKeysCard() {
             Create key
           </Button>
           {name.trim().length === 0 ? (
-            <DisabledHint id="key-create-hint">Name the key so you can revoke it later.</DisabledHint>
+            <DisabledHint id="key-create-hint">
+              Name the key so you can revoke it later.
+            </DisabledHint>
           ) : null}
         </form>
 
@@ -686,9 +693,7 @@ function ApiKeysCard() {
                   <p className="truncate text-subhead font-medium text-label">{key.name}</p>
                   <p className="mt-0.5 font-mono text-caption text-label-tertiary">
                     {key.prefix}…{' · '}
-                    {key.lastUsedAt
-                      ? `used ${formatRelativeTime(key.lastUsedAt)}`
-                      : 'never used'}
+                    {key.lastUsedAt ? `used ${formatRelativeTime(key.lastUsedAt)}` : 'never used'}
                   </p>
                 </div>
                 <Button

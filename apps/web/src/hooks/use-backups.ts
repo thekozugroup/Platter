@@ -22,16 +22,20 @@ export function useBackups(serverId: string): UseQueryResult<{ data: Backup[] }>
 
 /** Not optimistic — the archive builds in the background and starts life as `pending`;
  *  there is nothing to predict, only the real row the API just created. */
-export function useCreateBackup(serverId: string): UseMutationResult<Backup, Error, CreateBackupRequest> {
+export function useCreateBackup(
+  serverId: string,
+): UseMutationResult<Backup, Error, CreateBackupRequest> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateBackupRequest) => api.post<Backup>(`/servers/${serverId}/backups`, body),
+    mutationFn: (body: CreateBackupRequest) =>
+      api.post<Backup>(`/servers/${serverId}/backups`, body),
     onSuccess: (backup) => {
       queryClient.setQueryData<{ data: Backup[] }>(queryKeys.backups.all(serverId), (previous) => ({
         data: previous ? [backup, ...previous.data] : [backup],
       }));
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) }),
   });
 }
 
@@ -55,18 +59,26 @@ export function useLockBackup(
       api.patch<Backup>(`/servers/${serverId}/backups/${backupId}`, { locked }),
     onMutate: async ({ backupId, locked }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.backups.all(serverId) });
-      const previous = queryClient.getQueryData<{ data: Backup[] }>(queryKeys.backups.all(serverId));
+      const previous = queryClient.getQueryData<{ data: Backup[] }>(
+        queryKeys.backups.all(serverId),
+      );
       queryClient.setQueryData<{ data: Backup[] }>(queryKeys.backups.all(serverId), (current) =>
         current
-          ? { data: current.data.map((backup) => (backup.id === backupId ? { ...backup, locked } : backup)) }
+          ? {
+              data: current.data.map((backup) =>
+                backup.id === backupId ? { ...backup, locked } : backup,
+              ),
+            }
           : current,
       );
       return { previous };
     },
     onError: (_error, _input, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.backups.all(serverId), context.previous);
+      if (context?.previous)
+        queryClient.setQueryData(queryKeys.backups.all(serverId), context.previous);
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) }),
   });
 }
 
@@ -74,13 +86,15 @@ export function useLockBackup(
 export function useDeleteBackup(serverId: string): UseMutationResult<{ ok: true }, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (backupId: string) => api.delete<{ ok: true }>(`/servers/${serverId}/backups/${backupId}`),
+    mutationFn: (backupId: string) =>
+      api.delete<{ ok: true }>(`/servers/${serverId}/backups/${backupId}`),
     onSuccess: (_result, backupId) => {
       queryClient.setQueryData<{ data: Backup[] }>(queryKeys.backups.all(serverId), (current) =>
         current ? { data: current.data.filter((backup) => backup.id !== backupId) } : current,
       );
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) }),
   });
 }
 
@@ -93,11 +107,17 @@ export interface RestoreBackupResult {
  *  while — exactly the class of action the guide says never to fake. */
 export function useRestoreBackup(
   serverId: string,
-): UseMutationResult<RestoreBackupResult, Error, { backupId: string; truncate?: RestoreBackupRequest['truncate'] }> {
+): UseMutationResult<
+  RestoreBackupResult,
+  Error,
+  { backupId: string; truncate?: RestoreBackupRequest['truncate'] }
+> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ backupId, truncate = false }) =>
-      api.post<RestoreBackupResult>(`/servers/${serverId}/backups/${backupId}/restore`, { truncate }),
+      api.post<RestoreBackupResult>(`/servers/${serverId}/backups/${backupId}/restore`, {
+        truncate,
+      }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.servers.detail(serverId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.backups.all(serverId) });

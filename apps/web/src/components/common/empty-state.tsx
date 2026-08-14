@@ -36,10 +36,7 @@ export function StateActionButton({
   variant = 'primary',
   className,
 }: StateActionButtonProps) {
-  const shared = cn(
-    'h-11 rounded-button px-5 text-subhead font-medium',
-    className,
-  );
+  const shared = cn('h-11 rounded-button px-5 text-subhead font-medium', className);
   const disabled = Boolean(action.disabledReason);
   const reasonId = disabled ? `state-action-${action.label.replace(/\W+/g, '-')}` : undefined;
 

@@ -72,7 +72,7 @@ function fakeFetch(
 }
 
 describe('mod download redirects', () => {
-  it('refuses a redirect that leaves the source\'s own file hosts', async () => {
+  it("refuses a redirect that leaves the source's own file hosts", async () => {
     const seen: string[] = [];
     const fetchImpl = fakeFetch(
       (url) =>

@@ -95,9 +95,7 @@ describe('AccessLists — what it promises', () => {
     renderLists(null);
     await screen.findByText('Nobody is whitelisted yet');
 
-    expect(
-      screen.queryByText('These lists cannot be changed right now'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('These lists cannot be changed right now')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled(); // empty field, not blocked
     expect(screen.getByRole('button', { name: 'Add' })).toHaveAccessibleDescription(
       'Type a name first.',

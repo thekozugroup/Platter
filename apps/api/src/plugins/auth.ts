@@ -1,7 +1,12 @@
 import fastifyCookie from '@fastify/cookie';
 import fastifyJwt from '@fastify/jwt';
 import type { Server as ServerRecord } from '@prisma/client';
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyRequest,
+  preHandlerHookHandler,
+} from 'fastify';
 import {
   API_PREFIX,
   SERVER_PERMISSIONS,
@@ -97,7 +102,10 @@ declare module 'fastify' {
     requireScope(scope: ApiKeyScope): preHandlerHookHandler;
 
     issueAccessToken(user: AuthenticatedUser): string;
-    issueRefreshToken(user: AuthenticatedUser, meta?: RefreshTokenMeta): Promise<IssuedRefreshToken>;
+    issueRefreshToken(
+      user: AuthenticatedUser,
+      meta?: RefreshTokenMeta,
+    ): Promise<IssuedRefreshToken>;
     rotateRefreshToken(token: string, meta?: RefreshTokenMeta): Promise<RotatedRefreshToken>;
     revokeRefreshToken(token: string): Promise<void>;
     revokeAllRefreshTokens(userId: string): Promise<void>;
@@ -563,7 +571,10 @@ const authPlugin: FastifyPluginAsync = async (app) => {
           where: { familyId: session.familyId, revokedAt: null },
           data: { revokedAt: new Date() },
         });
-        app.log.warn({ familyId: session.familyId }, 'refresh token reuse detected; family revoked');
+        app.log.warn(
+          { familyId: session.familyId },
+          'refresh token reuse detected; family revoked',
+        );
         throw tokenExpired();
       }
 

@@ -99,7 +99,8 @@ const backupRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: backupSchema },
       },
     },
-    async (request) => toBackupWire(await loadOwnedBackup(request.params.serverId, request.params.id)),
+    async (request) =>
+      toBackupWire(await loadOwnedBackup(request.params.serverId, request.params.id)),
   );
 
   app.get(

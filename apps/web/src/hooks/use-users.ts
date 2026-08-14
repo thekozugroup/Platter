@@ -89,7 +89,8 @@ export function useDeleteUser(): UseMutationResult<{ ok: true }, Error, DeleteUs
   return useMutation({
     mutationFn: ({ userId, transferTo }: DeleteUserInput) =>
       api.delete<{ ok: true }>(`/users/${userId}`, { query: { transferTo } }),
-    onSuccess: (_result, { userId }) => queryClient.removeQueries({ queryKey: queryKeys.users.detail(userId) }),
+    onSuccess: (_result, { userId }) =>
+      queryClient.removeQueries({ queryKey: queryKeys.users.detail(userId) }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
   });
 }

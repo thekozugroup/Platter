@@ -292,11 +292,10 @@ describe('failures', () => {
     const server = await fakeRcon({ password: 'secret' });
     const password = 'hunter2-should-never-appear';
 
-    const error = await rconCommand(
-      { host: '127.0.0.1', port: server.port, password },
-      'list',
-      { key: 'srv_redact', label: 'Survival' },
-    ).catch((caught: unknown) => caught);
+    const error = await rconCommand({ host: '127.0.0.1', port: server.port, password }, 'list', {
+      key: 'srv_redact',
+      label: 'Survival',
+    }).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(PlatterError);
     expect(JSON.stringify((error as PlatterError).toBody())).not.toContain(password);

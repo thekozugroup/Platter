@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  BLUEPRINT_CATEGORIES,
-  LIMITS,
-  STOP_STRATEGIES,
-  VARIABLE_TYPES,
-} from '../domain.js';
+import { BLUEPRINT_CATEGORIES, LIMITS, STOP_STRATEGIES, VARIABLE_TYPES } from '../domain.js';
 import { portSchema } from './common.js';
 
 /**
@@ -26,9 +21,7 @@ export const blueprintVariableSchema = z
     default: z.union([z.string(), z.number(), z.boolean()]).nullable().default(null),
     required: z.boolean().default(false),
     /** Options for `enum` variables, as value/label pairs so the UI can be friendly. */
-    options: z
-      .array(z.object({ value: z.string(), label: z.string() }))
-      .default([]),
+    options: z.array(z.object({ value: z.string(), label: z.string() })).default([]),
     min: z.number().nullable().default(null),
     max: z.number().nullable().default(null),
     /** Extra validation for `string` variables, as a RegExp source string. */

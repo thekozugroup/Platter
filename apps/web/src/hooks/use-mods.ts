@@ -25,14 +25,7 @@ import { api } from '@/lib/api-client.js';
 export type ModSource = 'modrinth' | 'curseforge';
 export type ModSide = 'required' | 'optional' | 'unsupported' | 'unknown';
 export type ModProjectType =
-  | 'mod'
-  | 'plugin'
-  | 'modpack'
-  | 'resourcepack'
-  | 'shader'
-  | 'datapack'
-  | 'world'
-  | 'other';
+  'mod' | 'plugin' | 'modpack' | 'resourcepack' | 'shader' | 'datapack' | 'world' | 'other';
 export type ModReleaseChannel = 'release' | 'beta' | 'alpha';
 export type ModDependencyKind = 'required' | 'optional' | 'incompatible' | 'embedded';
 
@@ -138,7 +131,8 @@ export interface AggregateModSearchResult {
 }
 
 const modsKeys = {
-  search: (serverId: string, query: ModSearchParams) => ['servers', serverId, 'mods', 'search', query] as const,
+  search: (serverId: string, query: ModSearchParams) =>
+    ['servers', serverId, 'mods', 'search', query] as const,
   installed: (serverId: string) => ['servers', serverId, 'mods', 'installed'] as const,
   updates: (serverId: string) => ['servers', serverId, 'mods', 'updates'] as const,
   detail: (serverId: string, source: ModSource, project: string) =>
@@ -188,7 +182,10 @@ export function useInstalledMods(
 ): UseQueryResult<{ data: InstalledMod[]; sources: ModSource[] }> {
   return useQuery({
     queryKey: modsKeys.installed(serverId),
-    queryFn: () => api.get<{ data: InstalledMod[]; sources: ModSource[] }>(`/servers/${serverId}/mods/installed`),
+    queryFn: () =>
+      api.get<{ data: InstalledMod[]; sources: ModSource[] }>(
+        `/servers/${serverId}/mods/installed`,
+      ),
   });
 }
 
@@ -239,7 +236,8 @@ export function useModVersions(
 ): UseQueryResult<{ data: ModVersion[] }> {
   return useQuery({
     queryKey: modsKeys.versions(serverId, source ?? 'modrinth', project ?? ''),
-    queryFn: () => api.get<{ data: ModVersion[] }>(`/servers/${serverId}/mods/${source}/${project}/versions`),
+    queryFn: () =>
+      api.get<{ data: ModVersion[] }>(`/servers/${serverId}/mods/${source}/${project}/versions`),
     enabled: Boolean(source) && Boolean(project),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
@@ -259,7 +257,10 @@ export function useUninstallMod(
         modsKeys.installed(serverId),
         (previous) =>
           previous
-            ? { ...previous, data: previous.data.filter((mod) => mod.projectId !== removed.projectId) }
+            ? {
+                ...previous,
+                data: previous.data.filter((mod) => mod.projectId !== removed.projectId),
+              }
             : previous,
       );
     },

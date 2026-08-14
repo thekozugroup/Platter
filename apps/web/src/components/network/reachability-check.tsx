@@ -112,8 +112,8 @@ export function ReachabilityCheck({ serverId, allocations, className }: Reachabi
   if (allocations.length === 0) {
     return (
       <p className={cn('text-subhead text-label-tertiary', className)}>
-        This server has no allocated ports yet, so there is nothing to test. One is assigned
-        when the container is created.
+        This server has no allocated ports yet, so there is nothing to test. One is assigned when
+        the container is created.
       </p>
     );
   }
@@ -162,7 +162,9 @@ export function ReachabilityCheck({ serverId, allocations, className }: Reachabi
             <p className="mt-1 text-subhead text-label-secondary">{errorMessage(query.error)}</p>
           </div>
         ) : result && verdict ? (
-          <div className={cn('flex flex-col gap-2 rounded-md border p-4', TONE_CLASS[verdict.tone])}>
+          <div
+            className={cn('flex flex-col gap-2 rounded-md border p-4', TONE_CLASS[verdict.tone])}
+          >
             <h4 className={cn('font-sans text-subhead font-semibold', TONE_TEXT[verdict.tone])}>
               {verdict.headline}
             </h4>
@@ -219,13 +221,13 @@ export function ReachabilityCheck({ serverId, allocations, className }: Reachabi
             .
           </li>
           <li>
-            Allow the same port through the firewall on the machine running the container. A
-            fresh Linux install usually blocks it.
+            Allow the same port through the firewall on the machine running the container. A fresh
+            Linux install usually blocks it.
           </li>
           <li>
-            Check that the WAN address your router shows matches what a “what is my IP” page
-            says. If they differ, your ISP is using CGNAT and no amount of port forwarding will
-            work — you need a static IP, IPv6, or a tunnel.
+            Check that the WAN address your router shows matches what a “what is my IP” page says.
+            If they differ, your ISP is using CGNAT and no amount of port forwarding will work — you
+            need a static IP, IPv6, or a tunnel.
           </li>
         </ol>
         <p className="text-caption text-label-tertiary">

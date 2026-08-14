@@ -126,7 +126,8 @@ function TestResultPanel({ result }: { result: TestNodeResult }) {
       role="status"
     >
       <p className="font-medium">
-        {result.reachable ? 'Reachable' : 'Not reachable'} · tested {formatRelativeTime(result.testedAt)}
+        {result.reachable ? 'Reachable' : 'Not reachable'} · tested{' '}
+        {formatRelativeTime(result.testedAt)}
         {result.reachable ? ` · ${result.latencyMs} ms` : ''}
       </p>
       {result.reachable ? (
@@ -190,7 +191,8 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           <div className="min-w-0">
             <p className="truncate font-sans text-body font-semibold text-label">{node.name}</p>
             <p className="truncate text-footnote text-label-secondary">
-              {DRIVER_LABEL[node.driver]} · {node.serverCount} {node.serverCount === 1 ? 'server' : 'servers'}
+              {DRIVER_LABEL[node.driver]} · {node.serverCount}{' '}
+              {node.serverCount === 1 ? 'server' : 'servers'}
             </p>
           </div>
         </div>
@@ -219,7 +221,12 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
                 Edit node
               </MenuItem>
               <MenuSeparator />
-              <MenuItem disabled={Boolean(deleteReason)} title={deleteReason} value="delete" variant="destructive">
+              <MenuItem
+                disabled={Boolean(deleteReason)}
+                title={deleteReason}
+                value="delete"
+                variant="destructive"
+              >
                 <Trash aria-hidden />
                 Remove node
               </MenuItem>
@@ -239,7 +246,9 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           isLoading={capacity.isPending}
           label="Memory"
           total={capacity.data?.memoryTotalMb ?? node.memoryTotalMb}
-          unavailable={capacity.isError ? "Couldn't read live memory usage from this node." : undefined}
+          unavailable={
+            capacity.isError ? "Couldn't read live memory usage from this node." : undefined
+          }
           used={capacity.data?.memoryUsedMb ?? 0}
         />
         <CapacityBar
@@ -248,7 +257,9 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           isLoading={capacity.isPending}
           label="Disk"
           total={capacity.data?.diskTotalMb ?? node.diskTotalMb}
-          unavailable={capacity.isError ? "Couldn't read live disk usage from this node." : undefined}
+          unavailable={
+            capacity.isError ? "Couldn't read live disk usage from this node." : undefined
+          }
           used={capacity.data?.diskUsedMb ?? 0}
         />
         <CapacityBar
@@ -257,7 +268,9 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           isLoading={capacity.isPending}
           label="Ports"
           total={capacity.data?.portsTotal ?? node.portRangeEnd - node.portRangeStart + 1}
-          unavailable={capacity.isError ? "Couldn't read live port usage from this node." : undefined}
+          unavailable={
+            capacity.isError ? "Couldn't read live port usage from this node." : undefined
+          }
           used={capacity.data?.portsUsed ?? 0}
           warnAt={0.9}
         />
@@ -405,10 +418,12 @@ export function NodesPage() {
   return (
     <>
       <PageHeader
-        actions={<PageAction onClick={openCreate}>
+        actions={
+          <PageAction onClick={openCreate}>
             <Plus aria-hidden />
             Add node
-          </PageAction>}
+          </PageAction>
+        }
         description="Where your servers run, and how much room is left on each host."
         title="Nodes"
       />

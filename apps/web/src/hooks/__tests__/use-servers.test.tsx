@@ -24,7 +24,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
-  const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => handler(String(input), init));
+  const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+    handler(String(input), init),
+  );
   vi.stubGlobal('fetch', spy);
   return spy;
 }
@@ -93,7 +95,9 @@ describe('useServers', () => {
     });
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useServers({ search: 'smp' }), { wrapper: wrapperFor(queryClient) });
+    const { result } = renderHook(() => useServers({ search: 'smp' }), {
+      wrapper: wrapperFor(queryClient),
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.data).toHaveLength(1);
@@ -149,13 +153,17 @@ describe('useRenameServer', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     queryClient.setQueryData(queryKeys.servers.detail('srv_1'), original);
 
-    const { result } = renderHook(() => useRenameServer('srv_1'), { wrapper: wrapperFor(queryClient) });
+    const { result } = renderHook(() => useRenameServer('srv_1'), {
+      wrapper: wrapperFor(queryClient),
+    });
 
     result.current.mutate('New Name');
 
     // Optimistic: the cache reflects the new name before the API has answered at all.
     await waitFor(() =>
-      expect(queryClient.getQueryData<Server>(queryKeys.servers.detail('srv_1'))?.name).toBe('New Name'),
+      expect(queryClient.getQueryData<Server>(queryKeys.servers.detail('srv_1'))?.name).toBe(
+        'New Name',
+      ),
     );
 
     // The API disagrees — the field is invalid, or the name collided.
@@ -164,6 +172,8 @@ describe('useRenameServer', () => {
     );
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(queryClient.getQueryData<Server>(queryKeys.servers.detail('srv_1'))?.name).toBe('Old Name');
+    expect(queryClient.getQueryData<Server>(queryKeys.servers.detail('srv_1'))?.name).toBe(
+      'Old Name',
+    );
   });
 });

@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  LIMITS,
-  POWER_ACTIONS,
-  SERVER_PERMISSIONS,
-  SERVER_STATUSES,
-} from '../domain.js';
+import { LIMITS, POWER_ACTIONS, SERVER_PERMISSIONS, SERVER_STATUSES } from '../domain.js';
 import { idSchema, isoDateSchema, patchShape, portSchema } from './common.js';
 
 export const serverNameSchema = z

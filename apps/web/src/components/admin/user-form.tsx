@@ -63,10 +63,7 @@ export function userFormValueFromUser(user: User): UserFormValue {
 
 const FIELD_HEIGHT = 'h-11';
 
-export function validateUserForm(
-  value: UserFormValue,
-  mode: UserFormMode,
-): Record<string, string> {
+export function validateUserForm(value: UserFormValue, mode: UserFormMode): Record<string, string> {
   const errors: Record<string, string> = {};
 
   const email = emailSchema.safeParse(value.email);
@@ -157,12 +154,7 @@ export function UserForm({
   const roleHintId = useId();
 
   return (
-    <form
-      className="flex flex-col gap-5"
-      id={formId}
-      noValidate
-      onSubmit={onSubmit}
-    >
+    <form className="flex flex-col gap-5" id={formId} noValidate onSubmit={onSubmit}>
       <FieldGroup>
         <Field invalid={Boolean(errors.displayName)} required>
           <FieldLabel>Display name</FieldLabel>

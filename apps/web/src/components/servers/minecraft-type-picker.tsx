@@ -82,8 +82,7 @@ const FAMILIES: readonly Family[] = [
   {
     key: 'utility',
     title: 'Utility servers',
-    blurb:
-      'Not a game world. A limbo holds players in a void room while the real server restarts.',
+    blurb: 'Not a game world. A limbo holds players in a void room while the real server restarts.',
     more: { one: 'utility server', other: 'utility servers' },
   },
   {
@@ -160,14 +159,16 @@ const TYPE_COPY: Record<string, TypeCopy> = {
     label: 'Leaf',
     family: 'plugins',
     accepts: 'plugins',
-    blurb: 'Paper fork focused on throughput. A few optimisations change vanilla behaviour slightly.',
+    blurb:
+      'Paper fork focused on throughput. A few optimisations change vanilla behaviour slightly.',
   },
 
   FABRIC: {
     label: 'Fabric',
     family: 'mods',
     accepts: 'mods',
-    blurb: 'Lightweight loader that reaches new Minecraft versions first. Popular for smaller mod sets.',
+    blurb:
+      'Lightweight loader that reaches new Minecraft versions first. Popular for smaller mod sets.',
     primary: true,
   },
   FORGE: {
@@ -194,7 +195,8 @@ const TYPE_COPY: Record<string, TypeCopy> = {
     label: 'SpongeVanilla',
     family: 'mods',
     accepts: 'mods',
-    blurb: 'The Sponge plugin platform on the vanilla server. Its plugins live in mods/, not plugins/.',
+    blurb:
+      'The Sponge plugin platform on the vanilla server. Its plugins live in mods/, not plugins/.',
   },
 
   AUTO_CURSEFORGE: {
@@ -326,7 +328,14 @@ function fallbackCopy(option: { value: string; label: string }): TypeCopy {
   return {
     label: name,
     family: guessed,
-    accepts: guessed === 'mods' || guessed === 'modpack' ? 'mods' : guessed === 'plugins' ? 'plugins' : guessed === 'hybrid' ? 'both' : 'none',
+    accepts:
+      guessed === 'mods' || guessed === 'modpack'
+        ? 'mods'
+        : guessed === 'plugins'
+          ? 'plugins'
+          : guessed === 'hybrid'
+            ? 'both'
+            : 'none',
     blurb: 'Added by this blueprint. See the game’s own documentation for what it changes.',
   };
 }

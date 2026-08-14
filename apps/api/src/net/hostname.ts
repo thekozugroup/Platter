@@ -49,9 +49,7 @@ export function isValidHostnameChain(value: string): boolean {
  * to" (log lines, previews).
  */
 export function baseHostnameLabel(name: string): string {
-  const slug = slugify(name, HOSTNAME_FALLBACK_LABEL)
-    .slice(0, BASE_MAX_LENGTH)
-    .replace(/-+$/, '');
+  const slug = slugify(name, HOSTNAME_FALLBACK_LABEL).slice(0, BASE_MAX_LENGTH).replace(/-+$/, '');
   return slug.length > 0 ? slug : HOSTNAME_FALLBACK_LABEL;
 }
 
@@ -66,7 +64,10 @@ export function baseHostnameLabel(name: string): string {
  */
 function idSuffix(id: string): string {
   const body = id.includes('_') ? id.slice(id.indexOf('_') + 1) : id;
-  const tail = body.slice(-SUFFIX_LENGTH).toLowerCase().replace(/[^a-z0-9]/g, '0');
+  const tail = body
+    .slice(-SUFFIX_LENGTH)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '0');
   return tail.padStart(SUFFIX_LENGTH, '0');
 }
 
@@ -103,7 +104,9 @@ export function assignHostnames(servers: readonly HostnameCandidate[]): Map<stri
 
   const assigned = new Map<string, string>();
   for (const [base, group] of groups) {
-    const ordered = [...group].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+    const ordered = [...group].sort((left, right) =>
+      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+    );
     for (const [index, server] of ordered.entries()) {
       const candidate = index === 0 ? base : `${base}-${idSuffix(server.id)}`;
       const hostname = isValidHostnameLabel(candidate)

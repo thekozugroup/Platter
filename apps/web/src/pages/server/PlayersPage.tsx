@@ -144,8 +144,8 @@ export function PlayersPage() {
               Who is allowed in
             </h2>
             <p className="text-subhead text-label-secondary">
-              Every list takes a name, whether or not that person has ever joined. Each change is
-              a command Platter sends to the running server, so it has to be up.
+              Every list takes a name, whether or not that person has ever joined. Each change is a
+              command Platter sends to the running server, so it has to be up.
             </p>
           </div>
 

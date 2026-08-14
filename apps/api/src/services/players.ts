@@ -272,7 +272,12 @@ interface ServerContext {
   server: ServerRow;
   node: NodeRow;
   blueprint: Blueprint | null;
-  allocations: Array<{ portName: string | null; hostIp: string; hostPort: number; protocol: string }>;
+  allocations: Array<{
+    portName: string | null;
+    hostIp: string;
+    hostPort: number;
+    protocol: string;
+  }>;
   variables: Record<string, string>;
 }
 
@@ -351,8 +356,7 @@ function supportsPlayerAdministration(blueprint: Blueprint | null): boolean {
 }
 
 type RconResolution =
-  | { ok: true; endpoint: RconEndpoint }
-  | { ok: false; reason: RconFailure; message: string };
+  { ok: true; endpoint: RconEndpoint } | { ok: false; reason: RconFailure; message: string };
 
 /**
  * Works out where RCON is and what its password is.
@@ -474,7 +478,10 @@ async function readRosterFile(
   nameKey: 'name' | 'ip' = 'name',
 ): Promise<RosterFileEntry[]> {
   try {
-    return parseRosterJson(await readFile(path.join(serverDataDir(serverId), file), 'utf8'), nameKey);
+    return parseRosterJson(
+      await readFile(path.join(serverDataDir(serverId), file), 'utf8'),
+      nameKey,
+    );
   } catch {
     // Missing before the first boot, and briefly unreadable while the server rewrites it.
     // Either way the roster degrades to "no flags" rather than failing the request.
@@ -927,7 +934,11 @@ let syncTimer: NodeJS.Timeout | null = null;
 let syncing = false;
 let trackerLogger: FastifyBaseLogger | undefined;
 
-async function persist(serverId: string, roster: Roster, tracker: Tracker | undefined): Promise<void> {
+async function persist(
+  serverId: string,
+  roster: Roster,
+  tracker: Tracker | undefined,
+): Promise<void> {
   if (tracker) {
     markDirty(tracker);
     return;
@@ -953,7 +964,10 @@ async function flush(tracker: Tracker): Promise<void> {
     await saveRoster(tracker.serverId, tracker.roster);
   } catch (error) {
     tracker.dirty = true;
-    trackerLogger?.warn({ err: error, serverId: tracker.serverId }, 'could not save player history');
+    trackerLogger?.warn(
+      { err: error, serverId: tracker.serverId },
+      'could not save player history',
+    );
   }
 }
 

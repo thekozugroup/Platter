@@ -142,7 +142,8 @@ async function executeAction(row: ScheduleRow): Promise<ExecuteOutcome> {
         await restartServer(row.serverId);
         break;
       case 'command':
-        if (!row.payload) return { status: 'failed', error: 'This schedule has no command configured.' };
+        if (!row.payload)
+          return { status: 'failed', error: 'This schedule has no command configured.' };
         await sendCommand(row.serverId, row.payload);
         break;
       case 'backup':
@@ -269,7 +270,11 @@ async function claimAndRun(row: ScheduleRow): Promise<void> {
   // the run. Advancing first means the occurrence is skipped, which is what "one schedule
   // never runs twice concurrently" has always meant, and the loop goes back to sleep.
   if (running.has(row.id)) {
-    report('warn', { scheduleId: row.id }, 'skipping an occurrence: the previous run is still going');
+    report(
+      'warn',
+      { scheduleId: row.id },
+      'skipping an occurrence: the previous run is still going',
+    );
     return;
   }
 
@@ -360,7 +365,11 @@ export async function startScheduler(options: StartSchedulerOptions = {}): Promi
   });
   for (const row of overdue) {
     await recomputeNextRun(row.id).catch((error: unknown) => {
-      report('warn', { err: error, scheduleId: row.id }, 'could not fast-forward an overdue schedule');
+      report(
+        'warn',
+        { err: error, scheduleId: row.id },
+        'could not fast-forward an overdue schedule',
+      );
     });
   }
 

@@ -268,7 +268,9 @@ describe('recomputeNextRun', () => {
   });
 
   it('throws not_found for an id that does not exist', async () => {
-    await expect(scheduler.recomputeNextRun('sch_missing')).rejects.toMatchObject({ code: 'not_found' });
+    await expect(scheduler.recomputeNextRun('sch_missing')).rejects.toMatchObject({
+      code: 'not_found',
+    });
   });
 });
 
@@ -400,7 +402,9 @@ describe('a run that outlives its own next occurrence', () => {
 
 describe('runScheduleNow', () => {
   it('throws not_found for an unknown schedule', async () => {
-    await expect(scheduler.runScheduleNow('sch_missing')).rejects.toMatchObject({ code: 'not_found' });
+    await expect(scheduler.runScheduleNow('sch_missing')).rejects.toMatchObject({
+      code: 'not_found',
+    });
   });
 
   it('skips a command against an offline server rather than attempting it', async () => {

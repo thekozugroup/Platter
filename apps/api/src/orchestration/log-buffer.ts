@@ -195,7 +195,9 @@ export class LogHub {
     } catch (error) {
       // An aborted stream is how every detach ends; only a real failure is worth showing.
       if (!signal.aborted) {
-        this.system(`Console stream ended: ${error instanceof Error ? error.message : 'unknown error'}`);
+        this.system(
+          `Console stream ended: ${error instanceof Error ? error.message : 'unknown error'}`,
+        );
       }
     }
   }

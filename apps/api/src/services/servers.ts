@@ -74,7 +74,11 @@ export function presentStatus(row: { status: string; suspended: boolean }): Serv
   return isServerStatus(row.status) ? row.status : 'offline';
 }
 
-function parseVariables(raw: string, serverId: string, log?: FastifyBaseLogger): Record<string, string> {
+function parseVariables(
+  raw: string,
+  serverId: string,
+  log?: FastifyBaseLogger,
+): Record<string, string> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -184,7 +188,9 @@ const SECRET_KEY_PATTERN = /(PASSWORD|PASSWD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-
 function isSecretKeyFor(blueprint: Blueprint | null): (key: string) => boolean {
   if (blueprint === null) return (key) => SECRET_KEY_PATTERN.test(key);
   const declared = new Set(
-    blueprint.variables.filter((variable) => variable.type === 'password').map((variable) => variable.key),
+    blueprint.variables
+      .filter((variable) => variable.type === 'password')
+      .map((variable) => variable.key),
   );
   return (key) => declared.has(key);
 }
@@ -205,8 +211,13 @@ function toLimits(row: ServerRecord): ResourceLimits {
  * without one, and the host port is the least wrong answer — it keeps the row renderable
  * so the operator can see what to clean up.
  */
-function toAllocations(rows: readonly Allocation[], blueprint: Blueprint | null): ServerAllocation[] {
-  const containerPorts = new Map(blueprint?.ports.map((port) => [port.name, port.containerPort]) ?? []);
+function toAllocations(
+  rows: readonly Allocation[],
+  blueprint: Blueprint | null,
+): ServerAllocation[] {
+  const containerPorts = new Map(
+    blueprint?.ports.map((port) => [port.name, port.containerPort]) ?? [],
+  );
   return rows
     .map((row) => ({
       name: row.portName ?? 'game',
@@ -216,7 +227,10 @@ function toAllocations(rows: readonly Allocation[], blueprint: Blueprint | null)
       protocol: row.protocol === 'udp' ? ('udp' as const) : ('tcp' as const),
       primary: row.primary,
     }))
-    .sort((left, right) => Number(right.primary) - Number(left.primary) || left.hostPort - right.hostPort);
+    .sort(
+      (left, right) =>
+        Number(right.primary) - Number(left.primary) || left.hostPort - right.hostPort,
+    );
 }
 
 export interface ServerWithAllocations extends ServerRecord {
@@ -274,7 +288,8 @@ function toServerSummary(row: SummaryRow, connectString: string | undefined): Se
     // The resolved connect string, never `hostIp` — that column is the bind address
     // (`0.0.0.0`), which is not something any player can dial. `publicHost:port` is the
     // fallback when no hostname resolves, which is what `connectString` already returns.
-    primaryAddress: connectString ?? (primary ? formatAddress(row.node.publicHost, primary.hostPort) : null),
+    primaryAddress:
+      connectString ?? (primary ? formatAddress(row.node.publicHost, primary.hostPort) : null),
     memoryMb: row.memoryMb,
     cpuCores: row.cpuCores,
     // Player counts need a live query against the game; the grid must stay cheap enough
@@ -363,7 +378,11 @@ export async function listServers(
       // SQLite's LIKE is already case-insensitive for ASCII, and Prisma's `mode` option
       // is not supported on this provider — so no `mode: 'insensitive'` here.
       filters.push({
-        OR: [{ name: { contains: search } }, { blueprintKey: { contains: search } }, { id: search }],
+        OR: [
+          { name: { contains: search } },
+          { blueprintKey: { contains: search } },
+          { id: search },
+        ],
       });
     }
   }
@@ -543,7 +562,8 @@ export function resolveVariables(
     const raw = supplied !== undefined && supplied !== '' ? supplied : fallback;
 
     if (raw === undefined || raw === '') {
-      if (variable.required) errors.add(`variables.${variable.key}`, `${variable.label} is required.`);
+      if (variable.required)
+        errors.add(`variables.${variable.key}`, `${variable.label} is required.`);
       continue;
     }
 
@@ -559,7 +579,10 @@ export function resolveVariables(
 // Limits and placement
 // ---------------------------------------------------------------------------
 
-function resolveLimits(blueprint: Blueprint, requested: Partial<ResourceLimits> | undefined): ResourceLimits {
+function resolveLimits(
+  blueprint: Blueprint,
+  requested: Partial<ResourceLimits> | undefined,
+): ResourceLimits {
   return {
     memoryMb: requested?.memoryMb ?? blueprint.recommendedMemoryMb,
     // The blueprint declares what the game needs on disk; there is no second, larger
@@ -657,7 +680,8 @@ async function selectNode(nodeId: string | undefined, limits: ResourceLimits): P
 
   const best = candidates[0];
   // Non-null by construction: `nodes` is non-empty, so `candidates` is too.
-  if (!best) throw new PlatterError('service_unavailable', 'No node is available to run servers yet.');
+  if (!best)
+    throw new PlatterError('service_unavailable', 'No node is available to run servers yet.');
   assertFits(best.node, best.used, limits);
   return best.node;
 }
@@ -693,7 +717,10 @@ async function rollbackCreate(serverId: string, log: FastifyBaseLogger): Promise
   try {
     await prisma.server.delete({ where: { id: serverId } });
   } catch (error) {
-    log.error({ err: error, serverId }, 'could not remove the server row while rolling back a create');
+    log.error(
+      { err: error, serverId },
+      'could not remove the server row while rolling back a create',
+    );
   }
 }
 
@@ -917,7 +944,10 @@ export function assertSendableCommand(server: ServerRecord, command: string): vo
 
   const status = presentStatus(server);
   if (status !== 'running') {
-    throw new PlatterError('invalid_state', `${server.name} is ${status}, so it cannot take a command.`);
+    throw new PlatterError(
+      'invalid_state',
+      `${server.name} is ${status}, so it cannot take a command.`,
+    );
   }
 }
 
@@ -952,7 +982,10 @@ function toSubuser(row: SubuserRowWithUser, log?: FastifyBaseLogger): ServerSubu
   };
 }
 
-export async function listSubusers(serverId: string, log?: FastifyBaseLogger): Promise<ServerSubuser[]> {
+export async function listSubusers(
+  serverId: string,
+  log?: FastifyBaseLogger,
+): Promise<ServerSubuser[]> {
   const rows = await prisma.serverSubuser.findMany({
     where: { serverId },
     include: SUBUSER_INCLUDE,
@@ -973,7 +1006,10 @@ export async function addSubuser(
   permissions: readonly ServerPermission[],
   log?: FastifyBaseLogger,
 ): Promise<ServerSubuser> {
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, suspended: true } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, suspended: true },
+  });
   if (!user) throw validationFailed({ email: ['No Platter account uses that email.'] });
   if (user.suspended) throw validationFailed({ email: ['That account is suspended.'] });
   if (user.id === server.ownerId) {

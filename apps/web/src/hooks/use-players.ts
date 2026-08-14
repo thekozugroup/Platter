@@ -62,8 +62,17 @@ export interface ServerHealthWindow {
 export type HealthUnavailableReason = 'unsupported' | 'unreadable' | 'unconfigured' | 'offline';
 
 export interface ServerHealth {
-  tps: { oneMinute: number; fiveMinutes: number; fifteenMinutes: number; estimated: boolean } | null;
-  mspt: { fiveSeconds: ServerHealthWindow; oneMinute: ServerHealthWindow; fiveMinutes: ServerHealthWindow } | null;
+  tps: {
+    oneMinute: number;
+    fiveMinutes: number;
+    fifteenMinutes: number;
+    estimated: boolean;
+  } | null;
+  mspt: {
+    fiveSeconds: ServerHealthWindow;
+    oneMinute: ServerHealthWindow;
+    fiveMinutes: ServerHealthWindow;
+  } | null;
   unavailable: HealthUnavailableReason | null;
 }
 
@@ -103,7 +112,10 @@ export interface UsePollingOptions {
 
 /** Who is online now, and everyone this server has ever seen. Polls by default — "who's
  *  playing" is exactly the kind of thing that goes stale the moment nobody is watching it. */
-export function usePlayerRoster(serverId: string, options: UsePollingOptions = {}): UseQueryResult<PlayerRoster> {
+export function usePlayerRoster(
+  serverId: string,
+  options: UsePollingOptions = {},
+): UseQueryResult<PlayerRoster> {
   return useQuery({
     queryKey: playersKeys.roster(serverId),
     queryFn: () => api.get<PlayerRoster>(`/servers/${serverId}/players`),
@@ -111,7 +123,10 @@ export function usePlayerRoster(serverId: string, options: UsePollingOptions = {
   });
 }
 
-export function useServerHealth(serverId: string, options: UsePollingOptions = {}): UseQueryResult<ServerHealth> {
+export function useServerHealth(
+  serverId: string,
+  options: UsePollingOptions = {},
+): UseQueryResult<ServerHealth> {
   return useQuery({
     queryKey: playersKeys.health(serverId),
     queryFn: () => api.get<ServerHealth>(`/servers/${serverId}/players/health`),
@@ -126,18 +141,25 @@ export function useWhitelist(serverId: string): UseQueryResult<WhitelistState> {
   });
 }
 
-export function useSetWhitelistEnabled(serverId: string): UseMutationResult<CommandResult, Error, boolean> {
+export function useSetWhitelistEnabled(
+  serverId: string,
+): UseMutationResult<CommandResult, Error, boolean> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (enabled: boolean) => api.put<CommandResult>(`/servers/${serverId}/players/whitelist`, { enabled }),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: playersKeys.whitelist(serverId) }),
+    mutationFn: (enabled: boolean) =>
+      api.put<CommandResult>(`/servers/${serverId}/players/whitelist`, { enabled }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: playersKeys.whitelist(serverId) }),
   });
 }
 
-export function useAddToWhitelist(serverId: string): UseMutationResult<CommandResult, Error, string> {
+export function useAddToWhitelist(
+  serverId: string,
+): UseMutationResult<CommandResult, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.post<CommandResult>(`/servers/${serverId}/players/whitelist`, { name }),
+    mutationFn: (name: string) =>
+      api.post<CommandResult>(`/servers/${serverId}/players/whitelist`, { name }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: playersKeys.whitelist(serverId) });
       void queryClient.invalidateQueries({ queryKey: playersKeys.roster(serverId) });
@@ -145,11 +167,15 @@ export function useAddToWhitelist(serverId: string): UseMutationResult<CommandRe
   });
 }
 
-export function useRemoveFromWhitelist(serverId: string): UseMutationResult<CommandResult, Error, string> {
+export function useRemoveFromWhitelist(
+  serverId: string,
+): UseMutationResult<CommandResult, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) =>
-      api.delete<CommandResult>(`/servers/${serverId}/players/whitelist/${encodeURIComponent(name)}`),
+      api.delete<CommandResult>(
+        `/servers/${serverId}/players/whitelist/${encodeURIComponent(name)}`,
+      ),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: playersKeys.whitelist(serverId) });
       void queryClient.invalidateQueries({ queryKey: playersKeys.roster(serverId) });
@@ -172,10 +198,11 @@ export interface BanIpInput {
 export function useBanIp(serverId: string): UseMutationResult<CommandResult, Error, BanIpInput> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ ip, reason }: BanIpInput) => api.post<CommandResult>(`/servers/${serverId}/players/bans/ip`, {
-      ip,
-      reason,
-    }),
+    mutationFn: ({ ip, reason }: BanIpInput) =>
+      api.post<CommandResult>(`/servers/${serverId}/players/bans/ip`, {
+        ip,
+        reason,
+      }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: playersKeys.bans(serverId) }),
   });
 }
@@ -183,7 +210,8 @@ export function useBanIp(serverId: string): UseMutationResult<CommandResult, Err
 export function usePardonIp(serverId: string): UseMutationResult<CommandResult, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (ip: string) => api.delete<CommandResult>(`/servers/${serverId}/players/bans/ip/${encodeURIComponent(ip)}`),
+    mutationFn: (ip: string) =>
+      api.delete<CommandResult>(`/servers/${serverId}/players/bans/ip/${encodeURIComponent(ip)}`),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: playersKeys.bans(serverId) }),
   });
 }
@@ -193,20 +221,28 @@ export interface PlayerActionInput {
   reason?: string;
 }
 
-export function useKickPlayer(serverId: string): UseMutationResult<CommandResult, Error, PlayerActionInput> {
+export function useKickPlayer(
+  serverId: string,
+): UseMutationResult<CommandResult, Error, PlayerActionInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ name, reason }: PlayerActionInput) =>
-      api.post<CommandResult>(`/servers/${serverId}/players/${encodeURIComponent(name)}/kick`, { reason }),
+      api.post<CommandResult>(`/servers/${serverId}/players/${encodeURIComponent(name)}/kick`, {
+        reason,
+      }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: playersKeys.roster(serverId) }),
   });
 }
 
-export function useBanPlayer(serverId: string): UseMutationResult<CommandResult, Error, PlayerActionInput> {
+export function useBanPlayer(
+  serverId: string,
+): UseMutationResult<CommandResult, Error, PlayerActionInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ name, reason }: PlayerActionInput) =>
-      api.post<CommandResult>(`/servers/${serverId}/players/${encodeURIComponent(name)}/ban`, { reason }),
+      api.post<CommandResult>(`/servers/${serverId}/players/${encodeURIComponent(name)}/ban`, {
+        reason,
+      }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: playersKeys.roster(serverId) });
       void queryClient.invalidateQueries({ queryKey: playersKeys.bans(serverId) });
@@ -231,7 +267,9 @@ export interface SetOperatorInput {
   op: boolean;
 }
 
-export function useSetOperator(serverId: string): UseMutationResult<CommandResult, Error, SetOperatorInput> {
+export function useSetOperator(
+  serverId: string,
+): UseMutationResult<CommandResult, Error, SetOperatorInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ name, op }: SetOperatorInput) =>

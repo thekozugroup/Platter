@@ -1,5 +1,9 @@
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
-import type { InfiniteData, UseInfiniteQueryResult, UseMutationResult } from '@tanstack/react-query';
+import type {
+  InfiniteData,
+  UseInfiniteQueryResult,
+  UseMutationResult,
+} from '@tanstack/react-query';
 import { type z } from 'zod';
 import { type listAuditQuerySchema, type AuditEntry, type Paginated } from '@platter/shared';
 import { api } from '@/lib/api-client.js';
@@ -17,7 +21,9 @@ export function useAuditLog(
   return useInfiniteQuery({
     queryKey: queryKeys.audit.list(filters),
     queryFn: ({ pageParam }) =>
-      api.get<Paginated<AuditEntry>>('/audit', { query: { ...filters, page: pageParam, perPage: 50 } }),
+      api.get<Paginated<AuditEntry>>('/audit', {
+        query: { ...filters, page: pageParam, perPage: 50 },
+      }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.meta.page < lastPage.meta.totalPages ? lastPage.meta.page + 1 : undefined,
@@ -26,7 +32,9 @@ export function useAuditLog(
 
 /** The streamed NDJSON export. See `fetchAuthenticatedBlob` in `use-files.ts` for why this
  *  is a fetch-then-save mutation rather than a plain `<a href>`. */
-export function useExportAuditLog(filters: AuditFilters = {}): UseMutationResult<void, Error, void> {
+export function useExportAuditLog(
+  filters: AuditFilters = {},
+): UseMutationResult<void, Error, void> {
   return useMutation({
     mutationFn: async () => {
       const { blob, filename } = await fetchAuthenticatedBlob(

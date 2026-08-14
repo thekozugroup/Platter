@@ -21,7 +21,10 @@ const MIN_HEAP_MB = 1024;
 
 export function zomboidHeapMb(containerMemoryMb: number): number {
   const proportional = Math.ceil(containerMemoryMb * NON_HEAP_RESERVE_RATIO);
-  const reserve = Math.min(MAX_NON_HEAP_RESERVE_MB, Math.max(MIN_NON_HEAP_RESERVE_MB, proportional));
+  const reserve = Math.min(
+    MAX_NON_HEAP_RESERVE_MB,
+    Math.max(MIN_NON_HEAP_RESERVE_MB, proportional),
+  );
   return Math.max(MIN_HEAP_MB, containerMemoryMb - reserve);
 }
 
@@ -124,7 +127,8 @@ export const projectZomboidBlueprint: BlueprintDefinition = {
     {
       key: 'PAUSE_ON_EMPTY',
       label: 'Pause when empty',
-      description: 'Stops time passing while nobody is connected. Saves CPU and stops the world rotting.',
+      description:
+        'Stops time passing while nobody is connected. Saves CPU and stops the world rotting.',
       type: 'boolean',
       default: true,
     },

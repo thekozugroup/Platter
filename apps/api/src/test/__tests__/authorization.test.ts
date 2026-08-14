@@ -51,7 +51,14 @@ afterEach(async () => {
 async function issueKey(userId: string, scopes: readonly string[]): Promise<string> {
   const { token, prefix, tokenHash } = generateApiKey();
   await prisma.apiKey.create({
-    data: { id: newId('key'), userId, name: 'test key', prefix, tokenHash, scopes: JSON.stringify(scopes) },
+    data: {
+      id: newId('key'),
+      userId,
+      name: 'test key',
+      prefix,
+      tokenHash,
+      scopes: JSON.stringify(scopes),
+    },
   });
   return token;
 }
@@ -65,7 +72,12 @@ async function createServer(owner: TestUser): Promise<string> {
       name: 'Scoped Server',
       blueprintKey: 'minecraft-java',
       nodeId,
-      variables: { EULA: 'true', TYPE: 'PAPER', VERSION: '1.21.4', RCON_PASSWORD: 'SUPERSECRET-RCON' },
+      variables: {
+        EULA: 'true',
+        TYPE: 'PAPER',
+        VERSION: '1.21.4',
+        RCON_PASSWORD: 'SUPERSECRET-RCON',
+      },
       limits: { memoryMb: 2048 },
       startOnCreate: false,
     },
@@ -176,7 +188,14 @@ describe('API key scopes on REST', () => {
     const serverId = await createServer(owner);
     const { token, prefix, tokenHash } = generateApiKey();
     await prisma.apiKey.create({
-      data: { id: newId('key'), userId: owner.id, name: 'corrupt', prefix, tokenHash, scopes: 'not json' },
+      data: {
+        id: newId('key'),
+        userId: owner.id,
+        name: 'corrupt',
+        prefix,
+        tokenHash,
+        scopes: 'not json',
+      },
     });
 
     const read = await app.inject({

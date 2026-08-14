@@ -57,7 +57,9 @@ interface RenameContext {
 }
 
 /** Optimistic: a name is pure metadata, and a failed rename rolls back instantly. */
-export function useRenameServer(serverId: string): UseMutationResult<Server, Error, string, RenameContext> {
+export function useRenameServer(
+  serverId: string,
+): UseMutationResult<Server, Error, string, RenameContext> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => api.patch<Server>(`/servers/${serverId}`, { name }),
@@ -70,7 +72,8 @@ export function useRenameServer(serverId: string): UseMutationResult<Server, Err
       return { previous };
     },
     onError: (_error, _name, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.servers.detail(serverId), context.previous);
+      if (context?.previous)
+        queryClient.setQueryData(queryKeys.servers.detail(serverId), context.previous);
     },
     onSuccess: (server) => queryClient.setQueryData(queryKeys.servers.detail(serverId), server),
     onSettled: () => {
@@ -104,10 +107,12 @@ function useServerBooleanFlag(
       return { previous };
     },
     onError: (_error, _value, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.servers.detail(serverId), context.previous);
+      if (context?.previous)
+        queryClient.setQueryData(queryKeys.servers.detail(serverId), context.previous);
     },
     onSuccess: (server) => queryClient.setQueryData(queryKeys.servers.detail(serverId), server),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.servers.detail(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.servers.detail(serverId) }),
   });
 }
 
@@ -124,19 +129,23 @@ export function useSetAutoRestart(serverId: string) {
 /** Everything else that can change (description, limits, variables) — not optimistic,
  *  because a limits change can fail with `insufficient_resources` and there is nothing
  *  honest to show in the meantime. */
-export function useUpdateServer(serverId: string): UseMutationResult<Server, Error, UpdateServerRequest> {
+export function useUpdateServer(
+  serverId: string,
+): UseMutationResult<Server, Error, UpdateServerRequest> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: UpdateServerRequest) => api.patch<Server>(`/servers/${serverId}`, body),
     onSuccess: (server) => queryClient.setQueryData(queryKeys.servers.detail(serverId), server),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.servers.detail(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.servers.detail(serverId) }),
   });
 }
 
 export function useDeleteServer(): UseMutationResult<{ id: string; deleted: true }, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (serverId: string) => api.delete<{ id: string; deleted: true }>(`/servers/${serverId}`),
+    mutationFn: (serverId: string) =>
+      api.delete<{ id: string; deleted: true }>(`/servers/${serverId}`),
     onSuccess: (result) => {
       queryClient.removeQueries({ queryKey: queryKeys.servers.detail(result.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.servers.all });
@@ -167,7 +176,9 @@ export interface PowerActionInput {
  * flipped the instant the button was pressed is a lie the console and the status pill would
  * immediately contradict.
  */
-export function usePowerAction(serverId: string): UseMutationResult<Server, Error, PowerActionInput> {
+export function usePowerAction(
+  serverId: string,
+): UseMutationResult<Server, Error, PowerActionInput> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ action, force = false }: PowerActionInput) =>
@@ -182,9 +193,12 @@ export function usePowerAction(serverId: string): UseMutationResult<Server, Erro
 }
 
 /** The REST fallback for sending one console command outside the websocket. */
-export function useSendCommand(serverId: string): UseMutationResult<{ accepted: true }, Error, string> {
+export function useSendCommand(
+  serverId: string,
+): UseMutationResult<{ accepted: true }, Error, string> {
   return useMutation({
-    mutationFn: (command: string) => api.post<{ accepted: true }>(`/servers/${serverId}/command`, { command }),
+    mutationFn: (command: string) =>
+      api.post<{ accepted: true }>(`/servers/${serverId}/command`, { command }),
   });
 }
 
@@ -205,13 +219,15 @@ export function useAddSubuser(
 ): UseMutationResult<ServerSubuser, Error, UpsertSubuserRequest> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: UpsertSubuserRequest) => api.post<ServerSubuser>(`/servers/${serverId}/subusers`, body),
+    mutationFn: (body: UpsertSubuserRequest) =>
+      api.post<ServerSubuser>(`/servers/${serverId}/subusers`, body),
     onSuccess: (subuser) => {
       queryClient.setQueryData<ServerSubuser[]>(queryKeys.servers.subusers(serverId), (previous) =>
         previous ? [...previous, subuser] : [subuser],
       );
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.servers.subusers(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.servers.subusers(serverId) }),
   });
 }
 
@@ -235,20 +251,28 @@ export function useUpdateSubuserPermissions(
       api.patch<ServerSubuser>(`/servers/${serverId}/subusers/${subuserId}`, { permissions }),
     onMutate: async ({ subuserId, permissions }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.servers.subusers(serverId) });
-      const previous = queryClient.getQueryData<ServerSubuser[]>(queryKeys.servers.subusers(serverId));
+      const previous = queryClient.getQueryData<ServerSubuser[]>(
+        queryKeys.servers.subusers(serverId),
+      );
       queryClient.setQueryData<ServerSubuser[]>(queryKeys.servers.subusers(serverId), (current) =>
-        current?.map((subuser) => (subuser.id === subuserId ? { ...subuser, permissions } : subuser)),
+        current?.map((subuser) =>
+          subuser.id === subuserId ? { ...subuser, permissions } : subuser,
+        ),
       );
       return { previous };
     },
     onError: (_error, _input, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.servers.subusers(serverId), context.previous);
+      if (context?.previous)
+        queryClient.setQueryData(queryKeys.servers.subusers(serverId), context.previous);
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.servers.subusers(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.servers.subusers(serverId) }),
   });
 }
 
-export function useRemoveSubuser(serverId: string): UseMutationResult<{ id: string; deleted: true }, Error, string> {
+export function useRemoveSubuser(
+  serverId: string,
+): UseMutationResult<{ id: string; deleted: true }, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (subuserId: string) =>
@@ -258,6 +282,7 @@ export function useRemoveSubuser(serverId: string): UseMutationResult<{ id: stri
         previous?.filter((subuser) => subuser.id !== result.id),
       );
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: queryKeys.servers.subusers(serverId) }),
+    onSettled: () =>
+      void queryClient.invalidateQueries({ queryKey: queryKeys.servers.subusers(serverId) }),
   });
 }

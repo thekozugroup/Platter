@@ -155,7 +155,9 @@ describe('listBlueprintSummaries', () => {
   });
 
   it('filters by category, feature and search', () => {
-    expect(listBlueprintSummaries({ category: 'sandbox' }).every((b) => b.key !== 'valheim')).toBe(true);
+    expect(listBlueprintSummaries({ category: 'sandbox' }).every((b) => b.key !== 'valheim')).toBe(
+      true,
+    );
     expect(listBlueprintSummaries({ feature: 'rcon' }).every((b) => b.features.rcon)).toBe(true);
     expect(listBlueprintSummaries({ search: 'MINECRAFT' })).toHaveLength(2);
     expect(listBlueprintSummaries({ search: 'no such game' })).toHaveLength(0);
@@ -244,7 +246,9 @@ describe('compareMinecraftVersions', () => {
   });
 
   it('sorts a list the way a human would', () => {
-    const sorted = ['1.10', '1.9', '1.20.2', '1.8.9', '1.20', '1.21'].sort(compareMinecraftVersions);
+    const sorted = ['1.10', '1.9', '1.20.2', '1.8.9', '1.20', '1.21'].sort(
+      compareMinecraftVersions,
+    );
     expect(sorted).toEqual(['1.8.9', '1.9', '1.10', '1.20', '1.20.2', '1.21']);
   });
 
@@ -363,7 +367,10 @@ describe('validateVariables', () => {
 
   it('enforces a minimum length on a password', () => {
     const zomboid = getBlueprint('project-zomboid');
-    const result = validateVariables(zomboid, { ADMIN_PASSWORD: 'short', RCON_PASSWORD: 'shorter' });
+    const result = validateVariables(zomboid, {
+      ADMIN_PASSWORD: 'short',
+      RCON_PASSWORD: 'shorter',
+    });
     expect(result.ok).toBe(false);
     expect(result.errors['variables.ADMIN_PASSWORD']?.[0]).toMatch(/at least 8 characters/);
   });
@@ -471,7 +478,11 @@ describe('buildEnvironment', () => {
       ADMIN_PASSWORD: 'hunter2hunter2',
       RCON_PASSWORD: 'hunter2hunter2',
     });
-    const environment = buildEnvironment(zomboid, values, serverContext({ limits: { memoryMb: 8192, cpuCores: 4 } }));
+    const environment = buildEnvironment(
+      zomboid,
+      values,
+      serverContext({ limits: { memoryMb: 8192, cpuCores: 4 } }),
+    );
     expect(Number(environment['MAX_RAM']?.replace(/m$/, ''))).toBeLessThan(8192);
   });
 });

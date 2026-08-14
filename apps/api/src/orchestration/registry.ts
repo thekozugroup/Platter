@@ -213,7 +213,10 @@ export function startHealthPolling(options: HealthPollingOptions = {}): void {
   if (timer) return;
   logger = options.logger ?? null;
 
-  const intervalMs = Math.max(MIN_HEALTH_INTERVAL_MS, options.intervalMs ?? DEFAULT_HEALTH_INTERVAL_MS);
+  const intervalMs = Math.max(
+    MIN_HEALTH_INTERVAL_MS,
+    options.intervalMs ?? DEFAULT_HEALTH_INTERVAL_MS,
+  );
   timer = setInterval(() => {
     void pollHealthOnce();
   }, intervalMs);

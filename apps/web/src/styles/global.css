@@ -152,75 +152,75 @@
   --animate-flip-out: flip-out 0.2s ease-out;
   --animate-indeterminate: indeterminate 1.5s ease-in-out infinite;
   @keyframes slideUp {
-  from {
-    height: var(--height);
+    from {
+      height: var(--height);
     }
-  to {
-    height: 0;
+    to {
+      height: 0;
     }
   }
   @keyframes slideDown {
-  from {
-    height: 0;
+    from {
+      height: 0;
     }
-  to {
-    height: var(--height);
+    to {
+      height: var(--height);
     }
   }
   @keyframes expand {
-  from {
-    height: var(--collapsed-height, 0);
+    from {
+      height: var(--collapsed-height, 0);
     }
-  to {
-    height: var(--height);
+    to {
+      height: var(--height);
     }
   }
   @keyframes collapse {
-  from {
-    height: var(--height);
+    from {
+      height: var(--height);
     }
-  to {
-    height: var(--collapsed-height, 0);
+    to {
+      height: var(--collapsed-height, 0);
     }
   }
   @keyframes marqueeX {
-  from {
-    transform: translateX(0);
+    from {
+      transform: translateX(0);
     }
-  to {
-    transform: translateX(var(--marquee-translate));
+    to {
+      transform: translateX(var(--marquee-translate));
     }
   }
   @keyframes marqueeY {
-  from {
-    transform: translateY(0);
+    from {
+      transform: translateY(0);
     }
-  to {
-    transform: translateY(var(--marquee-translate));
+    to {
+      transform: translateY(var(--marquee-translate));
     }
   }
   @keyframes flip-in {
-  from {
-    transform: rotateY(180deg);
+    from {
+      transform: rotateY(180deg);
     }
-  to {
-    transform: rotateY(0deg);
+    to {
+      transform: rotateY(0deg);
     }
   }
   @keyframes flip-out {
-  from {
-    transform: rotateY(0deg);
+    from {
+      transform: rotateY(0deg);
     }
-  to {
-    transform: rotateY(180deg);
+    to {
+      transform: rotateY(180deg);
     }
   }
   @keyframes indeterminate {
-  0% {
-    transform: translateX(-100%);
+    0% {
+      transform: translateX(-100%);
     }
-  100% {
-    transform: translateX(400%);
+    100% {
+      transform: translateX(400%);
     }
   }
 }
@@ -351,7 +351,8 @@
   main {
     @apply flex-1 flex flex-col;
   }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
     cursor: pointer;
   }
 }
@@ -483,7 +484,12 @@
   .prose h6:not(.not-prose h6):first-child {
     margin-top: 0;
   }
-  .prose h1:not(.not-prose h1) + p, .prose h2:not(.not-prose h2) + p, .prose h3:not(.not-prose h3) + p, .prose h4:not(.not-prose h4) + p, .prose h5:not(.not-prose h5) + p, .prose h6:not(.not-prose h6) + p {
+  .prose h1:not(.not-prose h1) + p,
+  .prose h2:not(.not-prose h2) + p,
+  .prose h3:not(.not-prose h3) + p,
+  .prose h4:not(.not-prose h4) + p,
+  .prose h5:not(.not-prose h5) + p,
+  .prose h6:not(.not-prose h6) + p {
     margin-top: 0;
   }
   .prose p:not(.not-prose p) {
@@ -527,10 +533,10 @@
     text-align: left;
     border: 1px solid var(--color-border);
   }
-  .prose table:not(.not-prose table) th[align="center"] {
+  .prose table:not(.not-prose table) th[align='center'] {
     text-align: center;
   }
-  .prose table:not(.not-prose table) th[align="right"] {
+  .prose table:not(.not-prose table) th[align='right'] {
     text-align: right;
   }
   .prose table:not(.not-prose table) tbody tr {
@@ -546,10 +552,10 @@
     text-align: left;
     border: 1px solid var(--color-border);
   }
-  .prose table:not(.not-prose table) td[align="center"] {
+  .prose table:not(.not-prose table) td[align='center'] {
     text-align: center;
   }
-  .prose table:not(.not-prose table) td[align="right"] {
+  .prose table:not(.not-prose table) td[align='right'] {
     text-align: right;
   }
   .prose ul:not(.not-prose ul) {
@@ -578,7 +584,9 @@
     margin-top: 0;
     margin-bottom: 0;
   }
-  .prose img:not(.not-prose img), .prose picture:not(.not-prose picture), .prose video:not(.not-prose video) {
+  .prose img:not(.not-prose img),
+  .prose picture:not(.not-prose picture),
+  .prose video:not(.not-prose video) {
     margin-top: calc(var(--spacing) * 6);
     margin-bottom: calc(var(--spacing) * 6);
   }
@@ -725,7 +733,9 @@
       animation: tab-scroller-fade linear both;
       animation-timeline: scroll(self inline);
       /* Only the first and last 40px of travel move the mask; the middle stays double-faded. */
-      animation-range: 0 40px, calc(100% - 40px) 100%;
+      animation-range:
+        0 40px,
+        calc(100% - 40px) 100%;
     }
   }
 
@@ -969,7 +979,7 @@
 }
 
 @utility hitbox-debug {
-    position: relative;
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -977,7 +987,7 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
     @apply border border-dashed border-info bg-info/10;
   }
   &:hover::before {
@@ -986,7 +996,7 @@
 }
 
 @utility hitbox {
-    position: relative;
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -994,16 +1004,16 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-* {
-    --hitbox-t: calc(--value([*]) * -1);
-    --hitbox-b: calc(--value([*]) * -1);
-    --hitbox-l: calc(--value([*]) * -1);
-    --hitbox-r: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-t: calc(--value([*]) * -1);
+  --hitbox-b: calc(--value([*]) * -1);
+  --hitbox-l: calc(--value([*]) * -1);
+  --hitbox-r: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1011,13 +1021,13 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-l-* {
-    --hitbox-l: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-l: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1025,13 +1035,13 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-r-* {
-    --hitbox-r: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-r: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1039,13 +1049,13 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-t-* {
-    --hitbox-t: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-t: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1053,13 +1063,13 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-b-* {
-    --hitbox-b: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-b: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1067,14 +1077,14 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-x-* {
-    --hitbox-l: calc(--value([*]) * -1);
-    --hitbox-r: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-l: calc(--value([*]) * -1);
+  --hitbox-r: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1082,14 +1092,14 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 
 @utility hitbox-y-* {
-    --hitbox-t: calc(--value([*]) * -1);
-    --hitbox-b: calc(--value([*]) * -1);
-    position: relative;
+  --hitbox-t: calc(--value([*]) * -1);
+  --hitbox-b: calc(--value([*]) * -1);
+  position: relative;
   &::before {
     position: absolute;
     top: var(--hitbox-t, 0px);
@@ -1097,7 +1107,7 @@
     bottom: var(--hitbox-b, 0px);
     left: var(--hitbox-l, 0px);
     pointer-events: inherit;
-    content: "";
+    content: '';
   }
 }
 /* ==========================================================================

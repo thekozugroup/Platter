@@ -22,7 +22,7 @@
     "db:generate": "pnpm --filter @platter/api db:generate",
     "db:migrate": "pnpm --filter @platter/api db:migrate",
     "db:seed": "pnpm --filter @platter/api db:seed",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -142,8 +142,8 @@ export function BlueprintPicker({ value, onChange, className }: BlueprintPickerP
         <EmptyState
           description={
             <>
-              Nothing in the catalogue matches “{search.trim()}”. Blueprints ship with Platter,
-              so the list is the same on every install of this version.
+              Nothing in the catalogue matches “{search.trim()}”. Blueprints ship with Platter, so
+              the list is the same on every install of this version.
             </>
           }
           secondaryAction={{ label: 'Clear the search', onClick: () => setSearch('') }}

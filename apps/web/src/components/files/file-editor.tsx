@@ -296,8 +296,8 @@ export function FileEditor({ serverId, path, onClose, canWrite, className }: Fil
               Leave {fileName} without saving?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Your edits are only in this tab. Leave now and they are gone — the file on the
-              server keeps the version it already had.
+              Your edits are only in this tab. Leave now and they are gone — the file on the server
+              keeps the version it already had.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody className="text-subhead text-label-secondary">

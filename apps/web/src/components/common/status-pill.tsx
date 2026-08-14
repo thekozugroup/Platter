@@ -191,7 +191,13 @@ export interface StatusPillProps {
   className?: string;
 }
 
-export function StatusPill({ status, size = 'sm', live = false, label, className }: StatusPillProps) {
+export function StatusPill({
+  status,
+  size = 'sm',
+  live = false,
+  label,
+  className,
+}: StatusPillProps) {
   const text = label ?? SERVER_STATUS_LABELS[status];
 
   return (

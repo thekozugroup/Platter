@@ -483,7 +483,13 @@ export interface ParsedMinecraftVersion {
 const RELEASE_PATTERN = /^(\d+(?:\.\d+)*)(?:[-_ ]?(pre(?:-?release)?|rc|exp)[-_ ]?(\d+))?$/i;
 const SNAPSHOT_PATTERN = /^(\d{2})w(\d{2})([a-z])$/i;
 
-const STAGE_RANK: Record<string, number> = { exp: 0, pre: 1, 'pre-release': 1, prerelease: 1, rc: 2 };
+const STAGE_RANK: Record<string, number> = {
+  exp: 0,
+  pre: 1,
+  'pre-release': 1,
+  prerelease: 1,
+  rc: 2,
+};
 const FINAL_STAGE = 3;
 
 const CHANNEL_RANK: Record<MinecraftVersionChannel, number> = {
@@ -614,7 +620,10 @@ const MIN_HEAP_MB = 512;
 
 export function jvmHeapMb(containerMemoryMb: number): number {
   const proportional = Math.ceil(containerMemoryMb * NON_HEAP_RESERVE_RATIO);
-  const reserve = Math.min(MAX_NON_HEAP_RESERVE_MB, Math.max(MIN_NON_HEAP_RESERVE_MB, proportional));
+  const reserve = Math.min(
+    MAX_NON_HEAP_RESERVE_MB,
+    Math.max(MIN_NON_HEAP_RESERVE_MB, proportional),
+  );
   return Math.max(MIN_HEAP_MB, containerMemoryMb - reserve);
 }
 
@@ -628,7 +637,10 @@ const MEMORY_OVERRIDES = ['MEMORY', 'INIT_MEMORY', 'MAX_MEMORY'] as const;
  * full-heap resize pause mid-tick, and Aikar's flags — which this blueprint enables by
  * default — are tuned for a fixed heap.
  */
-export const minecraftJavaEnvironment: EnvironmentHook = ({ values, server }): Record<string, string> => {
+export const minecraftJavaEnvironment: EnvironmentHook = ({
+  values,
+  server,
+}): Record<string, string> => {
   if (MEMORY_OVERRIDES.some((key) => (values[key] ?? '').length > 0)) return {};
   const heap = `${jvmHeapMb(server.limits.memoryMb)}M`;
   return { INIT_MEMORY: heap, MAX_MEMORY: heap };
@@ -644,7 +656,8 @@ const TYPE_OPTIONS = MINECRAFT_SERVER_TYPES.map((info) => ({
 }));
 
 /** `1.20.4`, `1.20`, `1.20.5-pre3`, `24w14a`, `LATEST`, `SNAPSHOT`. */
-const VERSION_PATTERN = '^(?:LATEST|SNAPSHOT|\\d+(?:\\.\\d+){0,2}(?:-(?:pre|rc)\\d+)?|\\d{2}w\\d{2}[a-z])$';
+const VERSION_PATTERN =
+  '^(?:LATEST|SNAPSHOT|\\d+(?:\\.\\d+){0,2}(?:-(?:pre|rc)\\d+)?|\\d{2}w\\d{2}[a-z])$';
 
 export const minecraftJavaBlueprint: BlueprintDefinition = {
   key: 'minecraft-java',
@@ -838,7 +851,13 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
       max: 1000,
       advanced: true,
     },
-    { key: 'ALLOW_NETHER', label: 'Allow the Nether', type: 'boolean', default: true, advanced: true },
+    {
+      key: 'ALLOW_NETHER',
+      label: 'Allow the Nether',
+      type: 'boolean',
+      default: true,
+      advanced: true,
+    },
     { key: 'ALLOW_FLIGHT', label: 'Allow flight', type: 'boolean', default: false, advanced: true },
     {
       key: 'ENABLE_COMMAND_BLOCK',
@@ -852,7 +871,8 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     {
       key: 'PAPER_CHANNEL',
       label: 'Paper channel',
-      description: 'Paper, Purpur and Folia only. `experimental` is required for unreleased versions.',
+      description:
+        'Paper, Purpur and Folia only. `experimental` is required for unreleased versions.',
       type: 'enum',
       default: 'default',
       options: [
@@ -955,7 +975,8 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     {
       key: 'CF_PAGE_URL',
       label: 'CurseForge pack URL',
-      description: 'CurseForge modpack type. A full pack or file page URL, as an alternative to the slug.',
+      description:
+        'CurseForge modpack type. A full pack or file page URL, as an alternative to the slug.',
       type: 'string',
       default: '',
       max: 400,
@@ -964,7 +985,8 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     {
       key: 'CF_API_KEY',
       label: 'CurseForge API key',
-      description: 'Optional. The image ships a key; supply your own only if you have been rate limited.',
+      description:
+        'Optional. The image ships a key; supply your own only if you have been rate limited.',
       type: 'password',
       default: '',
       max: 256,
@@ -982,7 +1004,8 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     {
       key: 'MODRINTH_VERSION',
       label: 'Modrinth pack version',
-      description: 'Modrinth modpack type. A version number or id; empty tracks the newest release.',
+      description:
+        'Modrinth modpack type. A version number or id; empty tracks the newest release.',
       type: 'string',
       default: '',
       max: 64,
@@ -991,7 +1014,8 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     {
       key: 'MODRINTH_LOADER',
       label: 'Modrinth loader',
-      description: 'Modrinth modpack type. Only needed when a pack publishes builds for several loaders.',
+      description:
+        'Modrinth modpack type. Only needed when a pack publishes builds for several loaders.',
       type: 'enum',
       default: '',
       options: [
@@ -1122,7 +1146,13 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
     { key: 'QUERY_PORT', label: 'Query port', type: 'number', default: 25565, hidden: true },
     { key: 'RCON_PORT', label: 'RCON port', type: 'number', default: 25575, hidden: true },
     // Without this the image reformats every log line and the console loses its timestamps.
-    { key: 'ENABLE_ROLLING_LOGS', label: 'Rolling log files', type: 'boolean', default: false, hidden: true },
+    {
+      key: 'ENABLE_ROLLING_LOGS',
+      label: 'Rolling log files',
+      type: 'boolean',
+      default: false,
+      hidden: true,
+    },
   ],
   signals: {
     // Vanilla prints `[Server thread/INFO]: Done (5.123s)! For help, type "help"`; Paper's

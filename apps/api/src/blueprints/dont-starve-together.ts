@@ -28,13 +28,20 @@ export const dontStarveTogetherBlueprint: BlueprintDefinition = {
   category: 'survival',
   // Digest-pinned: the publisher ships only rolling tags. The image is a SteamCMD wrapper, so
   // the game build still comes from Steam at start — only the tooling is frozen here.
-  image: 'jamesits/dst-server@sha256:fa61065f8d2d770bc5d45f1a160b87b1deada3fd5903d9524b771321ca98dc58',
+  image:
+    'jamesits/dst-server@sha256:fa61065f8d2d770bc5d45f1a160b87b1deada3fd5903d9524b771321ca98dc58',
   icon: { monogram: 'DS', hue: 336 },
   minMemoryMb: 1024,
   recommendedMemoryMb: 2048,
   minDiskMb: 4096,
   ports: [
-    { name: 'master', label: 'Surface shard', containerPort: 10999, protocol: 'udp', primary: true },
+    {
+      name: 'master',
+      label: 'Surface shard',
+      containerPort: 10999,
+      protocol: 'udp',
+      primary: true,
+    },
     { name: 'caves', label: 'Caves shard', containerPort: 11000, protocol: 'udp' },
     { name: 'steam', label: 'Steam', containerPort: 12346, protocol: 'udp' },
     { name: 'steamauth', label: 'Steam authentication', containerPort: 12347, protocol: 'udp' },

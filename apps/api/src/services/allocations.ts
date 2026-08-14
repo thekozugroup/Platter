@@ -510,7 +510,9 @@ export async function reconcileBindAddresses(
       continue;
     }
     try {
-      reconciled.push(await prisma.allocation.update({ where: { id: row.id }, data: { hostIp: wanted } }));
+      reconciled.push(
+        await prisma.allocation.update({ where: { id: row.id }, data: { hostIp: wanted } }),
+      );
     } catch (error) {
       if (isPrismaKnownError(error) && error.code === 'P2002') reconciled.push(row);
       else throw error;

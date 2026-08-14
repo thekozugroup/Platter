@@ -36,7 +36,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { SegmentGroup, SegmentGroupItem, SegmentGroupItemText } from '@/components/ui/segment-group';
+import {
+  SegmentGroup,
+  SegmentGroupItem,
+  SegmentGroupItemText,
+} from '@/components/ui/segment-group';
 import { api } from '@/lib/api-client.js';
 import { queryKeys } from '@/lib/query.js';
 import { cn } from '@/lib/utils';
@@ -235,10 +239,12 @@ export function ServersPage() {
   return (
     <>
       <PageHeader
-        actions={<PageAction to="/servers/new">
+        actions={
+          <PageAction to="/servers/new">
             <Plus aria-hidden />
             New server
-          </PageAction>}
+          </PageAction>
+        }
         description="Everything running on this installation, with the address players connect to."
         title="Servers"
       >
@@ -351,8 +357,10 @@ export function ServersPage() {
             description={
               <>
                 No server matches{urlSearch ? ` “${urlSearch}”` : ''}
-                {statusFilter ? ` with status ${SERVER_STATUS_LABELS[statusFilter as ServerStatus]}` : ''}.
-                Widen the search, or clear it to see everything.
+                {statusFilter
+                  ? ` with status ${SERVER_STATUS_LABELS[statusFilter as ServerStatus]}`
+                  : ''}
+                . Widen the search, or clear it to see everything.
               </>
             }
             title="Nothing matches that"

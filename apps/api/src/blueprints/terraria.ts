@@ -38,7 +38,8 @@ export const terrariaBlueprint: BlueprintDefinition = {
     {
       key: 'WORLD_NAME',
       label: 'World name',
-      description: 'Names the .wld save file. Changing it creates a second world rather than renaming one.',
+      description:
+        'Names the .wld save file. Changing it creates a second world rather than renaming one.',
       type: 'string',
       default: 'Platter',
       min: 1,
@@ -104,7 +105,8 @@ export const terrariaBlueprint: BlueprintDefinition = {
     {
       key: 'NPC_STREAM',
       label: 'NPC stream rate',
-      description: 'How often NPC positions are broadcast. Lower is smoother and uses more bandwidth.',
+      description:
+        'How often NPC positions are broadcast. Lower is smoother and uses more bandwidth.',
       type: 'number',
       default: 60,
       min: 1,
@@ -115,7 +117,13 @@ export const terrariaBlueprint: BlueprintDefinition = {
     // Not read by the image as environment — these render into serverconfig.txt below and
     // tell the image where to find the file and the worlds.
     { key: 'SERVER_PORT', label: 'Game port', type: 'number', default: 7777, hidden: true },
-    { key: 'WORLDPATH', label: 'World directory', type: 'string', default: WORLD_DIR, hidden: true },
+    {
+      key: 'WORLDPATH',
+      label: 'World directory',
+      type: 'string',
+      default: WORLD_DIR,
+      hidden: true,
+    },
     {
       key: 'CONFIGPATH',
       label: 'Config directory',
