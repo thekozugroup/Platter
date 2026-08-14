@@ -54,11 +54,15 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @platter/api exec prisma generate
 
+      # No DATABASE_URL here on purpose. Every test file provisions its own SQLite file;
+      # naming one here would have pointed all of them at a single path this job never
+      # creates, which is exactly the failure that took CI down. The harness now ignores an
+      # inherited value, so this is belt and braces — but a release must not be the place
+      # that discovers the belt was the only thing holding.
       - name: Typecheck, lint and test
         env:
           DEFAULT_NODE_DRIVER: mock
           JWT_SECRET: ci-secret-not-used-outside-continuous-integration-0000
-          DATABASE_URL: file:./data/ci.db
         run: pnpm verify
 
   image:

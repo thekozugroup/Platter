@@ -46,13 +46,25 @@ export function wantsAppShell(request: FastifyRequest): boolean {
   return request.headers.accept?.includes('text/html') ?? false;
 }
 
-/** Sends the app shell. Only call when `wantsAppShell` returned true. */
+/**
+ * Sends the app shell. Only call when `wantsAppShell` returned true.
+ *
+ * `cacheControl: false` is load-bearing, not tidiness. Without it `sendFile` applies the
+ * registration's own `maxAge: '1y', immutable: true` and overwrites the header set here — so
+ * the shell went out as `public, max-age=31536000, immutable`, pinning every browser that
+ * ever loaded the panel to that day's asset hashes. The next upgrade then serves a cached
+ * shell pointing at files that no longer exist: a blank page that only a hard refresh clears,
+ * for exactly the users who visit most often.
+ *
+ * Setting the header before `sendFile` reads as correct and is not, which is why the
+ * behaviour is asserted in a test rather than trusted to this comment.
+ */
 export function sendAppShell(reply: FastifyReply): FastifyReply {
   return reply
     .code(200)
     .type('text/html; charset=utf-8')
     .header('cache-control', 'no-cache')
-    .sendFile('index.html');
+    .sendFile('index.html', { cacheControl: false });
 }
 
 async function spaPlugin(app: FastifyInstance): Promise<void> {
