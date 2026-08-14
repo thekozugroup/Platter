@@ -1,4 +1,5 @@
 import { disconnectDatabase } from '../db.js';
+import { configureHttpProxy } from '../lib/http-proxy.js';
 import { runStdioMcpServer, stderrLogger, API_KEY_ENV } from './stdio.js';
 
 /**
@@ -15,6 +16,11 @@ import { runStdioMcpServer, stderrLogger, API_KEY_ENV } from './stdio.js';
  */
 
 const logger = stderrLogger();
+
+// The stdio server is its own process, so it does not inherit anything `main.ts` sets up.
+// Without this an operator behind an egress proxy gets a working panel and an MCP session
+// whose mod tools all fail — the same code reaching the same registry, one of them routed.
+configureHttpProxy(logger);
 
 let handle: Awaited<ReturnType<typeof runStdioMcpServer>>;
 try {

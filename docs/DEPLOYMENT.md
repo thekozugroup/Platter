@@ -323,6 +323,30 @@ setting it too.
 | `METRICS_ENABLED`      | `true`                        | `false` unregisters the HTTP instrumentation hook, so per-request timings and counts stop being collected. The `/system/metrics` endpoint still answers, with the process-level defaults (heap, event-loop lag, file descriptors) and any non-HTTP gauges. |
 | `REGISTRATION_ENABLED` | `false`                       | Open registration on a panel that manages root-equivalent infrastructure. Leave it off; invite users from the admin area. The _first_ account can always be created regardless, because an install with no accounts has nobody to invite you.              |
 
+### Behind an egress proxy
+
+| Variable      | Default | Notes |
+| ------------- | ------- | ----- |
+| `HTTPS_PROXY` | —       | Proxy for outbound HTTPS. Lowercase `https_proxy` works too. |
+| `HTTP_PROXY`  | —       | Proxy for outbound HTTP. |
+| `NO_PROXY`    | —       | Comma-separated hosts to reach directly. Conventional semantics. |
+
+Set these if your network requires a proxy for outbound traffic, and Platter will route mod
+registry and Anthropic requests through it.
+
+This needs saying because it is not the default it looks like: **Node's `fetch` ignores these
+variables**, unlike curl, git and npm. An application has to opt in, and Platter does — at
+startup in both the API and the `platter mcp` stdio server, which are separate processes. If
+you have configured a proxy system-wide and expected it to be picked up automatically, that is
+the reason it would not have been.
+
+The symptom when this is wrong is specific and quiet: the panel works perfectly, servers start
+and stop, and only mod search fails — with `service_unavailable` and nothing in the log naming
+the proxy. Check the startup line `routing outbound HTTP through the configured proxy`; if it
+is absent, Platter did not see a proxy variable.
+
+Credentials in a proxy URL are redacted before that line is logged.
+
 ### Tokens and sessions
 
 | Variable            | Default | Notes                                                                                                                                         |

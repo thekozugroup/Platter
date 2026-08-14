@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { config } from './config.js';
 import { connectDatabase, disconnectDatabase } from './db.js';
+import { configureHttpProxy } from './lib/http-proxy.js';
 import { startBackgroundServices, stopBackgroundServices } from './services/runtime.js';
 
 /**
@@ -13,6 +14,11 @@ const SHUTDOWN_TIMEOUT_MS = 20_000;
 const app = await buildApp();
 
 try {
+  // First of all, and before any outbound request: Node's fetch ignores HTTP_PROXY unless
+  // told otherwise, so an operator behind an egress proxy would otherwise see mod search
+  // and AI silently fail with nothing pointing at the cause.
+  configureHttpProxy(app.log);
+
   // Before listening: a process that cannot reach its database should fail to start, not
   // accept traffic and 500 every request.
   await connectDatabase();
