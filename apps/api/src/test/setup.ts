@@ -9,14 +9,21 @@ import { TEMPLATE_DB_ENV } from './global-setup.js';
  *
  * This runs first precisely because `config.ts` snapshots `process.env` at module load:
  * anything set after the first `import '../config.js'` anywhere in the graph is ignored.
- * Files that predate this harness set the same variables at their own top level and simply
- * win — the values are equivalent, and overriding them here would break their isolation.
+ * Files that predate this harness set the same variables at their own top level; they still
+ * win, because a test file is imported after its setup files run.
  *
  * Two properties matter and are non-negotiable:
  *  - **A private database per file.** Test files run in separate processes; sharing one
  *    SQLite file would make row counts depend on execution order.
  *  - **The mock driver.** Nothing in the suite may reach a real Docker socket. A test that
  *    silently talked to the developer's daemon would pass locally and destroy CI.
+ *
+ * The path variables are therefore assigned, not defaulted. `??=` looks harmless and is not:
+ * an inherited `DATABASE_URL` — from a shell, or from a workflow-level `env:` block — makes
+ * every file in the run share one database, and if that path does not exist the whole suite
+ * fails with SQLite's "unable to open the database file" and nothing pointing at the cause.
+ * This project's own CI did exactly that. Isolation cannot be something the caller's
+ * environment is able to switch off by accident.
  */
 
 const workdir = mkdtempSync(path.join(tmpdir(), 'platter-test-'));
@@ -30,9 +37,9 @@ if (template && existsSync(template)) {
 mkdirSync(path.join(workdir, 'data'), { recursive: true });
 
 process.env['NODE_ENV'] = 'test';
-process.env['DATABASE_URL'] ??= `file:${databasePath}`;
-process.env['DATA_DIR'] ??= path.join(workdir, 'data');
-process.env['BACKUP_DIR'] ??= path.join(workdir, 'data', 'backups');
+process.env['DATABASE_URL'] = `file:${databasePath}`;
+process.env['DATA_DIR'] = path.join(workdir, 'data');
+process.env['BACKUP_DIR'] = path.join(workdir, 'data', 'backups');
 // Long enough to satisfy the production-length check, so no test depends on the
 // randomly generated development fallback.
 process.env['JWT_SECRET'] ??= 'test-secret-that-is-long-enough-to-pass';

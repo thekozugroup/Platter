@@ -15,7 +15,10 @@ env:
   # and tests exercise the same code paths the Docker driver does.
   DEFAULT_NODE_DRIVER: mock
   JWT_SECRET: ci-secret-not-used-outside-continuous-integration-0000
-  DATABASE_URL: file:./data/ci.db
+  # DATABASE_URL is deliberately NOT set here. It belongs to the end-to-end job, which runs
+  # one real server against one real database. The unit and integration suites give every
+  # test file its own SQLite file, and a workflow-level value would override all of them
+  # with a single path that this job never creates.
 
 jobs:
   verify:
@@ -67,6 +70,9 @@ jobs:
     name: End-to-end
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Relative to apps/api, which is where both the migrate/seed step and the API itself run.
+    env:
+      DATABASE_URL: file:./data/ci.db
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
