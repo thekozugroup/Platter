@@ -436,6 +436,21 @@ export class DockerDriver implements OrchestrationDriver {
   }
 
   async create(spec: ContainerSpec): Promise<string> {
+    /*
+     * Fetch the image first when it is not already here.
+     *
+     * Only the install path used to pull, and it pulled the blueprint's default. A server
+     * whose image depends on one of its own variables — the Java runtime is the live example
+     * — could therefore be created with an image nobody had fetched, and simply never start
+     * again: every attempt failed on a 404 from the daemon, with nothing offering to fix it.
+     *
+     * Pulling here rather than in each caller means the driver is responsible for the image
+     * its containers need, which is the only place that can be true for all of them. The
+     * inspect keeps the common case offline-safe: an image already present is never
+     * re-fetched, so a start does not depend on a registry being reachable.
+     */
+    await this.ensureImage(spec.image);
+
     try {
       const container = await this.docker.createContainer(this.createOptions(spec));
       this.idCache.set(spec.serverId, container.id);
@@ -446,6 +461,17 @@ export class DockerDriver implements OrchestrationDriver {
       }
       throw this.wrap(error, 'create');
     }
+  }
+
+  /** Pulls `image` only if the daemon does not already have it. */
+  private async ensureImage(image: string): Promise<void> {
+    try {
+      await this.docker.getImage(image).inspect();
+      return;
+    } catch (error) {
+      if (statusOf(error) !== 404) throw this.wrap(error, 'inspect image');
+    }
+    await this.pullImage(image);
   }
 
   async recreate(spec: ContainerSpec): Promise<string> {
