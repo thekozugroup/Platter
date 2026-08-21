@@ -137,6 +137,7 @@ const MINECRAFT_FULL: Blueprint = {
   stop: { strategy: 'command', command: 'stop', signal: 'SIGTERM', timeoutSeconds: 60 },
   saveCommands: { flush: ['save-off', 'save-all flush'], resume: ['save-on'] },
   dataPath: '/data',
+  runAsEnv: null,
   docsUrl: null,
 };
 

@@ -149,6 +149,24 @@ export const blueprintSchema = z.object({
     .default(null),
   /** Absolute path inside the container where the game data volume is mounted. */
   dataPath: z.string().min(1).default('/data'),
+  /**
+   * Environment variables this image reads to decide which user it runs the game as.
+   *
+   * Platter and the game server write the same directory — that is the point of the shared
+   * data path — so they have to agree on ownership or one of them gets EACCES on the other's
+   * files. Most game images already expose this (itzg reads `UID`/`GID`, the linuxserver
+   * family reads `PUID`/`PGID`); where they do, Platter sets them to its own uid and gid so
+   * the panel can still edit a config the game just rewrote.
+   *
+   * Null means the image has no such knob, and the operator owns the mismatch.
+   */
+  runAsEnv: z
+    .object({
+      uid: z.string().min(1),
+      gid: z.string().min(1),
+    })
+    .nullable()
+    .default(null),
   /** Feature flags that light up UI affordances (console input, mod browser, …). */
   features: z
     .object({

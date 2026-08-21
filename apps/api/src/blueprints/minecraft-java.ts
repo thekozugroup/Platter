@@ -1189,6 +1189,10 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
   // a consistent world rather than one mid-write.
   saveCommands: { flush: ['save-off', 'save-all flush'], resume: ['save-on'] },
   dataPath: '/data',
+  // itzg/minecraft-server chowns its data directory to UID/GID and drops to that user.
+  // Left at the image default (1000) it would take ownership of the shared directory and
+  // lock Platter out of the files it is meant to manage.
+  runAsEnv: { uid: 'UID', gid: 'GID' },
   features: { console: true, rcon: true, mods: true, worldUpload: true, playerList: true },
   docsUrl: 'https://docker-minecraft-server.readthedocs.io/en/latest/',
 };

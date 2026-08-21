@@ -388,6 +388,33 @@ function toPortBindings(allocations: readonly ServerAllocation[]): PortBinding[]
   }));
 }
 
+/**
+ * Tells the game image to run as the user Platter runs as, where it knows how to ask.
+ *
+ * Platter and the game server now write the same directory, so ownership has to agree.
+ * itzg's image chowns its data directory to `UID`/`GID` and drops to that user; left at its
+ * default of 1000 it takes the shared tree from Platter's 1001, and every config edit,
+ * mod install and backup then fails with EACCES on files the panel is showing.
+ *
+ * An explicit value in the server's own variables always wins — an operator who has set
+ * this deliberately knows something Platter does not.
+ */
+function withRunAsUser(env: Record<string, string>, blueprint: Blueprint): Record<string, string> {
+  const names = blueprint.runAsEnv;
+  if (!names) return env;
+
+  // Not available on every platform; where it is not, leave the image's default alone.
+  const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+  const gid = typeof process.getgid === 'function' ? process.getgid() : null;
+  if (uid === null || gid === null) return env;
+
+  return {
+    ...env,
+    [names.uid]: env[names.uid] ?? String(uid),
+    [names.gid]: env[names.gid] ?? String(gid),
+  };
+}
+
 function buildSpec(
   loaded: LoadedServer,
   blueprint: Blueprint,
@@ -400,7 +427,7 @@ function buildSpec(
     name: server.name,
     image: blueprint.image,
     command: blueprint.command,
-    env,
+    env: withRunAsUser(env, blueprint),
     dataHostPath: serverDataDir(server.id),
     dataPath: blueprint.dataPath,
     ports: toPortBindings(allocations),
