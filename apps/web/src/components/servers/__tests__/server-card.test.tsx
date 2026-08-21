@@ -138,6 +138,7 @@ const MINECRAFT_FULL: Blueprint = {
   saveCommands: { flush: ['save-off', 'save-all flush'], resume: ['save-on'] },
   dataPath: '/data',
   runAsEnv: null,
+  imageChoices: null,
   docsUrl: null,
 };
 

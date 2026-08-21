@@ -399,6 +399,23 @@ function toPortBindings(allocations: readonly ServerAllocation[]): PortBinding[]
  * An explicit value in the server's own variables always wins — an operator who has set
  * this deliberately knows something Platter does not.
  */
+/**
+ * The image this server should run, which is not always the blueprint's default.
+ *
+ * A choice baked into an image cannot be set with an environment variable, and the Java
+ * runtime is exactly that: the tag decides it. Falling back to `blueprint.image` for an
+ * unknown value keeps a bad variable from making a server unstartable.
+ */
+function imageFor(blueprint: Blueprint, env: Record<string, string>): string {
+  const choices = blueprint.imageChoices;
+  if (!choices) return blueprint.image;
+
+  const selected = env[choices.variable];
+  if (selected === undefined) return blueprint.image;
+
+  return choices.images[selected] ?? blueprint.image;
+}
+
 function withRunAsUser(env: Record<string, string>, blueprint: Blueprint): Record<string, string> {
   const names = blueprint.runAsEnv;
   if (!names) return env;
@@ -425,7 +442,7 @@ function buildSpec(
   return {
     serverId: server.id,
     name: server.name,
-    image: blueprint.image,
+    image: imageFor(blueprint, env),
     command: blueprint.command,
     env: withRunAsUser(env, blueprint),
     dataHostPath: serverDataDir(server.id),

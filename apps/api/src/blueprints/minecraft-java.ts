@@ -680,6 +680,16 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
   // Pinned to a dated image release, never `latest`: the game version is chosen per server by
   // VERSION, so tracking the image's moving tag would only ever import someone else's breakage.
   image: 'itzg/minecraft-server:2026.8.0-java21',
+  // Java 21 stays the default because it is what almost every pack and plugin targets.
+  // Java 25 exists because some do not: WorldEdit's whole 7.4 line is compiled for it, and
+  // on a Java 21 server it loads to the point of being listed and then fails.
+  imageChoices: {
+    variable: 'JAVA_VERSION',
+    images: {
+      '21': 'itzg/minecraft-server:2026.8.0-java21',
+      '25': 'itzg/minecraft-server:2026.8.0-java25',
+    },
+  },
   icon: { monogram: 'MC', hue: 122 },
   minMemoryMb: 1024,
   recommendedMemoryMb: 4096,
@@ -1085,6 +1095,20 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
       description: 'G1GC tuning that measurably reduces tick lag on most servers. Leave on.',
       type: 'boolean',
       default: true,
+      advanced: true,
+    },
+    {
+      key: 'JAVA_VERSION',
+      label: 'Java version',
+      description:
+        'The Java the server runs on. Some mods and plugins are built for a newer Java and ' +
+        'will not load on an older one — the server starts fine and the mod is simply absent.',
+      type: 'enum',
+      default: '21',
+      options: [
+        { value: '21', label: 'Java 21 — what almost everything targets' },
+        { value: '25', label: 'Java 25 — needed by some newer plugins (WorldEdit 7.4+)' },
+      ],
       advanced: true,
     },
     {

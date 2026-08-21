@@ -104,6 +104,25 @@ export const blueprintSchema = z.object({
   category: z.enum(BLUEPRINT_CATEGORIES).default('other'),
   /** Container image, digest-pinnable. */
   image: z.string().min(1).max(400),
+  /**
+   * Images this blueprint can run instead of `image`, chosen by one of its own variables.
+   *
+   * Some choices cannot be expressed as environment variables because they are baked into
+   * the image. The Java runtime is the one that bites: a Minecraft server image ships one
+   * JVM, and a plugin compiled for a newer Java simply never loads — the server starts,
+   * reports healthy, and the mod is silently absent. With the runtime pinned in the tag and
+   * no way to change it, such a mod could not be run at all.
+   *
+   * `variable` names the blueprint variable that selects; `images` maps its value to a full
+   * image reference. A value with no entry falls back to `image`.
+   */
+  imageChoices: z
+    .object({
+      variable: z.string().min(1),
+      images: z.record(z.string(), z.string().min(1).max(400)),
+    })
+    .nullable()
+    .default(null),
   /** Two-letter monogram plus a hue, so the UI needs no image assets to look intentional. */
   icon: z.object({
     monogram: z.string().min(1).max(3),
