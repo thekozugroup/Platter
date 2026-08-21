@@ -1,7 +1,15 @@
 import type { FastifyBaseLogger } from 'fastify';
 import { closeAllRcon } from '../minecraft/rcon.js';
 import { stopMdns } from '../net/mdns.js';
-import { resetDrivers, startHealthPolling, stopHealthPolling } from '../orchestration/registry.js';
+import { prisma } from '../db.js';
+import { DockerDriver } from '../orchestration/docker.js';
+import { recordMountCheck } from '../orchestration/mount-check.js';
+import {
+  getDriverForNode,
+  resetDrivers,
+  startHealthPolling,
+  stopHealthPolling,
+} from '../orchestration/registry.js';
 import { ensureDefaultNode } from './nodes.js';
 import { reconcile, startCrashSupervisor, stopCrashSupervisor } from './lifecycle.js';
 import { startMetricsCollection, stopMetricsCollection } from './metrics.js';
@@ -33,6 +41,11 @@ export async function startBackgroundServices(logger: FastifyBaseLogger): Promis
   // First, because everything downstream resolves a node: reconcile needs one to find
   // containers, and the allocator needs one to hand out ports. A fresh install has none.
   await ensureDefaultNode();
+
+  // Before anything creates a container: if Platter and the daemon disagree about what a
+  // path means, every file Platter writes for a server goes somewhere the server cannot
+  // read, and nothing else in the system notices. Measured once, against the real daemon.
+  await checkDataMount(logger);
 
   // Before reconcile, so the reconciler can already see which nodes answered. A node that
   // is unreachable is skipped rather than having all its servers declared dead.
@@ -90,4 +103,53 @@ export async function stopBackgroundServices(logger: FastifyBaseLogger): Promise
   closeAllRcon();
   stopMdns();
   resetDrivers();
+}
+
+/**
+ * Runs the data-mount proof against the default node's daemon and records the verdict.
+ *
+ * Never throws: a panel that refuses to boot is worse than one that boots and refuses to
+ * provision, because the operator needs the UI to read the explanation.
+ */
+async function checkDataMount(logger: FastifyBaseLogger): Promise<void> {
+  try {
+    const node = await prisma.node.findFirst({ orderBy: { id: 'asc' } });
+    if (!node) return;
+
+    const driver = getDriverForNode(node);
+    if (!(driver instanceof DockerDriver) || !driver.isLocal) {
+      recordMountCheck({
+        ok: true,
+        skipped: true,
+        reason: 'No local Docker driver to check.',
+      });
+      return;
+    }
+
+    const image = await driver.resolveProbeImage();
+    if (image === null) {
+      recordMountCheck({
+        ok: true,
+        skipped: true,
+        reason: 'Could not determine an image to run the check with.',
+      });
+      logger.warn('skipping the data mount check: no probe image');
+      return;
+    }
+
+    const result = await driver.checkDataMount(image, logger);
+    recordMountCheck(result);
+
+    if (!result.ok) {
+      // Error, not warn: this is the difference between a working install and one that
+      // silently loses every mod, config edit and backup.
+      logger.error({ reason: result.reason, remedy: result.remedy }, 'data mount check FAILED');
+    } else if (result.skipped) {
+      logger.info({ reason: result.reason }, 'data mount check skipped');
+    } else {
+      logger.info('data mount check passed: Platter and the daemon agree on paths');
+    }
+  } catch (error) {
+    logger.warn({ err: error }, 'the data mount check could not run');
+  }
 }

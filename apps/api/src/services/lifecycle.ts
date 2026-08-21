@@ -15,6 +15,7 @@ import {
   type ServerStatus,
 } from '@platter/shared';
 import { config } from '../config.js';
+import { getMountCheck } from '../orchestration/mount-check.js';
 import { prisma } from '../db.js';
 import { sleep } from '../lib/async.js';
 import { serverBackupDir, serverDataDir } from '../lib/paths.js';
@@ -573,6 +574,22 @@ async function runInstall(serverId: string, options: InstallOptions): Promise<vo
   const { server, driver } = loaded;
   if (server.suspended) {
     throw invalidState(`${server.name} is suspended, so it cannot be installed.`);
+  }
+
+  /*
+   * Refuse rather than write into a directory the game server will never read.
+   *
+   * When Platter and the daemon disagree about what a path means, an install "succeeds"
+   * completely: files are rendered, the container starts, the panel goes green, and every
+   * one of those files is invisible to the running game. Backups then archive the empty
+   * copy. Failing here, loudly, is the only honest option — the check itself is a
+   * measurement against the real daemon, not an assumption.
+   */
+  const mount = getMountCheck();
+  if (mount && !mount.ok) {
+    throw invalidState(
+      `${server.name} cannot be installed: ${mount.reason} ${mount.remedy}`.replace(/\s+/g, ' '),
+    );
   }
 
   const blueprint = await loadBlueprint(server);

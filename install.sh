@@ -44,6 +44,13 @@ PLATTER_PUBLIC_HOST="${PLATTER_PUBLIC_HOST:-}"
 # by construction, so whoever reaches a fresh instance first owns it.
 PLATTER_BIND="${PLATTER_BIND:-0.0.0.0}"
 
+# Where Platter keeps everything: its database, every server's files, and backups. This is a
+# host directory mounted into the container at THE SAME absolute path, which is what lets
+# Platter and the Docker daemon mean the same thing by the same path. A named volume cannot:
+# the daemon resolves the bind sources Platter asks for on the host, so Platter would write a
+# server's mods into its volume while the game read an empty directory somewhere else.
+PLATTER_DATA_DIR="${PLATTER_DATA_DIR:-}"
+
 CONTAINER_NAME=platter
 READY_PATH=/api/v1/system/ready
 READY_TIMEOUT=180
@@ -150,6 +157,8 @@ OPTIONS
   -d, --dir PATH         Install directory              (default: ./platter)
   -p, --port PORT        Port for the web interface     (default: 8080)
   -i, --image REF        Container image to run         (default: ghcr.io/thekozugroup/platter:latest)
+  -D, --data-dir PATH    Where servers, backups and the database live
+                         (default: <install dir>/data)
   -b, --bind ADDRESS     Interface to publish the web interface on
                          (default: 0.0.0.0, all interfaces)
   -H, --public-host HOST Address players use to reach game servers
@@ -158,7 +167,8 @@ OPTIONS
   -h, --help             This text
 
 ENVIRONMENT
-  PLATTER_DIR, PLATTER_PORT, PLATTER_IMAGE, PLATTER_PUBLIC_HOST, PLATTER_BIND
+  PLATTER_DIR, PLATTER_PORT, PLATTER_IMAGE, PLATTER_PUBLIC_HOST, PLATTER_BIND,
+  PLATTER_DATA_DIR
       Same as the flags above. Flags win.
   NO_COLOR
       Set to disable colour.
@@ -205,6 +215,11 @@ while [ $# -gt 0 ]; do
   -b | --bind)
     [ $# -ge 2 ] || die "--bind needs an address." "Example: --bind 127.0.0.1"
     PLATTER_BIND=$2
+    shift 2
+    ;;
+  -D | --data-dir)
+    [ $# -ge 2 ] || die "--data-dir needs a path." "Example: --data-dir /srv/platter/data"
+    PLATTER_DATA_DIR=$2
     shift 2
     ;;
   -H | --public-host)
@@ -483,6 +498,17 @@ fi
 ENV_FILE="$DIR/.env"
 COMPOSE_FILE="$DIR/docker-compose.yml"
 
+# Default the data directory under the install directory, and require it absolute: it is used
+# verbatim on both sides of a bind mount, and Docker rejects a relative bind source.
+[ -n "$PLATTER_DATA_DIR" ] || PLATTER_DATA_DIR="$DIR/data"
+case "$PLATTER_DATA_DIR" in
+/*) ;;
+*) die "--data-dir must be an absolute path, got '$PLATTER_DATA_DIR'." "Example: --data-dir /srv/platter/data" ;;
+esac
+case "$PLATTER_DATA_DIR" in
+*:*) die "--data-dir cannot contain ':' — Docker reads it as a bind-mount separator." ;;
+esac
+
 UPGRADE=no
 [ -f "$ENV_FILE" ] && UPGRADE=yes
 
@@ -501,6 +527,10 @@ if [ "$UPGRADE" = yes ]; then
   [ -n "${_file_image:-}" ] && PLATTER_IMAGE=$_file_image
   _file_bind=$(env_get PLATTER_BIND || true)
   [ -n "${_file_bind:-}" ] && PLATTER_BIND=$_file_bind
+  # Never silently relocate an existing install's data: the servers, worlds and database all
+  # live there, and a moved path would present as a brand-new empty Platter.
+  _file_data=$(env_get PLATTER_DATA_DIR || true)
+  [ -n "${_file_data:-}" ] && PLATTER_DATA_DIR=$_file_data
 fi
 
 check_port
@@ -527,13 +557,14 @@ else
 fi
 say ''
 info "image             $PLATTER_IMAGE"
+info "data directory    $PLATTER_DATA_DIR"
 if [ "$PLATTER_BIND" = 0.0.0.0 ]; then
   info "published on      every interface on this host (0.0.0.0)"
 else
   info "published on      $PLATTER_BIND only"
 fi
 info "web interface     http://localhost:$PLATTER_PORT"
-info "data             one Docker volume, platter-data"
+info "data             $PLATTER_DATA_DIR (on this host)"
 say ''
 note "Platter manages game servers as sibling containers, so the compose file mounts"
 note "/var/run/docker.sock. Anything that can write to that socket is equivalent to"
@@ -547,6 +578,11 @@ fi
 say ''
 
 # Everything above could still bail without touching the disk. This is the first write.
+# The data directory must exist before compose starts: Docker would otherwise create the bind
+# source itself, as root, and Platter runs unprivileged.
+mkdir -p "$PLATTER_DATA_DIR" 2>/dev/null ||
+  die "Could not create $PLATTER_DATA_DIR." "Check permissions, or pass --data-dir."
+
 mkdir -p "$DIR" 2>/dev/null ||
   die "Cannot create $DIR." \
     "Check the parent directory exists and that you may write to it, or pick another:" \
@@ -604,6 +640,12 @@ JWT_SECRET=$SECRET
 # The container image. Pin a version here to stop 'docker compose pull' moving you.
 PLATTER_IMAGE=$PLATTER_IMAGE
 
+# Where Platter keeps its database, every server's files and backups. It is mounted into the
+# container at this same absolute path so that Platter and the Docker daemon agree on what
+# every path means — a game server's files must be one directory, not two. Moving this moves
+# every world, so change it only with the container stopped and the data moved with it.
+PLATTER_DATA_DIR=$PLATTER_DATA_DIR
+
 # Which interface the web interface is published on. 0.0.0.0 is every interface. On a host
 # with a public address, set this to a private or VPN address unless you intend Platter to be
 # reachable from the internet — first-run setup is unauthenticated, so a fresh instance is
@@ -654,6 +696,7 @@ else
   env_has PLATTER_IMAGE || env_append PLATTER_IMAGE "$PLATTER_IMAGE"
   env_has PLATTER_PORT || env_append PLATTER_PORT "$PLATTER_PORT"
   env_has PLATTER_BIND || env_append PLATTER_BIND "$PLATTER_BIND"
+  env_has PLATTER_DATA_DIR || env_append PLATTER_DATA_DIR "$PLATTER_DATA_DIR"
   env_has PUBLIC_HOST || env_append PUBLIC_HOST "$(detect_lan_ip || echo 127.0.0.1)"
   env_has DOCKER_GID || env_append DOCKER_GID "$(detect_docker_gid || echo 999)"
 
@@ -668,7 +711,10 @@ fi
 cat >"$COMPOSE_FILE.tmp" <<'COMPOSE'
 # Platter. Managed by install.sh — edit .env for configuration, not this file.
 #
-# One container, one volume. Everything it reads comes from .env beside it.
+# One container, one data directory on this host. Everything it reads comes from .env beside
+# it. PLATTER_DATA_DIR is mounted at the same absolute path inside the container on purpose:
+# Platter asks the Docker daemon to bind-mount each server's files, and the daemon resolves
+# those paths on the host, so the two must mean the same directory.
 
 services:
   platter:
@@ -686,8 +732,17 @@ services:
       AI_MODEL: ${AI_MODEL:-claude-opus-5}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # All three derive from the one directory below. The image's defaults point at /data,
+      # which is not where the data is mounted any more, so these are not optional.
+      DATA_DIR: ${PLATTER_DATA_DIR}
+      BACKUP_DIR: ${PLATTER_DATA_DIR}/backups
+      DATABASE_URL: ${DATABASE_URL:-file:${PLATTER_DATA_DIR}/platter.db}
+      # Lets the boot-time mount check run without inspecting its own container.
+      PLATTER_IMAGE: ${PLATTER_IMAGE:-ghcr.io/thekozugroup/platter:latest}
     volumes:
-      - platter-data:/data
+      # The same absolute path on both sides, which is what makes a path mean one directory
+      # to Platter and to the Docker daemon. See PLATTER_DATA_DIR in .env.
+      - ${PLATTER_DATA_DIR}:${PLATTER_DATA_DIR}
       # Platter manages game servers as sibling containers on this host's daemon. Anything
       # that can write to this socket can start a container that mounts the host filesystem,
       # so this is equivalent to root here. Prefer a rootless daemon or a socket proxy for
@@ -716,8 +771,8 @@ services:
         max-size: '10m'
         max-file: '3'
 
-volumes:
-  platter-data:
+# No named volume: Platter's data is a host directory (PLATTER_DATA_DIR) so that the daemon
+# and Platter resolve every path to the same place.
 COMPOSE
 mv "$COMPOSE_FILE.tmp" "$COMPOSE_FILE"
 info "wrote $COMPOSE_FILE"

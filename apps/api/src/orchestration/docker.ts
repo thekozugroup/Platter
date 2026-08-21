@@ -5,6 +5,9 @@ import Docker from 'dockerode';
 import { LIMITS, PlatterError } from '@platter/shared';
 import { withTimeout } from '../lib/async.js';
 import { DRIVER_LABELS, containerNameFor } from './driver.js';
+import { hostname } from 'node:os';
+import type { FastifyBaseLogger } from 'fastify';
+import { verifyDataMount, type MountCheck } from './mount-check.js';
 import type {
   ContainerSpec,
   ContainerState,
@@ -265,6 +268,57 @@ export class DockerDriver implements OrchestrationDriver {
     this.nodeId = options.nodeId;
     this.docker = new Docker(connection);
     this.local = connection.socketPath !== undefined;
+  }
+
+  /**
+   * Whether this driver talks to a daemon on the same machine.
+   *
+   * Path identity between Platter and the daemon is only meaningful for a local socket; a
+   * remote daemon has its own filesystem and the same directory name means something else
+   * there. `verifyDataMount` is therefore only run — and only trusted — when this is true.
+   */
+  get isLocal(): boolean {
+    return this.local;
+  }
+
+  /**
+   * Proves Platter and this daemon agree on what `config.dataDir` names.
+   *
+   * Lives here rather than in a service because it needs the driver's own connection: a
+   * check performed against a different daemon than the one that will create the container
+   * proves nothing about the container that gets created.
+   */
+  async checkDataMount(image: string, log?: FastifyBaseLogger): Promise<MountCheck> {
+    if (!this.local) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'The daemon is remote, so host paths are not shared and cannot be compared.',
+      };
+    }
+    return verifyDataMount(this.docker as never, image, log);
+  }
+
+  /**
+   * An image the probe can run. Platter's own is the only one guaranteed to be present
+   * locally, and pulling anything here would make a diagnostic depend on the network.
+   *
+   * `PLATTER_IMAGE` is what compose knows; when it is unset the daemon is asked what this
+   * container was started from, which needs no configuration at all. If neither answers the
+   * check is skipped with a reason rather than guessed at.
+   */
+  async resolveProbeImage(): Promise<string | null> {
+    const configured = process.env['PLATTER_IMAGE']?.trim();
+    if (configured !== undefined && configured.length > 0) return configured;
+
+    try {
+      // Docker sets the container's hostname to its short id unless told otherwise.
+      const self = await this.docker.getContainer(hostname()).inspect();
+      const image = (self as { Config?: { Image?: string } }).Config?.Image;
+      return image !== undefined && image.length > 0 ? image : null;
+    } catch {
+      return null;
+    }
   }
 
   async health(): Promise<DriverHealth> {

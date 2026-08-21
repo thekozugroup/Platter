@@ -1,8 +1,17 @@
 # The whole deployment. `docker compose up -d` and Platter is running.
 #
-# Defaults are SQLite on a named volume — no external database to operate. A Postgres
+# Defaults are SQLite on a host directory — no external database to operate. A Postgres
 # service is included but commented out, because most self-hosters running a handful of
 # game servers do not need it, and an unnecessary database is an unnecessary outage.
+#
+# PLATTER_DATA_DIR is mounted at *the same absolute path* inside the container, and that is
+# load-bearing rather than tidy. Platter asks the host's Docker daemon to bind-mount each
+# game server's directory, and the daemon resolves bind sources on the host — so a path that
+# exists only inside Platter names a different directory to the daemon than it does to
+# Platter. With a named volume that is exactly what happened: Platter wrote mods, configs and
+# backups into its volume while the game server read an empty directory the daemon invented
+# at the host root. Mounting one host directory at its own path makes the two views the same
+# bytes by construction, and Platter verifies it at boot rather than trusting it.
 
 services:
   platter:
@@ -33,9 +42,14 @@ services:
       # Closed by default. The very first account is created regardless of this, so a new
       # instance is claimable without ever opening registration.
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      # All three derive from the one directory above, so they cannot drift apart.
+      DATA_DIR: ${PLATTER_DATA_DIR}
+      BACKUP_DIR: ${PLATTER_DATA_DIR}/backups
+      DATABASE_URL: ${DATABASE_URL:-file:${PLATTER_DATA_DIR}/platter.db}
       # DATABASE_URL: postgresql://platter:platter@postgres:5432/platter
     volumes:
-      - platter-data:/data
+      # Same path both sides. See the note at the top of this file before changing it.
+      - ${PLATTER_DATA_DIR:?set PLATTER_DATA_DIR in .env — see .env.example}:${PLATTER_DATA_DIR}
       # Platter manages game servers as sibling containers on the host's Docker daemon.
       # This is real privilege: anything that can write to this socket can start a
       # container that mounts the host filesystem, so it is equivalent to root on the
@@ -86,6 +100,6 @@ services:
   #     timeout: 5s
   #     retries: 5
 
-volumes:
-  platter-data:
-  # platter-postgres:
+# No named volume for Platter's data: it lives in PLATTER_DATA_DIR on the host so that the
+# Docker daemon and Platter agree on what every path means.
+# platter-postgres:
