@@ -73,6 +73,25 @@ const securityPlugin: FastifyPluginAsync = async (app) => {
         connectSrc: ["'self'", 'ws:', 'wss:'],
         workerSrc: ["'self'", 'blob:'],
         formAction: ["'self'"],
+        /*
+         * Removed, not omitted — helmet includes it in its defaults, and here it is not
+         * merely useless but fatal.
+         *
+         * Platter speaks plain HTTP and expects TLS, if any, to be terminated in front of
+         * it. `upgrade-insecure-requests` tells the browser to re-fetch every subresource
+         * over https, so on `http://<host>:8080` the whole bundle is requested from a port
+         * with no TLS listener: 34 assets fail with ERR_SSL_PROTOCOL_ERROR and the app
+         * renders as a blank white page with an empty `#root`.
+         *
+         * It hides from every obvious check. curl does not enforce CSP, and browsers exempt
+         * localhost as a trusted origin — so `docker run -p 8080:8080` on the machine you
+         * are testing from looks perfect. It breaks for exactly one audience: everybody who
+         * opens the panel by its address, which is the entire point of the product.
+         *
+         * A deployment that does terminate TLS gets this from its proxy, along with HSTS,
+         * which is turned off just below for the same reason.
+         */
+        upgradeInsecureRequests: null,
       },
     },
     // Platter is a single-origin app; COEP would break the docs UI's own assets for no gain.
