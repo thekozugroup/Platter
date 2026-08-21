@@ -18,10 +18,11 @@ ENV CI=true
 # OpenSSL is a *build* requirement, not just a runtime one. Prisma chooses which query
 # engine to emit by probing this machine for libssl, and node:22-bookworm-slim ships none
 # (Node statically links its own). With nothing to find, Prisma guesses
-# `debian-openssl-1.1.x`, downloads that engine from binaries.prisma.sh, and produces a
-# client the runtime stage cannot load. Installing libssl3 here makes the probe answer
-# `debian-openssl-3.0.x`, which is both correct and already bundled in @prisma/engines —
-# so generation stops reaching for the network as well.
+# an `openssl-1.1.x` target, downloads that engine from binaries.prisma.sh, and produces a
+# client the runtime stage cannot load. Installing libssl3 here makes the probe answer with
+# this machine's 3.0.x target — `debian-openssl-3.0.x` on x86_64, `linux-arm64-openssl-3.0.x`
+# on aarch64 — which is both correct and already bundled in @prisma/engines, so generation
+# stops reaching for the network as well.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl \
  && rm -rf /var/lib/apt/lists/*
@@ -81,10 +82,21 @@ COPY apps/api/prisma ./apps/api/prisma
 # perfectly healthy-looking image and only fails on the first query, inside a container,
 # at deploy time — the most expensive place to find out. This turns that into a build
 # failure with the offending filename in the message.
-RUN DATABASE_URL="file:/tmp/generate.db" pnpm --filter @platter/api exec prisma generate \
+#
+# The expected filename is derived from the architecture rather than hardcoded. Prisma names
+# the engine after the platform it generated for, and the two names share no stem: x86_64
+# gets `debian-openssl-3.0.x`, aarch64 gets `linux-arm64-openssl-3.0.x`. Naming only the
+# amd64 one made this guard reject the *correct* arm64 engine and fail every arm64 build —
+# found by building on an Ampere host, which is the machine the arm64 image exists to serve.
+RUN case "$(uname -m)" in \
+      aarch64 | arm64) ENGINE_TARGET=linux-arm64-openssl-3.0.x ;; \
+      x86_64 | amd64) ENGINE_TARGET=debian-openssl-3.0.x ;; \
+      *) echo "no known Prisma engine target for $(uname -m)" >&2; exit 1 ;; \
+    esac \
+ && DATABASE_URL="file:/tmp/generate.db" pnpm --filter @platter/api exec prisma generate \
  && CLIENT_DIR="$(node -e "process.stdout.write(require('node:path').join(require.resolve('.prisma/client', { paths: [require.resolve('@prisma/client', { paths: ['/app/apps/api'] })] }), '..'))")" \
- && if [ ! -f "$CLIENT_DIR/libquery_engine-debian-openssl-3.0.x.so.node" ]; then \
-      echo "prisma generated the wrong query engine for this base image:" >&2; \
+ && if [ ! -f "$CLIENT_DIR/libquery_engine-$ENGINE_TARGET.so.node" ]; then \
+      echo "prisma generated no $ENGINE_TARGET engine for this base image:" >&2; \
       ls -1 "$CLIENT_DIR" | grep libquery_engine >&2; \
       exit 1; \
     fi
