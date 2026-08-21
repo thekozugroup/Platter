@@ -474,6 +474,12 @@ class ModrinthClient {
 // Provider
 // ---------------------------------------------------------------------------
 
+/** Modrinth loader tags that mean "this project is a server plugin". */
+const PLUGIN_LOADER_TAGS = new Set(['bukkit', 'spigot', 'paper', 'purpur', 'folia']);
+
+/** Modrinth loader tags that mean "this project is a mod". */
+const MOD_LOADER_TAGS = new Set(['fabric', 'forge', 'neoforge', 'quilt', 'rift', 'liteloader']);
+
 /**
  * Modrinth's facet grammar: the outer array is ANDed, each inner array is ORed. So
  * `[["categories:fabric","categories:quilt"],["versions:1.21"]]` reads "fabric or quilt, and
@@ -489,10 +495,26 @@ function buildFacets(query: ModSearchQuery): string[][] {
     facets.push(query.categories.map((category) => `categories:${category}`));
   }
   if (query.projectType) {
-    // Modrinth has no `plugin` project type — a Bukkit plugin is a `mod` carrying a
-    // bukkit-family loader tag, which the loader facet above already selects.
-    const type = query.projectType === 'plugin' ? 'mod' : query.projectType;
-    facets.push([`project_type:${type}`]);
+    /*
+     * Modrinth has a real `plugin` project type, and a Bukkit-family plugin carries it —
+     * it is not a `mod` with a loader tag. Rewriting `plugin` to `mod` here therefore ANDed
+     * `project_type:mod` against `categories:paper|spigot|bukkit`, which nothing satisfies:
+     * every search on a Paper, Spigot, Purpur, Folia, Pufferfish, Leaf or Bukkit server
+     * returned exactly zero results, browse included, while the same project resolved fine
+     * by name. Those are the most widely run Minecraft server types.
+     *
+     * A hybrid (Mohist, Arclight, Magma, Ketting, Crucible) genuinely loads both, and its
+     * loader list is what says so, so both types are ORed rather than one being guessed.
+     */
+    const types = new Set<string>([query.projectType]);
+    const loaders = new Set(query.loaders);
+    const acceptsPlugins = [...PLUGIN_LOADER_TAGS].some((tag) => loaders.has(tag));
+    const acceptsMods = [...MOD_LOADER_TAGS].some((tag) => loaders.has(tag));
+    if (acceptsPlugins && acceptsMods) {
+      types.add('mod');
+      types.add('plugin');
+    }
+    facets.push([...types].map((type) => `project_type:${type}`));
   }
   if (query.serverSideOnly) {
     facets.push(['server_side:required', 'server_side:optional']);

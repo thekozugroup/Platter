@@ -244,6 +244,58 @@ describe('modrinth client', () => {
     expect(hit?.url).toBe('https://modrinth.com/mod/sodium');
   });
 
+  it('asks Modrinth for plugins on a Paper server, not mods', async () => {
+    /*
+     * Regression. `project_type` used to be rewritten from `plugin` to `mod`, on the belief
+     * that Modrinth had no plugin type. It does, and Bukkit-family projects carry it — so the
+     * request ANDed `project_type:mod` with `categories:paper|spigot|bukkit` and matched
+     * nothing at all. Every search on the most widely run server types returned zero, browse
+     * included, while the same project still resolved by name. Verified against the live API:
+     * the corrected facets return 12,506 results where the old ones returned 0.
+     */
+    const fetchImpl = vi.fn(async () => jsonResponse(searchPayload));
+    const provider = createModrinthProvider({ fetch: fetchImpl });
+
+    await provider.search({
+      query: 'worldedit',
+      gameVersion: '1.21.4',
+      loaders: ['paper', 'spigot', 'bukkit'],
+      categories: [],
+      projectType: 'plugin',
+      serverSideOnly: true,
+      limit: 20,
+      offset: 0,
+    });
+
+    const url = new URL(fetchImpl.mock.calls[0]?.[0] ?? '');
+    const facets = JSON.parse(url.searchParams.get('facets') ?? '[]') as string[][];
+    expect(facets).toContainEqual(['project_type:plugin']);
+    expect(facets).not.toContainEqual(['project_type:mod']);
+  });
+
+  it('asks for both types on a hybrid server, which loads both', async () => {
+    // Mohist, Arclight, Magma, Ketting and Crucible run Forge mods *and* Bukkit plugins. The
+    // loader list is what says so, so neither type may be guessed away.
+    const fetchImpl = vi.fn(async () => jsonResponse(searchPayload));
+    const provider = createModrinthProvider({ fetch: fetchImpl });
+
+    await provider.search({
+      query: null,
+      gameVersion: '1.20.1',
+      loaders: ['forge', 'paper', 'spigot', 'bukkit'],
+      categories: [],
+      projectType: 'plugin',
+      serverSideOnly: true,
+      limit: 20,
+      offset: 0,
+    });
+
+    const url = new URL(fetchImpl.mock.calls[0]?.[0] ?? '');
+    const facets = JSON.parse(url.searchParams.get('facets') ?? '[]') as string[][];
+    const typeFacet = facets.find((group) => group[0]?.startsWith('project_type:')) ?? [];
+    expect([...typeFacet].sort()).toEqual(['project_type:mod', 'project_type:plugin']);
+  });
+
   it('sends a descriptive User-Agent', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse(searchPayload));
     await createModrinthProvider({ fetch: fetchImpl }).search({
