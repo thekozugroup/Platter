@@ -37,6 +37,12 @@ PLATTER_DIR="${PLATTER_DIR:-./platter}"
 PLATTER_PORT="${PLATTER_PORT:-8080}"
 PLATTER_IMAGE="${PLATTER_IMAGE:-ghcr.io/thekozugroup/platter:latest}"
 PLATTER_PUBLIC_HOST="${PLATTER_PUBLIC_HOST:-}"
+# Which host interface the web interface is published on. 0.0.0.0 keeps the default that
+# every self-hosted panel has — reachable from the LAN, which is the point. It is settable
+# because "reachable" and "reachable from the whole internet" are not the same wish, and a
+# host with a public interface makes them differ sharply: first-run setup is unauthenticated
+# by construction, so whoever reaches a fresh instance first owns it.
+PLATTER_BIND="${PLATTER_BIND:-0.0.0.0}"
 
 CONTAINER_NAME=platter
 READY_PATH=/api/v1/system/ready
@@ -144,13 +150,15 @@ OPTIONS
   -d, --dir PATH         Install directory              (default: ./platter)
   -p, --port PORT        Port for the web interface     (default: 8080)
   -i, --image REF        Container image to run         (default: ghcr.io/thekozugroup/platter:latest)
+  -b, --bind ADDRESS     Interface to publish the web interface on
+                         (default: 0.0.0.0, all interfaces)
   -H, --public-host HOST Address players use to reach game servers
                          (default: this host's address on its default route)
   -y, --yes              Take every default; never prompt
   -h, --help             This text
 
 ENVIRONMENT
-  PLATTER_DIR, PLATTER_PORT, PLATTER_IMAGE, PLATTER_PUBLIC_HOST
+  PLATTER_DIR, PLATTER_PORT, PLATTER_IMAGE, PLATTER_PUBLIC_HOST, PLATTER_BIND
       Same as the flags above. Flags win.
   NO_COLOR
       Set to disable colour.
@@ -192,6 +200,11 @@ while [ $# -gt 0 ]; do
   -i | --image)
     [ $# -ge 2 ] || die "--image needs a reference." "Example: --image ghcr.io/thekozugroup/platter:0.1.0"
     PLATTER_IMAGE=$2
+    shift 2
+    ;;
+  -b | --bind)
+    [ $# -ge 2 ] || die "--bind needs an address." "Example: --bind 127.0.0.1"
+    PLATTER_BIND=$2
     shift 2
     ;;
   -H | --public-host)
@@ -486,6 +499,8 @@ if [ "$UPGRADE" = yes ]; then
   fi
   _file_image=$(env_get PLATTER_IMAGE || true)
   [ -n "${_file_image:-}" ] && PLATTER_IMAGE=$_file_image
+  _file_bind=$(env_get PLATTER_BIND || true)
+  [ -n "${_file_bind:-}" ] && PLATTER_BIND=$_file_bind
 fi
 
 check_port
@@ -512,6 +527,11 @@ else
 fi
 say ''
 info "image             $PLATTER_IMAGE"
+if [ "$PLATTER_BIND" = 0.0.0.0 ]; then
+  info "published on      every interface on this host (0.0.0.0)"
+else
+  info "published on      $PLATTER_BIND only"
+fi
 info "web interface     http://localhost:$PLATTER_PORT"
 info "data             one Docker volume, platter-data"
 say ''
@@ -584,6 +604,12 @@ JWT_SECRET=$SECRET
 # The container image. Pin a version here to stop 'docker compose pull' moving you.
 PLATTER_IMAGE=$PLATTER_IMAGE
 
+# Which interface the web interface is published on. 0.0.0.0 is every interface. On a host
+# with a public address, set this to a private or VPN address unless you intend Platter to be
+# reachable from the internet — first-run setup is unauthenticated, so a fresh instance is
+# claimed by whoever opens it first.
+PLATTER_BIND=$PLATTER_BIND
+
 # The port Platter's web interface listens on.
 PLATTER_PORT=$PLATTER_PORT
 
@@ -627,6 +653,7 @@ else
   # reconciled against this file before the banner.
   env_has PLATTER_IMAGE || env_append PLATTER_IMAGE "$PLATTER_IMAGE"
   env_has PLATTER_PORT || env_append PLATTER_PORT "$PLATTER_PORT"
+  env_has PLATTER_BIND || env_append PLATTER_BIND "$PLATTER_BIND"
   env_has PUBLIC_HOST || env_append PUBLIC_HOST "$(detect_lan_ip || echo 127.0.0.1)"
   env_has DOCKER_GID || env_append DOCKER_GID "$(detect_docker_gid || echo 999)"
 
@@ -649,7 +676,7 @@ services:
     container_name: platter
     restart: unless-stopped
     ports:
-      - '${PLATTER_PORT:-8080}:8080'
+      - '${PLATTER_BIND:-0.0.0.0}:${PLATTER_PORT:-8080}:8080'
     environment:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PUBLIC_HOST: ${PUBLIC_HOST:-127.0.0.1}
@@ -789,6 +816,6 @@ note "  docker compose restart     restart"
 note "  docker compose pull && docker compose up -d    upgrade"
 note "  docker compose down        stop (the data volume is kept)"
 say ''
-note "Game servers will be advertised at http://$PUBLIC_HOST — change PUBLIC_HOST in"
+note "Players will be given $PUBLIC_HOST to connect to — change PUBLIC_HOST in"
 note "$ENV_FILE if that is not the address your players use."
 say ''
