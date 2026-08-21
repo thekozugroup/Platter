@@ -649,14 +649,20 @@ async function runInstall(serverId: string, options: InstallOptions): Promise<vo
   try {
     await setStatus(serverId, 'installing', { message: `Installing ${blueprint.name}…` });
 
+    // The image the *server* runs, which is not always the blueprint's default: a blueprint
+    // may let one of its variables choose (JAVA_VERSION). Pulling the default and creating
+    // from the selection is how a server ends up asking the daemon for an image nobody
+    // fetched, and the daemon's answer for that is a bare 404.
+    const image = imageFor(blueprint, parseVariables(server));
+
     let announced = -1;
-    await driver.pullImage(blueprint.image, (progress) => {
+    await driver.pullImage(image, (progress) => {
       // One line per quarter: a pull emits thousands of progress events and the console is
       // a bounded ring buffer that a human has to read.
       const percent = progress.progress === null ? null : Math.floor(progress.progress * 100);
       if (percent === null || percent < announced + 25) return;
       announced = percent;
-      hub.system(`Pulling ${blueprint.image} — ${percent}%`);
+      hub.system(`Pulling ${image} — ${percent}%`);
     });
     assertNotCancelled();
 

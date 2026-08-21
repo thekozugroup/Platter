@@ -877,6 +877,21 @@ export class DockerDriver implements OrchestrationDriver {
 
     const status = statusOf(error);
     if (status === 404) {
+      /*
+       * The daemon answers 404 for a missing container and for a missing image alike, and
+       * reporting the second as the first sends the reader looking for a container that was
+       * never supposed to exist yet. Seen for real: selecting a Java version Platter had not
+       * pulled produced "That container no longer exists." on a create, which is true of
+       * nothing and explains nothing.
+       */
+      const detail = failure(error).message ?? '';
+      if (/no such image|not found: manifest|manifest unknown|pull access denied/i.test(detail)) {
+        return new PlatterError(
+          'not_found',
+          `The image this server needs is not on this node: ${detail.trim()}`,
+          { cause: error },
+        );
+      }
       return new PlatterError('not_found', 'That container no longer exists.', { cause: error });
     }
     if (status === 409) {
