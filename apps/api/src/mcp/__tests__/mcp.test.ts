@@ -1011,3 +1011,28 @@ describe('stdio transport', () => {
     }
   }, 20_000);
 });
+
+describe('java version diagnosis', () => {
+  /*
+   * A plugin built for a newer Java is the quietest failure a Minecraft server has: the
+   * server starts, reports healthy, answers pings, and the mod simply is not there. Found on
+   * a real server, where WorldEdit 7.4.5 needed Java 25 on an image running Java 21.
+   */
+  it('translates a class-file version into the Java release a human can act on', async () => {
+    const { diagnoseJavaVersion } = await import('../tools.js');
+    const evidence =
+      'org.bukkit.plugin.InvalidPluginException: java.lang.UnsupportedClassVersionError: ' +
+      'com/sk89q/worldedit/bukkit/WorldEditPlugin has been compiled by a more recent version ' +
+      'of the Java Runtime (class file version 69.0), this version of the Java Runtime only ' +
+      'recognizes class file versions up to 65.0';
+
+    const explained = diagnoseJavaVersion(evidence);
+    // 69 - 44 = Java 25. Reporting "major version 69" would be useless to an operator.
+    expect(explained).toContain('Java 25');
+  });
+
+  it('says nothing rather than guessing when the line carries no version', async () => {
+    const { diagnoseJavaVersion } = await import('../tools.js');
+    expect(diagnoseJavaVersion('UnsupportedClassVersionError: something opaque')).toBeNull();
+  });
+});

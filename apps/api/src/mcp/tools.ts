@@ -1527,7 +1527,37 @@ const containerStateSchema = z.object({
 type ContainerStateOut = z.infer<typeof containerStateSchema>;
 
 /** Signatures worth naming. Each one is a fact about the output, not a diagnosis of the game. */
-const LOG_SIGNATURES: ReadonlyArray<{ code: string; pattern: RegExp; detail: string }> = [
+/**
+ * Java's class-file major version is 44 plus the language version: 65 is Java 21, 69 is
+ * Java 25. Reporting "major version 69" to someone running a Minecraft server tells them
+ * nothing; reporting "needs Java 25" tells them what to change.
+ */
+export function javaVersionFromClassFile(evidence: string): number | null {
+  const match = /class file (?:major )?version (\d+)/i.exec(evidence);
+  if (!match) return null;
+  const major = Number(match[1]);
+  return Number.isFinite(major) && major > 44 ? major - 44 : null;
+}
+
+/** Exposed for tests: the human-facing sentence built from one UnsupportedClassVersionError. */
+export function diagnoseJavaVersion(evidence: string): string | null {
+  const needed = javaVersionFromClassFile(evidence);
+  if (needed === null) return null;
+  const file = /([\w.-]+\.jar)/.exec(evidence)?.[1];
+  const subject = file !== undefined ? `${file} needs` : 'It needs';
+  return (
+    `${subject} Java ${needed}. Either install a build of it made for the Java this ` +
+    `server runs, or move the server to an image with Java ${needed}.`
+  );
+}
+
+const LOG_SIGNATURES: ReadonlyArray<{
+  code: string;
+  pattern: RegExp;
+  detail: string;
+  /** Refines `detail` using the matched line, when the line carries specifics. */
+  explain?: (evidence: string) => string | null;
+}> = [
   {
     code: 'eula_not_accepted',
     pattern: /you need to agree to the eula/i,
@@ -1550,7 +1580,10 @@ const LOG_SIGNATURES: ReadonlyArray<{ code: string; pattern: RegExp; detail: str
     code: 'unsupported_java_version',
     pattern: /UnsupportedClassVersionError|has been compiled by a more recent version of the Java/i,
     detail:
-      'The game build needs a newer Java than the image is running. Pin a matching image tag.',
+      'Something the server loaded was built for a newer Java than this server runs. That is ' +
+      'usually a mod or plugin rather than the game itself: the server keeps running and the ' +
+      'mod simply never loads, which is why nothing looks broken.',
+    explain: diagnoseJavaVersion,
   },
   {
     code: 'corrupt_world',
@@ -1708,9 +1741,12 @@ const diagnoseCrashTool = defineTool({
     for (const signature of LOG_SIGNATURES) {
       const hit = logs.find((entry) => signature.pattern.test(entry.content));
       if (hit) {
+        // The refinement is additive: a signature that cannot say anything specific about
+        // this particular line still reports what it always knew.
+        const specific = signature.explain?.(hit.content) ?? null;
         observations.push({
           code: signature.code,
-          detail: signature.detail,
+          detail: specific === null ? signature.detail : `${signature.detail} ${specific}`,
           evidence: hit.content,
         });
       }
