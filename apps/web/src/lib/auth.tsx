@@ -230,6 +230,8 @@ export interface SystemInfo {
   needsSetup: boolean;
   counts: { users: number; servers: number; nodes: number };
   features: { ai: boolean; metrics: boolean; registrationEnabled: boolean };
+  /** Mod registries this installation can search now. Modrinth needs no key. */
+  modSources: Array<'modrinth' | 'curseforge'>;
 }
 
 export function useSystemInfo(): UseQueryResult<SystemInfo> {

@@ -17,21 +17,26 @@ import { cn } from '@/lib/utils';
 
 const CONNECTION_COPY: Record<
   string,
-  { label: string; detail: string; tone: 'quiet' | 'warning' | 'danger' }
+  {
+    label: string;
+    /**
+     * Only for states a reader has to do something about. "Live" needs no gloss; a dropped
+     * socket does, because it says whether anything was lost and whether to reload.
+     */
+    detail?: string;
+    tone: 'quiet' | 'warning' | 'danger';
+  }
 > = {
   connecting: {
     label: 'Connecting',
-    detail: 'Opening the console socket.',
     tone: 'quiet',
   },
   authenticating: {
     label: 'Authenticating',
-    detail: 'Proving who you are before any output is sent.',
     tone: 'quiet',
   },
   open: {
     label: 'Live',
-    detail: 'Output is streaming as the server writes it.',
     tone: 'quiet',
   },
   reconnecting: {
@@ -88,7 +93,9 @@ export function ConsolePage() {
             )}
           />
           <span className="font-medium text-label-secondary">{connection?.label}</span>
-          <span className="hidden sm:inline">{connection?.detail}</span>
+          {connection?.detail ? (
+            <span className="hidden sm:inline">{connection.detail}</span>
+          ) : null}
         </p>
 
         {/*

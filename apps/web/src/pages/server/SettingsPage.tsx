@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { AdvancedDisclosure } from '@/components/common/advanced-disclosure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, FieldGroup, FieldHelper, FieldLabel } from '@/components/ui/field';
@@ -109,15 +110,26 @@ export function SettingsPage() {
   const { server, blueprint } = useServerScope();
 
   return (
-    <PageBody className="flex flex-col gap-6">
+    <PageBody className="flex flex-col gap-8">
+      {/*
+        Everyday settings first, then the ones that can break a server. Limits, blueprint
+        variables and reinstall are all "change this and the server may not come back", so
+        they sit behind one disclosure rather than filling the page for someone who came here
+        to rename their world. Deleting stays out on its own — it is destructive, so it must
+        never be something you find by accident *or* something you cannot find.
+      */}
       <IdentityCard />
       <StartupCard />
-      <LimitsCard />
-      {blueprint && blueprint.variables.some((variable) => !variable.hidden) ? (
-        <VariablesCard />
-      ) : null}
       <PeopleCard />
-      <MaintenanceCard />
+
+      <AdvancedDisclosure>
+        <LimitsCard />
+        {blueprint && blueprint.variables.some((variable) => !variable.hidden) ? (
+          <VariablesCard />
+        ) : null}
+        <MaintenanceCard />
+      </AdvancedDisclosure>
+
       <DangerCard key={server.id} />
     </PageBody>
   );
@@ -157,10 +169,6 @@ function IdentityCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Name and description</CardTitle>
-        <CardDescription>
-          The name is what appears in the sidebar, the dashboard and every audit entry. It does not
-          change the container’s name or the connect address.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -270,20 +278,11 @@ function StartupCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Starting and restarting</CardTitle>
-        <CardDescription>
-          What Platter does on its own, without anyone pressing a button.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup className="gap-6">
           <Field orientation="horizontal">
-            <div className="flex flex-1 flex-col gap-1">
-              <FieldLabel>Start with Platter</FieldLabel>
-              <FieldHelper>
-                Brings this server up when the Platter host boots or the daemon restarts. Turn it
-                off for a server you only run occasionally.
-              </FieldHelper>
-            </div>
+            <FieldLabel className="flex-1">Start with Platter</FieldLabel>
             <Switch
               checked={server.autoStart}
               className="hit-target"
@@ -296,13 +295,7 @@ function StartupCard() {
           </Field>
 
           <Field orientation="horizontal">
-            <div className="flex flex-1 flex-col gap-1">
-              <FieldLabel>Restart after a crash</FieldLabel>
-              <FieldHelper>
-                An unexpected exit brings it straight back, with a widening delay so a server that
-                crashes on boot does not spin. A stop you asked for is never undone.
-              </FieldHelper>
-            </div>
+            <FieldLabel className="flex-1">Restart after a crash</FieldLabel>
             <Switch
               checked={server.autoRestart}
               className="hit-target"
@@ -394,9 +387,8 @@ function LimitsCard() {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Resource limits</CardTitle>
         <CardDescription>
-          What the container is allowed to use. Currently {formatMegabytes(server.limits.memoryMb)}{' '}
-          of memory, {formatMegabytes(server.limits.diskMb)} of disk and{' '}
-          {cpuPhrase(server.limits.cpuCores)}.
+          {formatMegabytes(server.limits.memoryMb)} of memory,{' '}
+          {formatMegabytes(server.limits.diskMb)} of disk and {cpuPhrase(server.limits.cpuCores)}.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
@@ -486,10 +478,6 @@ function VariablesCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>{blueprint.name} settings</CardTitle>
-        <CardDescription>
-          The blueprint’s own variables. They become environment variables on the container and are
-          rendered into its config files.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <Alert variant="warning">
@@ -704,10 +692,6 @@ function PeopleCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>People</CardTitle>
-        <CardDescription>
-          Access is granted per server. Someone invited here sees this server and nothing else on
-          your Platter, and only the parts you tick.
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-8">
@@ -988,10 +972,6 @@ function MaintenanceCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Reinstall</CardTitle>
-        <CardDescription>
-          Runs the blueprint’s install script again over the existing volume. This is the fix for a
-          failed install or a corrupted server jar.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Button

@@ -75,7 +75,7 @@ export function FilesPage() {
   const canDelete = !frozen;
 
   return (
-    <PageBody className="flex flex-col gap-6">
+    <PageBody className="flex flex-col gap-8">
       {editing !== null ? (
         <Suspense
           fallback={

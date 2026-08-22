@@ -7,6 +7,7 @@ import { ChevronLeft } from 'pixelarticons/react/ChevronLeft.js';
 import { ChevronRight } from 'pixelarticons/react/ChevronRight.js';
 import { Cpu } from 'pixelarticons/react/Cpu.js';
 import { Home } from 'pixelarticons/react/Home.js';
+import { Robot } from 'pixelarticons/react/Robot.js';
 import { Lightbulb } from 'pixelarticons/react/Lightbulb.js';
 import { Logout } from 'pixelarticons/react/Logout.js';
 import { Monitor } from 'pixelarticons/react/Monitor.js';
@@ -88,6 +89,12 @@ export const PRIMARY_NAV: readonly NavItem[] = [
     match: (p) => p === '/servers' || (p.startsWith('/servers/') && p !== '/servers/new'),
   },
   { to: '/servers/new', label: 'New server', icon: Plus, match: (p) => p === '/servers/new' },
+  /*
+    In the primary nav rather than tucked into settings. Being drivable by an AI assistant is
+    the reason to pick Platter over a plain panel, and it was discoverable only by reading
+    the README — so nobody using the product could find out it was there.
+  */
+  { to: '/mcp', label: 'AI and MCP', icon: Robot, match: (p) => p.startsWith('/mcp') },
 ];
 
 export const ADMIN_NAV: readonly NavItem[] = [

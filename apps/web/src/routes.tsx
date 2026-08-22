@@ -93,6 +93,7 @@ const LoginPage = lazyPage('LoginPage', 'LoginPage');
 const SetupPage = lazyPage('SetupPage', 'SetupPage');
 const NotFoundPage = lazyPage('NotFoundPage', 'NotFoundPage');
 const ProfilePage = lazyPage('account/ProfilePage', 'ProfilePage');
+const McpPage = lazyPage('McpPage', 'McpPage');
 
 function RootLayout() {
   return (
@@ -217,6 +218,7 @@ export const routes: RouteObject[] = [
             ],
           },
           { path: 'account', element: <ProfilePage /> },
+          { path: 'mcp', element: <McpPage /> },
           {
             path: 'admin',
             element: <RequireRole minimum="admin" />,

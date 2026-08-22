@@ -465,7 +465,7 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
         ) : null}
 
         {!user.totpEnabled && setupData ? (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
               <QrCode className="[--qr-code-size:--spacing(40)]" value={setupData.otpauthUrl}>
                 <QrCodeFrame />
@@ -772,7 +772,7 @@ export function ProfilePage() {
         title="Account"
       />
       <PageBody>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           <ProfileCard user={user} />
           <PasswordCard />
           <TwoFactorCard user={user} />

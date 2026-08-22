@@ -110,11 +110,22 @@ export interface PageBodyProps {
 
 export function PageBody({ children, fullWidth = false, className }: PageBodyProps) {
   return (
-    <div className={cn('px-6 py-6 sm:py-10 lg:px-12 lg:py-12', className)}>
+    /*
+      Two elements with one job each: the outer pads and fills the main area, the inner caps
+      the column and lays the content out.
+      
+      `className` belongs on the inner one. It used to land on the outer, which has exactly
+      one child — so every page that asked for `flex flex-col gap-6` between its cards got
+      a flex container with a single item and no gap at all, and the cards stacked flush
+      against each other. Five pages were doing this. The declaration was right; it was
+      being applied one level too high to mean anything.
+    */
+    <div className="flex min-h-0 flex-1 flex-col px-6 py-6 sm:py-10 lg:px-12 lg:py-12">
       <div
         className={cn(
           'mx-auto w-full',
           fullWidth ? 'max-w-(--pl-container-max-wide)' : 'max-w-(--pl-container-max)',
+          className,
         )}
       >
         {children}

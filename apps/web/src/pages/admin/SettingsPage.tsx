@@ -173,9 +173,6 @@ function AccessCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Access</CardTitle>
-        <CardDescription>
-          Who can get an account without one already being created for them.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -232,10 +229,6 @@ function DefaultsCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Defaults and limits</CardTitle>
-        <CardDescription>
-          What Platter enforces for every server on this installation, regardless of who creates it.
-          These are compiled into this build, not a per-instance setting yet.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <dl className="divide-y divide-separator">
@@ -300,8 +293,8 @@ function IntegrationDot({ state }: { state: IntegrationState }) {
 }
 
 const INTEGRATION_LABEL: Record<IntegrationState, string> = {
-  configured: 'Configured',
-  'not-configured': 'Not configured',
+  configured: 'Connected',
+  'not-configured': 'Not connected',
   unreported: 'Not reported here',
 };
 
@@ -314,7 +307,8 @@ function IntegrationRow({
 }: {
   name: string;
   description: string;
-  envVar: string;
+  /** Omitted when the integration needs no configuration at all. */
+  envVar?: string;
   state: IntegrationState;
   footnote?: string;
 }) {
@@ -328,24 +322,24 @@ function IntegrationRow({
         </span>
       </div>
       <p className="max-w-prose text-footnote text-label-secondary">{description}</p>
-      <p className="text-caption text-label-tertiary">
-        Set with the <code className="font-mono">{envVar}</code> environment variable.
-        {footnote ? ` ${footnote}` : ''}
-      </p>
+      {envVar === undefined ? null : (
+        <p className="text-caption text-label-tertiary">
+          Set with the <code className="font-mono">{envVar}</code> environment variable.
+          {footnote ? ` ${footnote}` : ''}
+        </p>
+      )}
     </div>
   );
 }
 
 function IntegrationsCard() {
   const info = useSystemInfo();
+  const sources = info.data?.modSources ?? [];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Integrations</CardTitle>
-        <CardDescription>
-          Whether a provider key is configured — never the key itself.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {info.isPending ? (
@@ -355,18 +349,21 @@ function IntegrationsCard() {
           </div>
         ) : (
           <div className="divide-y divide-separator">
+            {/*
+              No Anthropic row. Platter has no AI of its own to configure — the AI is whatever
+              client you point at the MCP server, and it brings its own account. A key field
+              here implied Platter would call a model on your behalf, which it does not.
+            */}
             <IntegrationRow
-              description="Powers AI-assisted server provisioning and crash triage, and everything reachable over MCP."
-              envVar="ANTHROPIC_API_KEY"
-              name="Anthropic"
-              state={info.data?.features.ai ? 'configured' : 'not-configured'}
+              description="Mods and plugins, searched live. Nothing to set up."
+              name="Modrinth"
+              state={sources.includes('modrinth') ? 'configured' : 'not-configured'}
             />
             <IntegrationRow
-              description="Lets the mod browser search CurseForge alongside Modrinth."
+              description="A second mod registry, alongside Modrinth."
               envVar="CURSEFORGE_API_KEY"
-              footnote="Open a server's mod browser to check it directly — missing CurseForge results there mean the key is unset or was rejected."
               name="CurseForge"
-              state="unreported"
+              state={sources.includes('curseforge') ? 'configured' : 'not-configured'}
             />
           </div>
         )}
@@ -385,7 +382,7 @@ export function SettingsPage() {
         title="Settings"
       />
       <PageBody>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           <GeneralCard />
           <AccessCard />
           <DefaultsCard />

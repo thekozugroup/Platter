@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { config } from '../config.js';
+import { availableModSources, modSourceSchema } from '../mods/registry.js';
 import { prisma } from '../db.js';
 import { getDriverForNode } from '../orchestration/registry.js';
 import { recordAuditFromRequest } from '../services/audit.js';
@@ -89,6 +90,14 @@ const systemInfoSchema = z.object({
     metrics: z.boolean(),
     registrationEnabled: z.boolean(),
   }),
+  /**
+   * Mod registries this installation can actually search right now.
+   *
+   * The settings page used to say "not reported here" for CurseForge and send the reader to
+   * open a server's mod browser to find out — asking someone to go and infer a fact the
+   * server already knows. Modrinth needs no key and is therefore always in this list.
+   */
+  modSources: z.array(modSourceSchema),
 });
 
 // ---------------------------------------------------------------------------
@@ -227,6 +236,7 @@ const systemRoutes: FastifyPluginAsync = async (fastify) => {
           metrics: config.metricsEnabled,
           registrationEnabled: config.registrationEnabled,
         },
+        modSources: availableModSources(),
       };
     },
   );

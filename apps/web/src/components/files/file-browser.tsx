@@ -503,7 +503,15 @@ export function FileBrowser({
         */}
         <FileUploadDropzone
           className={cn(
-            'block cursor-default rounded-md border-separator-strong p-0 text-start',
+            'block cursor-default rounded-md p-0 text-start',
+            /*
+              No resting border. The vendored dropzone draws a dashed one, which reads as an
+              upload widget — correct for a drop pad, wrong for a file listing that happens to
+              accept drops. The listing already sits in its own container, so a second dashed
+              outline around it is noise. `border-transparent` rather than `border-0` keeps the
+              box the same size, so nothing shifts when the drag state paints the border in.
+            */
+            'border-2 border-transparent border-solid',
             'data-dragging:border-primary data-dragging:bg-accent-subtle',
           )}
           disableClick
