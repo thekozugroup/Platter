@@ -301,9 +301,14 @@ export function FileEditor({ serverId, path, onClose, canWrite, className }: Fil
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody className="text-subhead text-label-secondary">
+            {/*
+              The reassurance about atomic writes is for someone who knows what a truncated
+              file is; to everyone else it introduces a worry it then answers. Easy mode just
+              asks the question the dialog exists for.
+            */}
             {readOnly
               ? 'This file is read-only here, so there is nothing to save.'
-              : 'Saving writes the whole file back in one atomic replace, so a failure mid-write cannot truncate it.'}
+              : 'Your changes have not been saved.'}
           </AlertDialogBody>
           <AlertDialogFooter>
             <AlertDialogCancel className={ACTION}>Keep editing</AlertDialogCancel>

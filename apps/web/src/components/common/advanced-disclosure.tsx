@@ -1,5 +1,4 @@
 import { useAdvancedMode } from '@/lib/advanced-mode';
-import { cn } from '@/lib/utils';
 
 /**
  * Content that only exists in advanced mode.
@@ -18,11 +17,19 @@ export interface AdvancedOnlyProps {
   children: React.ReactNode;
   /** Renders regardless of mode. For errors and non-default values that must not be hidden. */
   force?: boolean;
+  /** Supplying one wraps the children in a div; without it they render bare. */
   className?: string;
 }
 
 export function AdvancedOnly({ children, force = false, className }: AdvancedOnlyProps) {
   const { advanced } = useAdvancedMode();
   if (!advanced && !force) return null;
-  return <div className={cn('flex flex-col gap-8', className)}>{children}</div>;
+
+  /*
+   * No wrapper unless one is asked for. This gates a phrase inside a paragraph as often as it
+   * gates a card, and an unconditional <div> would be invalid DOM in the first case — the
+   * component should not decide the layout of something it only decides the visibility of.
+   */
+  if (className === undefined) return <>{children}</>;
+  return <div className={className}>{children}</div>;
 }

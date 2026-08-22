@@ -46,6 +46,7 @@ import {
 } from '@/hooks';
 import { errorMessage } from '@/lib/api-client.js';
 import { SECTION_HEADING, useServerScope } from './ServerLayout';
+import { AdvancedOnly } from '@/components/common/advanced-disclosure';
 import { useAdvancedMode } from '@/lib/advanced-mode';
 import { cn } from '@/lib/utils';
 
@@ -1085,8 +1086,16 @@ function ScheduleRow({
         </p>
 
         <p className="tabular flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-caption text-label-tertiary">
-          <code>{schedule.cron}</code>
-          <span aria-hidden>·</span>
+          {/*
+            The English sentence directly above already says when this runs. The expression is
+            the same fact in a syntax the reader may not have, so it is advanced — but only
+            the expression: the timezone stays, because "every day at 4am" is ambiguous
+            without it and nothing else on the row carries it.
+          */}
+          <AdvancedOnly>
+            <code>{schedule.cron}</code>
+            <span aria-hidden>·</span>
+          </AdvancedOnly>
           <span>{schedule.timezone}</span>
           {schedule.enabled && schedule.nextRunAt ? (
             <>

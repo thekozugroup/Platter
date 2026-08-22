@@ -42,6 +42,7 @@ import {
 import { errorMessage } from '@/lib/api-client.js';
 import { queryKeys } from '@/lib/query.js';
 import { SECTION_HEADING, useServerScope } from './ServerLayout';
+import { AdvancedOnly } from '@/components/common/advanced-disclosure';
 import { cn } from '@/lib/utils';
 
 /**
@@ -460,10 +461,17 @@ function BackupRow({
           <p className="max-w-prose text-caption text-danger">{backup.error}</p>
         ) : null}
 
+        {/*
+          Advanced only: a truncated hex digest is vocabulary, not information, for someone
+          who wants their world back. The row already says "Ready" and the restore dialog
+          repeats that the archive is checked, so nothing here goes unexplained without it.
+        */}
         {backup.status === 'completed' && backup.checksum ? (
-          <p className="font-mono text-caption-2 text-label-quaternary">
-            SHA-256 {backup.checksum.slice(0, 16)}… — verified before any restore.
-          </p>
+          <AdvancedOnly>
+            <p className="font-mono text-caption-2 text-label-quaternary">
+              SHA-256 {backup.checksum.slice(0, 16)}… — verified before any restore.
+            </p>
+          </AdvancedOnly>
         ) : null}
       </div>
 

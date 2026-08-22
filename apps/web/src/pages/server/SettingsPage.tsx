@@ -112,22 +112,25 @@ export function SettingsPage() {
   return (
     <PageBody className="flex flex-col gap-8">
       {/*
-        Everyday settings first. Limits, blueprint variables and reinstall are all "change
-        this and the server may not come back", so they appear only in advanced mode rather
-        than filling the page for someone who came here to rename their world. Deleting stays
-        out in both modes — it is destructive, and destructive is not the same as advanced: it
-        must never be something you find by accident *or* something you cannot find.
+        Advanced mode gates *fields*, not whole cards, and these two cards are why.
+        
+        Hiding the limits card takes the memory slider with it — the thing an owner reaches
+        for when a modpack needs more RAM — while the dashboard and the monitoring page keep
+        quoting the allocation, so a throttled server has a cause the operator can read and
+        cannot change. Hiding the variables card is worse: it holds the everyday game
+        settings (difficulty, MOTD, whitelist) and "Verify accounts with Mojang", which is the
+        only supported fix for friends whose accounts will not authenticate. Editing
+        server.properties by hand does not survive a restart, so there would be no route at
+        all. `VariableFields` already sorts its own advanced fields, which is the right
+        granularity; the card belongs in both modes.
       */}
       <IdentityCard />
       <StartupCard />
+      <LimitsCard />
+      {blueprint && blueprint.variables.some((variable) => !variable.hidden) ? (
+        <VariablesCard />
+      ) : null}
       <PeopleCard />
-
-      <AdvancedOnly>
-        <LimitsCard />
-        {blueprint && blueprint.variables.some((variable) => !variable.hidden) ? (
-          <VariablesCard />
-        ) : null}
-      </AdvancedOnly>
 
       {/*
         Reinstall is normally an advanced tool, but it is also the fix for an install that
