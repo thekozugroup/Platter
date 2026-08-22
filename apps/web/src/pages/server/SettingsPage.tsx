@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AdvancedDisclosure } from '@/components/common/advanced-disclosure';
+import { AdvancedOnly } from '@/components/common/advanced-disclosure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, FieldGroup, FieldHelper, FieldLabel } from '@/components/ui/field';
@@ -112,23 +112,32 @@ export function SettingsPage() {
   return (
     <PageBody className="flex flex-col gap-8">
       {/*
-        Everyday settings first, then the ones that can break a server. Limits, blueprint
-        variables and reinstall are all "change this and the server may not come back", so
-        they sit behind one disclosure rather than filling the page for someone who came here
-        to rename their world. Deleting stays out on its own — it is destructive, so it must
-        never be something you find by accident *or* something you cannot find.
+        Everyday settings first. Limits, blueprint variables and reinstall are all "change
+        this and the server may not come back", so they appear only in advanced mode rather
+        than filling the page for someone who came here to rename their world. Deleting stays
+        out in both modes — it is destructive, and destructive is not the same as advanced: it
+        must never be something you find by accident *or* something you cannot find.
       */}
       <IdentityCard />
       <StartupCard />
       <PeopleCard />
 
-      <AdvancedDisclosure>
+      <AdvancedOnly>
         <LimitsCard />
         {blueprint && blueprint.variables.some((variable) => !variable.hidden) ? (
           <VariablesCard />
         ) : null}
+      </AdvancedOnly>
+
+      {/*
+        Reinstall is normally an advanced tool, but it is also the fix for an install that
+        failed — so a broken server shows it in either mode. Easy mode may not leave someone
+        looking at a server that will not start with the repair hidden behind a preference
+        they have no reason to suspect exists.
+      */}
+      <AdvancedOnly force={server.status === 'install_failed'}>
         <MaintenanceCard />
-      </AdvancedDisclosure>
+      </AdvancedOnly>
 
       <DangerCard key={server.id} />
     </PageBody>

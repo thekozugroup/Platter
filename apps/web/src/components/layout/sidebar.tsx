@@ -7,6 +7,8 @@ import { ChevronLeft } from 'pixelarticons/react/ChevronLeft.js';
 import { ChevronRight } from 'pixelarticons/react/ChevronRight.js';
 import { Cpu } from 'pixelarticons/react/Cpu.js';
 import { Home } from 'pixelarticons/react/Home.js';
+import { Eye } from 'pixelarticons/react/Eye.js';
+import { Feather } from 'pixelarticons/react/Feather.js';
 import { Robot } from 'pixelarticons/react/Robot.js';
 import { Lightbulb } from 'pixelarticons/react/Lightbulb.js';
 import { Logout } from 'pixelarticons/react/Logout.js';
@@ -59,6 +61,7 @@ import {
 import { api } from '@/lib/api-client.js';
 import { useAuth } from '@/lib/auth.js';
 import { queryKeys } from '@/lib/query.js';
+import { useAdvancedMode } from '@/lib/advanced-mode.js';
 import { useTheme, type ThemePreference } from '@/lib/theme.js';
 import { cn } from '@/lib/utils';
 
@@ -283,6 +286,7 @@ const THEME_OPTIONS: ReadonlyArray<{
 function AccountMenu() {
   const { user, logout } = useAuth();
   const { preference, setPreference } = useTheme();
+  const { advanced, setAdvanced } = useAdvancedMode();
 
   if (!user) return null;
 
@@ -333,6 +337,28 @@ function AccountMenu() {
             Profile and security
           </Link>
         </MenuItem>
+
+        <MenuSeparator />
+
+        {/*
+          Beside the theme rather than buried in settings: it changes how the whole app reads,
+          which is the same kind of preference, and someone who cannot find the control that
+          hid a setting has no way to guess a preference is why it is missing.
+        */}
+        <MenuRadioGroup
+          heading="Interface"
+          onValueChange={({ value }) => setAdvanced(value === 'advanced')}
+          value={advanced ? 'advanced' : 'easy'}
+        >
+          <MenuRadioItem value="easy">
+            <Feather aria-hidden />
+            Easy — just the essentials
+          </MenuRadioItem>
+          <MenuRadioItem value="advanced">
+            <Eye aria-hidden />
+            Advanced — show everything
+          </MenuRadioItem>
+        </MenuRadioGroup>
 
         <MenuSeparator />
 

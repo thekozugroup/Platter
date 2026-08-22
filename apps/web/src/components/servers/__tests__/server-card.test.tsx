@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Blueprint, BlueprintSummary, Node, ServerSummary } from '@platter/shared';
 import { PowerControls, powerBlockedReason } from '@/components/servers/power-controls';
 import { ServerCard, blueprintSubtitle } from '@/components/servers/server-card';
+import { AdvancedModeProvider } from '@/lib/advanced-mode.js';
 import { AuthProvider } from '@/lib/auth.js';
 import { createQueryClient } from '@/lib/query.js';
 import { CreateServerPage } from '@/pages/CreateServerPage';
@@ -243,20 +244,24 @@ function mockApi(server: ServerSummary) {
 /** Components that only need a router and a cache. */
 function renderComponent(ui: React.ReactNode) {
   return render(
-    <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>{ui}</MemoryRouter>
-    </QueryClientProvider>,
+    <AdvancedModeProvider>
+      <QueryClientProvider client={createQueryClient()}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </QueryClientProvider>
+    </AdvancedModeProvider>,
   );
 }
 
 /** Whole screens, which read the session. */
 function renderScreen(ui: React.ReactNode) {
   return render(
-    <QueryClientProvider client={createQueryClient()}>
-      <AuthProvider>
-        <MemoryRouter>{ui}</MemoryRouter>
-      </AuthProvider>
-    </QueryClientProvider>,
+    <AdvancedModeProvider>
+      <QueryClientProvider client={createQueryClient()}>
+        <AuthProvider>
+          <MemoryRouter>{ui}</MemoryRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </AdvancedModeProvider>,
   );
 }
 

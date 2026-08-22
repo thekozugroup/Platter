@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toast';
 import { AuthProvider } from '@/lib/auth.js';
 import { createQueryClient } from '@/lib/query.js';
 import { createRouter } from '@/routes.js';
+import { AdvancedModeProvider } from '@/lib/advanced-mode.js';
 import { ThemeProvider } from '@/lib/theme.js';
 
 /**
@@ -24,12 +25,14 @@ export function App() {
   return (
     <AppErrorBoundary>
       <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <RouterProvider router={router} />
-            <Toaster />
-          </AuthProvider>
-        </QueryClientProvider>
+        <AdvancedModeProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </AuthProvider>
+          </QueryClientProvider>
+        </AdvancedModeProvider>
       </ThemeProvider>
     </AppErrorBoundary>
   );

@@ -46,6 +46,7 @@ import {
 } from '@/hooks';
 import { errorMessage } from '@/lib/api-client.js';
 import { SECTION_HEADING, useServerScope } from './ServerLayout';
+import { useAdvancedMode } from '@/lib/advanced-mode';
 import { cn } from '@/lib/utils';
 
 /**
@@ -811,8 +812,11 @@ function ScheduleFields({
   showPresets?: boolean;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const { advanced: advancedMode } = useAdvancedMode();
   const zones = useMemo(timeZoneOptions, []);
-  const advancedOpen = showAdvanced || Boolean(errors.cron);
+  // Global mode opens it; a cron error opens it whatever the mode, because an invalid
+  // expression the user cannot see is a form they cannot submit and cannot debug.
+  const advancedOpen = showAdvanced || advancedMode || Boolean(errors.cron);
 
   const activePreset = PRESETS.find(
     (preset) => preset.cron === value.cron.trim() && preset.action === value.action,

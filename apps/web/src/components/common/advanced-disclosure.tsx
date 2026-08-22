@@ -1,44 +1,28 @@
-import { useState } from 'react';
-import { ChevronDown } from 'pixelarticons/react/ChevronDown.js';
-import { Button } from '@/components/ui/button';
+import { useAdvancedMode } from '@/lib/advanced-mode';
 import { cn } from '@/lib/utils';
 
 /**
- * Keeps the settings that can break a server out of the first screen.
+ * Content that only exists in advanced mode.
  *
- * Most people running a server for friends never need to think about memory ceilings, JVM
- * flags or a reinstall, and showing all of it at once makes the page read as something you
- * need to understand before you touch it. Closed by default, one click away, and never a
- * different shape from the field-level disclosure in `variable-fields.tsx` — two controls
- * that mean "there is more here" should not look like two different ideas.
+ * The app defaults to easy mode, so this renders nothing at all rather than a collapsed
+ * disclosure — a row of "Advanced" buttons on every screen is the clutter easy mode is meant
+ * to remove, and re-opening them on each visit is worse than a single global switch.
+ *
+ * `force` is the safety valve, and it matters more than the feature does. Anything a person
+ * has to act on — a field that failed validation, a setting already moved off its default —
+ * must be visible whichever mode they are in. An invisible error is a user stuck with no idea
+ * why, and no reason to suspect a preference is the cause.
  */
 
-export interface AdvancedDisclosureProps {
-  /** Shown on the button, after the word Advanced. Usually a count. */
-  summary?: string;
+export interface AdvancedOnlyProps {
   children: React.ReactNode;
+  /** Renders regardless of mode. For errors and non-default values that must not be hidden. */
+  force?: boolean;
   className?: string;
 }
 
-export function AdvancedDisclosure({ summary, children, className }: AdvancedDisclosureProps) {
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return (
-      <Button
-        aria-expanded={false}
-        className={cn(
-          'h-11 w-fit rounded-button px-4 text-subhead font-medium text-label-secondary',
-          className,
-        )}
-        onClick={() => setOpen(true)}
-        variant="ghost"
-      >
-        <ChevronDown aria-hidden />
-        {summary === undefined ? 'Advanced' : `Advanced (${summary})`}
-      </Button>
-    );
-  }
-
-  return <div className={cn('flex flex-col gap-6', className)}>{children}</div>;
+export function AdvancedOnly({ children, force = false, className }: AdvancedOnlyProps) {
+  const { advanced } = useAdvancedMode();
+  if (!advanced && !force) return null;
+  return <div className={cn('flex flex-col gap-8', className)}>{children}</div>;
 }

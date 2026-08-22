@@ -13,6 +13,7 @@ import { ApiError } from '@/lib/api-client.js';
 import { AuthProvider, useAuth } from '@/lib/auth.js';
 import { createQueryClient } from '@/lib/query.js';
 import { routes } from '@/routes.js';
+import { AdvancedModeProvider } from '@/lib/advanced-mode.js';
 import { ThemeProvider } from '@/lib/theme.js';
 
 /**
@@ -60,15 +61,31 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
   return writeText;
 }
 
-function Harness({ children }: { children: React.ReactNode }) {
+/**
+ * Every provider the real app mounts, in the real order.
+ *
+ * One definition rather than four copies: this stack was duplicated inline at each render
+ * site, so adding a provider to the app broke three tests that each had to be found and
+ * edited by hand. A test that has to be updated for a change it does not care about is a
+ * test that will eventually be updated wrongly.
+ */
+function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <QueryClientProvider client={createQueryClient()}>
-        <AuthProvider>
-          <MemoryRouter>{children}</MemoryRouter>
-        </AuthProvider>
-      </QueryClientProvider>
+      <AdvancedModeProvider>
+        <QueryClientProvider client={createQueryClient()}>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryClientProvider>
+      </AdvancedModeProvider>
     </ThemeProvider>
+  );
+}
+
+function Harness({ children }: { children: React.ReactNode }) {
+  return (
+    <Providers>
+      <MemoryRouter>{children}</MemoryRouter>
+    </Providers>
   );
 }
 
@@ -336,13 +353,9 @@ describe('routing', () => {
 
     const router = createMemoryRouter(routes, { initialEntries: ['/servers/srv_1/files'] });
     render(
-      <ThemeProvider>
-        <QueryClientProvider client={createQueryClient()}>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </QueryClientProvider>
-      </ThemeProvider>,
+      <Providers>
+        <RouterProvider router={router} />
+      </Providers>,
     );
 
     await waitFor(() =>
@@ -383,13 +396,9 @@ describe('AppShell', () => {
 
     const router = createMemoryRouter(routes, { initialEntries: [initialEntry] });
     return render(
-      <ThemeProvider>
-        <QueryClientProvider client={createQueryClient()}>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </QueryClientProvider>
-      </ThemeProvider>,
+      <Providers>
+        <RouterProvider router={router} />
+      </Providers>,
     );
   }
 
@@ -440,13 +449,9 @@ describe('AppShell', () => {
 
     const router = createMemoryRouter(routes, { initialEntries: ['/admin/users'] });
     render(
-      <ThemeProvider>
-        <QueryClientProvider client={createQueryClient()}>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </QueryClientProvider>
-      </ThemeProvider>,
+      <Providers>
+        <RouterProvider router={router} />
+      </Providers>,
     );
 
     expect(await screen.findByText(/don’t have access to this/i)).toBeInTheDocument();

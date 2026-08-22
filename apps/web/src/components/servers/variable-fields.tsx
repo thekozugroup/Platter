@@ -20,6 +20,7 @@ import {
   PasswordInputTrigger,
 } from '@/components/ui/password-input';
 import { Switch } from '@/components/ui/switch';
+import { useAdvancedMode } from '@/lib/advanced-mode';
 import { cn } from '@/lib/utils';
 
 /**
@@ -288,10 +289,22 @@ export function VariableFields({
     (variable) => variable.advanced && !promoteKeys.includes(variable.key),
   );
 
-  // An advanced field that failed validation must not be hidden behind a closed disclosure.
+  /*
+   * Two ways in, and one override.
+   *
+   * Global advanced mode opens this without a click, so someone who has said "show me
+   * everything" is not asked again on every server they create. The local button stays for
+   * easy mode: this is the one place where a beginner may genuinely need one advanced field
+   * (a version pin, usually), and sending them to a preference menu to find it would be
+   * worse than a disclosure.
+   *
+   * A field that failed validation opens it regardless. An error the user cannot see is an
+   * error they cannot fix, and they have no reason to suspect a preference is hiding it.
+   */
   const advancedHasError = advanced.some((variable) => Boolean(errors[variable.key]));
+  const { advanced: advancedMode } = useAdvancedMode();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const advancedOpen = showAdvanced || advancedHasError;
+  const advancedOpen = showAdvanced || advancedMode || advancedHasError;
 
   const required = promoted.filter((variable) => variable.required);
   const optional = promoted.filter((variable) => !variable.required);
