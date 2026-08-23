@@ -38,7 +38,7 @@ export const palworldBlueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'survival',
   image: 'thijsvanloef/palworld-server-docker:v2.7.1',
-  icon: { monogram: 'PW', hue: 190 },
+  icon: { monogram: 'PW', hue: 190, glyph: 'paw' },
   minMemoryMb: 8192,
   recommendedMemoryMb: 16384,
   minDiskMb: 16384,

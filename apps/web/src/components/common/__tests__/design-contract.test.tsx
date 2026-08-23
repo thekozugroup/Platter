@@ -119,7 +119,7 @@ function blueprint(game: string, name: string): BlueprintSummary {
     game,
     summary: '',
     category: 'sandbox',
-    icon: { monogram: 'XX', hue: 200 },
+    icon: { monogram: 'XX', hue: 200, glyph: null },
     minMemoryMb: 1024,
     recommendedMemoryMb: 2048,
     minDiskMb: 4096,

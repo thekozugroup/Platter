@@ -27,7 +27,7 @@ export const rustBlueprint: BlueprintDefinition = {
   // a digest is the only way to stop an upstream push from changing every server at once.
   image:
     'didstopia/rust-server@sha256:c1832bfaf9e2f83954f372e1d1420e055f2547941bb4b3ebd38383824e64c95c',
-  icon: { monogram: 'RU', hue: 18 },
+  icon: { monogram: 'RU', hue: 18, glyph: 'hammer' },
   minMemoryMb: 8192,
   recommendedMemoryMb: 16384,
   minDiskMb: 30720,

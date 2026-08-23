@@ -256,6 +256,7 @@ function ServerRows() {
             >
               <GameIcon
                 blueprintKey={server.blueprintKey}
+                glyph={blueprints.get(server.blueprintKey)?.icon.glyph}
                 hue={blueprints.get(server.blueprintKey)?.icon.hue}
                 monogram={blueprints.get(server.blueprintKey)?.icon.monogram}
                 name={server.name}

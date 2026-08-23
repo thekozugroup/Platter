@@ -127,6 +127,13 @@ export const blueprintSchema = z.object({
   icon: z.object({
     monogram: z.string().min(1).max(3),
     hue: z.number().int().min(0).max(360),
+    /**
+     * Names a pixel mark the client draws (`pickaxe`, `cog`, `crosshair`). Optional, and an
+     * unknown name falls back to the monogram, so a new game can ship before it has a mark.
+     * A name rather than artwork: the API stays free of SVG, and the drawing stays with the
+     * design system that has to keep it legible.
+     */
+    glyph: z.string().max(32).nullable().default(null),
   }),
   minMemoryMb: z.number().int().min(LIMITS.minMemoryMb).max(LIMITS.maxMemoryMb),
   recommendedMemoryMb: z.number().int().min(LIMITS.minMemoryMb).max(LIMITS.maxMemoryMb),

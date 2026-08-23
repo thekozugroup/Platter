@@ -12,6 +12,31 @@ import { queryKeys } from '@/lib/query.js';
 export interface SystemSettings {
   siteName: string;
   motd: string;
+  updateChecks: boolean;
+}
+
+export interface UpdateStatus {
+  current: string;
+  latest: string | null;
+  updateAvailable: boolean;
+  releaseUrl: string | null;
+  publishedAt: string | null;
+  checkedAt: string | null;
+  unavailable: string | null;
+}
+
+/**
+ * The answer is cached for hours on the server, so this is cheap to mount and there is no
+ * reason to refetch it on focus — a version does not change while someone reads the page.
+ */
+export function useUpdateStatus(): UseQueryResult<UpdateStatus> {
+  return useQuery({
+    queryKey: queryKeys.system.updates(),
+    queryFn: () => api.get<UpdateStatus>('/system/updates'),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
 }
 
 export function useSystemSettings(): UseQueryResult<SystemSettings> {

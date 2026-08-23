@@ -23,7 +23,7 @@ export const enshroudedBlueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'survival',
   image: 'mornedhels/enshrouded-server:1.7.2',
-  icon: { monogram: 'EN', hue: 282 },
+  icon: { monogram: 'EN', hue: 282, glyph: 'fog' },
   minMemoryMb: 12288,
   recommendedMemoryMb: 16384,
   minDiskMb: 30720,

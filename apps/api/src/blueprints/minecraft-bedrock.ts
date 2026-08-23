@@ -23,7 +23,7 @@ export const minecraftBedrockBlueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'sandbox',
   image: 'itzg/minecraft-bedrock-server:2026.8.0',
-  icon: { monogram: 'BE', hue: 38 },
+  icon: { monogram: 'BE', hue: 38, glyph: 'block' },
   minMemoryMb: 512,
   recommendedMemoryMb: 1536,
   minDiskMb: 2048,

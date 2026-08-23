@@ -248,9 +248,7 @@ function IdentityCard() {
                 onChange={(event) => setDescription(event.target.value)}
                 value={description}
               />
-              <FieldHelper>
-                A line for whoever finds this in six months. Shown on the dashboard card.
-              </FieldHelper>
+              <FieldHelper>Optional. Shown on the dashboard card.</FieldHelper>
               <FieldError>{fieldErrors.description}</FieldError>
             </Field>
 

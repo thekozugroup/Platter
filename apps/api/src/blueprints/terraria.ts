@@ -27,7 +27,7 @@ export const terrariaBlueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'sandbox',
   image: 'ryshe/terraria:vanilla-1.4.5.6',
-  icon: { monogram: 'TR', hue: 96 },
+  icon: { monogram: 'TR', hue: 96, glyph: 'tree' },
   minMemoryMb: 512,
   recommendedMemoryMb: 1536,
   minDiskMb: 2048,

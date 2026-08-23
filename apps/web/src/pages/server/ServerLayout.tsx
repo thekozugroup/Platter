@@ -213,6 +213,7 @@ function ServerScopeProvider({ serverId }: { serverId: string }) {
               <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
                 <GameIcon
                   blueprintKey={server.blueprintKey}
+                  glyph={blueprint?.icon.glyph}
                   hue={blueprint?.icon.hue}
                   monogram={blueprint?.icon.monogram}
                   name={server.name}

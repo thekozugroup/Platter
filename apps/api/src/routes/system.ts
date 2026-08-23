@@ -4,6 +4,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { availableModSources, modSourceSchema } from '../mods/registry.js';
+import { checkForUpdate, updateStatusSchema } from '../services/updates.js';
 import { prisma } from '../db.js';
 import { getDriverForNode } from '../orchestration/registry.js';
 import { recordAuditFromRequest } from '../services/audit.js';
@@ -109,6 +110,14 @@ const SETTINGS_CATALOG = {
   siteName: { schema: z.string().trim().min(1).max(80), default: 'Platter' },
   /** Optional banner text for the dashboard. */
   motd: { schema: z.string().trim().max(500), default: '' },
+  /**
+   * Whether to ask GitHub, once every few hours, if a newer Platter exists.
+   *
+   * On by default: the updates worth hearing about are the security ones, and an operator
+   * who is never told keeps running what they installed. It is a switch because the check
+   * is an outbound connection, and some installations are deliberately offline.
+   */
+  updateChecks: { schema: z.boolean(), default: true },
 } as const;
 
 // `-readonly` because `SETTINGS_CATALOG` is `as const`: a plain homomorphic mapped type
@@ -121,12 +130,14 @@ type SettingsShape = {
 const settingsSchema = z.object({
   siteName: SETTINGS_CATALOG.siteName.schema,
   motd: SETTINGS_CATALOG.motd.schema,
+  updateChecks: SETTINGS_CATALOG.updateChecks.schema,
 });
 
 const updateSettingsRequestSchema = z
   .object({
     siteName: SETTINGS_CATALOG.siteName.schema.optional(),
     motd: SETTINGS_CATALOG.motd.schema.optional(),
+    updateChecks: SETTINGS_CATALOG.updateChecks.schema.optional(),
   })
   .refine((body) => Object.keys(body).length > 0, 'Nothing to update');
 
@@ -137,11 +148,22 @@ async function getSettings(): Promise<SettingsShape> {
   const stored = new Map(rows.map((row) => [row.key, row.value]));
 
   const result = {} as SettingsShape;
+  /*
+   * Written through an index signature on purpose. The catalogue holds settings of different
+   * types, so inside a loop TypeScript cannot correlate `key` with the value type of the
+   * definition it just looked up and narrows the target to `never`. The alternative is a
+   * per-key branch that has to be edited every time a setting is added — the cast keeps the
+   * loop data-driven, and the schema below is what actually guarantees the type.
+   */
+  const write = (key: keyof SettingsShape, value: unknown): void => {
+    (result as Record<string, unknown>)[key] = value;
+  };
+
   for (const key of SETTINGS_KEYS) {
     const raw = stored.get(key);
     const definition = SETTINGS_CATALOG[key];
     if (raw === undefined) {
-      result[key] = definition.default;
+      write(key, definition.default);
       continue;
     }
     // A row written by a future build, or edited by hand, degrades to the default rather
@@ -149,9 +171,9 @@ async function getSettings(): Promise<SettingsShape> {
     // an unrecognised action.
     try {
       const parsed = definition.schema.safeParse(JSON.parse(raw));
-      result[key] = parsed.success ? parsed.data : definition.default;
+      write(key, parsed.success ? parsed.data : definition.default);
     } catch {
-      result[key] = definition.default;
+      write(key, definition.default);
     }
   }
   return result;
@@ -252,6 +274,28 @@ const systemRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async () => getSettings(),
+  );
+
+  app.get(
+    '/updates',
+    {
+      // Admin-only: it reports the running version and reaches the network to do it, and
+      // neither is a member's business on someone else's installation.
+      preHandler: app.requireRole('admin'),
+      schema: {
+        tags: ['system'],
+        summary: 'Whether a newer Platter has been released',
+        response: { 200: updateStatusSchema },
+      },
+    },
+    async (request) => {
+      const settings = await getSettings();
+      return checkForUpdate({
+        currentVersion: APP_VERSION,
+        enabled: settings.updateChecks,
+        log: request.log,
+      });
+    },
   );
 
   app.patch(

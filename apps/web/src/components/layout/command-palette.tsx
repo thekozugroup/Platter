@@ -173,6 +173,7 @@ function CommandPalette() {
           <>
             <GameIcon
               blueprintKey={server.blueprintKey}
+              glyph={icon?.glyph}
               hue={icon?.hue}
               monogram={icon?.monogram}
               name={server.name}

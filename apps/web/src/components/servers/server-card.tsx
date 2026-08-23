@@ -96,6 +96,7 @@ export function ServerCard({ server, blueprint, className }: ServerCardProps) {
       <div className="flex items-start gap-3 p-4">
         <GameIcon
           blueprintKey={server.blueprintKey}
+          glyph={blueprint?.icon.glyph}
           hue={blueprint?.icon.hue}
           monogram={blueprint?.icon.monogram}
           name={server.name}

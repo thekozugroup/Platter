@@ -1,4 +1,5 @@
 import { hueFromString } from '@platter/shared';
+import { glyphFor } from '@/components/common/game-glyphs';
 import { cn } from '@/lib/utils';
 
 /**
@@ -38,6 +39,8 @@ const SIZE_CLASS: Record<GameIconSize, string> = {
 const SIZE_CHARS: Record<GameIconSize, number> = { xs: 2, sm: 2, md: 3, lg: 3 };
 
 export interface GameIconProps {
+  /** From `blueprint.icon`. Names a pixel mark; an unknown name falls back to the monogram. */
+  glyph?: string | null | undefined;
   /** From `blueprint.icon`. Falls back to initials derived from `name` or `blueprintKey`. */
   monogram?: string | undefined;
   /** From `blueprint.icon`. Falls back to a hash of `blueprintKey` or `name`. */
@@ -111,6 +114,7 @@ function deriveMonogram(name: string | undefined, blueprintKey: string | undefin
 }
 
 export function GameIcon({
+  glyph,
   monogram,
   hue,
   blueprintKey,
@@ -124,6 +128,7 @@ export function GameIcon({
     0,
     SIZE_CHARS[size],
   );
+  const glyphRects = glyphFor(glyph);
 
   return (
     <span
@@ -143,7 +148,27 @@ export function GameIcon({
       }}
       {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >
-      {resolvedMonogram}
+      {/*
+        The mark when the blueprint names one it can draw, the monogram otherwise. Whole cells
+        on a 24-unit grid, scaled by the tile, so the pixels stay square at every size.
+        `shapeRendering="crispEdges"` keeps the browser from antialiasing them into mush at
+        the two small sizes.
+      */}
+      {glyphRects === null ? (
+        resolvedMonogram
+      ) : (
+        <svg
+          aria-hidden
+          className="size-[68%]"
+          fill="currentColor"
+          shapeRendering="crispEdges"
+          viewBox="0 0 24 24"
+        >
+          {glyphRects.map(([x, y, width, height]) => (
+            <rect height={height} key={`${x}-${y}-${width}-${height}`} width={width} x={x} y={y} />
+          ))}
+        </svg>
+      )}
     </span>
   );
 }

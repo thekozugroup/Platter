@@ -30,7 +30,7 @@ export const dontStarveTogetherBlueprint: BlueprintDefinition = {
   // the game build still comes from Steam at start — only the tooling is frozen here.
   image:
     'jamesits/dst-server@sha256:fa61065f8d2d770bc5d45f1a160b87b1deada3fd5903d9524b771321ca98dc58',
-  icon: { monogram: 'DS', hue: 336 },
+  icon: { monogram: 'DS', hue: 336, glyph: 'campfire' },
   minMemoryMb: 1024,
   recommendedMemoryMb: 2048,
   minDiskMb: 4096,

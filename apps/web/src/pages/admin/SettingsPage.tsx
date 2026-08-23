@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { LIMITS, formatCpu, formatMegabytes } from '@platter/shared';
+import { CopyField } from '@/components/common/copy-field';
 import { PageBody, PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
-import { useSystemSettings, useUpdateSystemSettings } from '@/hooks';
+import { useSystemSettings, useUpdateStatus, useUpdateSystemSettings } from '@/hooks';
 import { ApiError, errorMessage } from '@/lib/api-client.js';
 import { useAuth, useSystemInfo } from '@/lib/auth.js';
 import { cn } from '@/lib/utils';
@@ -332,6 +333,90 @@ function IntegrationRow({
   );
 }
 
+function UpdatesCard() {
+  const status = useUpdateStatus();
+  const settings = useSystemSettings();
+  const update = useUpdateSystemSettings();
+  const { user } = useAuth();
+  const canEdit = user?.role === 'owner';
+
+  const data = status.data;
+  const command = 'docker compose pull && docker compose up -d';
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className={SECTION_TITLE}>Updates</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        {status.isPending ? (
+          <Skeleton className="h-16 rounded-sm" />
+        ) : (
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-subhead font-medium text-label">Version {data?.current ?? '—'}</p>
+              <p className="text-footnote text-label-secondary">
+                {data?.unavailable
+                  ? data.unavailable
+                  : data?.updateAvailable
+                    ? `Version ${data.latest} is available.`
+                    : 'Up to date.'}
+              </p>
+            </div>
+            {data?.releaseUrl && data.updateAvailable ? (
+              <Button asChild className="rounded-button" variant="outline">
+                <a href={data.releaseUrl} rel="noreferrer noopener" target="_blank">
+                  Release notes
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        )}
+
+        {/*
+          Platter does not replace its own container. Doing so means stopping the process
+          that is serving this page, and a failure halfway leaves no interface to diagnose
+          from — so the upgrade is two commands the operator runs, not a button that might
+          strand them.
+        */}
+        {data?.updateAvailable ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-footnote text-label-secondary">
+              Run this in your install directory to upgrade. Servers keep running.
+            </p>
+            <CopyField label="Upgrade command" value={command} />
+          </div>
+        ) : null}
+
+        <Field orientation="horizontal">
+          <div className="flex flex-1 flex-col gap-1">
+            <FieldLabel>Check for updates</FieldLabel>
+            <FieldHelper>Contacts GitHub every few hours. No data is sent.</FieldHelper>
+          </div>
+          <Switch
+            checked={settings.data?.updateChecks ?? true}
+            className="hit-target"
+            disabled={!canEdit || settings.isPending}
+            onCheckedChange={({ checked }) =>
+              update.mutate(
+                { updateChecks: checked === true },
+                {
+                  onError: (cause: unknown) =>
+                    toast.create({
+                      title: 'Couldn’t change update checks',
+                      description: errorMessage(cause),
+                      type: 'error',
+                    }),
+                },
+              )
+            }
+          />
+        </Field>
+      </CardContent>
+    </Card>
+  );
+}
+
 function IntegrationsCard() {
   const info = useSystemInfo();
   const sources = info.data?.modSources ?? [];
@@ -387,6 +472,7 @@ export function SettingsPage() {
           <AccessCard />
           <DefaultsCard />
           <BackupsCard />
+          <UpdatesCard />
           <IntegrationsCard />
         </div>
       </PageBody>

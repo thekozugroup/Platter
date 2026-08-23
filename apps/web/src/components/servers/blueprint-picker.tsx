@@ -169,6 +169,7 @@ export function BlueprintPicker({ value, onChange, className }: BlueprintPickerP
                 <span className="flex flex-col gap-2">
                   <span className="flex items-center gap-2.5">
                     <GameIcon
+                      glyph={blueprint.icon.glyph}
                       hue={blueprint.icon.hue}
                       monogram={blueprint.icon.monogram}
                       name={blueprint.name}

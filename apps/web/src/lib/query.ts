@@ -58,6 +58,7 @@ export const queryKeys = {
     info: () => ['system', 'info'] as const,
     settings: () => ['system', 'settings'] as const,
     health: () => ['system', 'health'] as const,
+    updates: () => ['system', 'updates'] as const,
   },
   ai: {
     status: () => ['ai', 'status'] as const,

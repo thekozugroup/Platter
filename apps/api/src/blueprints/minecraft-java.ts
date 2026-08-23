@@ -690,7 +690,7 @@ export const minecraftJavaBlueprint: BlueprintDefinition = {
       '25': 'itzg/minecraft-server:2026.8.0-java25',
     },
   },
-  icon: { monogram: 'MC', hue: 122 },
+  icon: { monogram: 'MC', hue: 122, glyph: 'pickaxe' },
   minMemoryMb: 1024,
   recommendedMemoryMb: 4096,
   minDiskMb: 8192,

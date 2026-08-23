@@ -32,7 +32,7 @@ const MINECRAFT: BlueprintSummary = {
   game: 'Minecraft',
   summary: 'Vanilla, Paper, Fabric, Forge and modpacks — one blueprint.',
   category: 'sandbox',
-  icon: { monogram: 'MC', hue: 122 },
+  icon: { monogram: 'MC', hue: 122, glyph: 'pickaxe' },
   minMemoryMb: 1024,
   recommendedMemoryMb: 4096,
   minDiskMb: 8192,

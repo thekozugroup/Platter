@@ -28,7 +28,7 @@ export const factorioBlueprint: BlueprintDefinition = {
   // 2.0.x is the stable channel; the image's `latest` tag follows the experimental branch,
   // which clients on the stable build cannot join.
   image: 'factoriotools/factorio:2.0.77',
-  icon: { monogram: 'FA', hue: 28 },
+  icon: { monogram: 'FA', hue: 28, glyph: 'cog' },
   minMemoryMb: 1024,
   recommendedMemoryMb: 4096,
   minDiskMb: 4096,

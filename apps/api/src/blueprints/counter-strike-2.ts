@@ -24,7 +24,7 @@ export const counterStrike2Blueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'shooter',
   image: 'joedwards32/cs2:4.0.1',
-  icon: { monogram: 'CS', hue: 44 },
+  icon: { monogram: 'CS', hue: 44, glyph: 'crosshair' },
   minMemoryMb: 2048,
   recommendedMemoryMb: 4096,
   minDiskMb: 61440,

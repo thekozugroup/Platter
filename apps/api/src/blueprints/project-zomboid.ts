@@ -53,7 +53,7 @@ export const projectZomboidBlueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'survival',
   image: 'renegademaster/zomboid-dedicated-server:2.5.0',
-  icon: { monogram: 'PZ', hue: 4 },
+  icon: { monogram: 'PZ', hue: 4, glyph: 'skull' },
   minMemoryMb: 2048,
   recommendedMemoryMb: 6144,
   minDiskMb: 8192,

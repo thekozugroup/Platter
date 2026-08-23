@@ -163,7 +163,7 @@ function auditSentence(entry: AuditEntry): string {
 // ---------------------------------------------------------------------------------------
 
 export function DashboardPage() {
-  const { user, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const blueprints = useBlueprintIndex();
 
   // Shares the sidebar's cache entry: one poll drives both the nav dots and this screen.
@@ -232,8 +232,6 @@ export function DashboardPage() {
     };
   }, [nodes.data]);
 
-  const greeting = user ? `Hello, ${user.displayName.split(' ')[0] ?? user.displayName}.` : null;
-
   return (
     <>
       <PageHeader
@@ -243,11 +241,7 @@ export function DashboardPage() {
             New server
           </PageAction>
         }
-        description={
-          greeting
-            ? `${greeting} Everything you are running, and anything that needs you.`
-            : 'Everything you are running, and anything that needs you.'
-        }
+        description="Servers, capacity and recent activity."
         title="Dashboard"
       />
 

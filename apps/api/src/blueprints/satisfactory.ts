@@ -23,7 +23,7 @@ export const satisfactoryBlueprint: BlueprintDefinition = {
   ].join(' '),
   category: 'simulation',
   image: 'wolveix/satisfactory-server:v1.9.10',
-  icon: { monogram: 'SF', hue: 258 },
+  icon: { monogram: 'SF', hue: 258, glyph: 'factory' },
   minMemoryMb: 8192,
   recommendedMemoryMb: 12288,
   minDiskMb: 25600,

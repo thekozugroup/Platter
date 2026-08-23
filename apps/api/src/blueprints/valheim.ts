@@ -24,7 +24,7 @@ export const valheimBlueprint: BlueprintDefinition = {
   // lloesche publishes only `latest`, `dev` and per-commit `sha-` tags, so a commit tag is the
   // only pin available. It is still a pin: an upstream push cannot change what this resolves to.
   image: 'lloesche/valheim-server:sha-732221f4d5b5',
-  icon: { monogram: 'VH', hue: 205 },
+  icon: { monogram: 'VH', hue: 205, glyph: 'longship' },
   minMemoryMb: 2048,
   recommendedMemoryMb: 4096,
   minDiskMb: 4096,
