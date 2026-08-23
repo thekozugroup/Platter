@@ -175,7 +175,7 @@ export function BackupsPage() {
                   setName('');
                   toast.create({
                     title: 'Backup started',
-                    description: 'It builds in the background. This list updates as it goes.',
+                    description: 'It builds in the background. This list updates automatically.',
                     type: 'success',
                   });
                 },
@@ -190,7 +190,7 @@ export function BackupsPage() {
           }}
         >
           <Field className="max-w-xs flex-1">
-            <FieldLabel>Name this backup</FieldLabel>
+            <FieldLabel>Name</FieldLabel>
             <Input
               className="h-11"
               maxLength={80}
@@ -199,9 +199,7 @@ export function BackupsPage() {
               placeholder="Before the 1.21 update"
               value={name}
             />
-            <FieldHelper>
-              Optional. Left blank, it is named after the time it was taken.
-            </FieldHelper>
+            <FieldHelper>Optional. Defaults to the time the backup was taken.</FieldHelper>
           </Field>
           <Button
             {...(server.status === 'deleting' ? { 'aria-describedby': 'backup-create-hint' } : {})}
@@ -216,7 +214,7 @@ export function BackupsPage() {
           </Button>
           {server.status === 'deleting' ? (
             <p className="text-caption text-label-tertiary" id="backup-create-hint">
-              This server is being deleted, so there is nothing left to archive.
+              Backups are unavailable while this server is being deleted.
             </p>
           ) : null}
         </form>
@@ -315,7 +313,7 @@ export function BackupsPage() {
                 toast.create({
                   title: `Restored ${restoring.name}`,
                   description: result.stoppedServer
-                    ? 'The server was stopped for the restore. Start it again when you are ready.'
+                    ? 'The server was stopped for the restore. Start it again manually.'
                     : 'The server was already stopped, so nothing was interrupted.',
                   type: 'success',
                 });
@@ -390,7 +388,7 @@ function BackupRow({
     backup.status !== 'completed'
       ? `Only a finished backup can be restored. This one is ${copy.label.toLowerCase()}.`
       : serverBusy
-        ? 'This server is being deleted, so there is nothing to restore onto.'
+        ? 'Restore is unavailable while this server is being deleted.'
         : null;
 
   return (
@@ -675,7 +673,7 @@ function DeleteDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogBody className="text-subhead text-label-secondary">
-          The server’s current files are untouched — this only removes the copy taken back then.
+          The server’s current files are untouched. This removes only the archive.
         </AlertDialogBody>
         <AlertDialogFooter>
           <AlertDialogCancel className={ACTION}>Keep it</AlertDialogCancel>

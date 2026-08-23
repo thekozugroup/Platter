@@ -272,7 +272,7 @@ function WhitelistCard({
                   {unknownState
                     ? 'Currently unknown — this is read from the running server.'
                     : enabled
-                      ? 'On. Anyone not on the list is turned away at the door.'
+                      ? 'On. Players not on the list cannot join.'
                       : 'Off. Anyone who knows the address can join.'}
                 </p>
                 {!unknownState && !enabled && names.length === 0 ? (
@@ -325,7 +325,7 @@ function WhitelistCard({
 
             <AddByName
               blockedReason={blockedReason}
-              helper="They do not have to have joined before. The name is sent to the running server, which writes it to whitelist.json straight away."
+              helper="The player does not have to have joined before. The name is written to whitelist.json immediately."
               isPending={
                 command.isPending && command.variables?.id.startsWith('whitelist-add') === true
               }
@@ -561,7 +561,7 @@ function BansCard({ serverId, blockedReason }: { serverId: string; blockedReason
               <h4 className="text-subhead font-medium text-label">Banned addresses</h4>
               <AddByName
                 blockedReason={blockedReason}
-                helper="An IPv4 or IPv6 address. Everyone connecting from it is refused, so use it sparingly — households and phone networks share addresses."
+                helper="An IPv4 or IPv6 address. Everyone connecting from it is refused. Households and mobile networks often share one address."
                 isPending={
                   command.isPending && command.variables?.id.startsWith('ban-ip:') === true
                 }

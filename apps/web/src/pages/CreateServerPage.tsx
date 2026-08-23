@@ -171,21 +171,21 @@ export function CreateServerPage() {
       {
         key: 'game',
         title: 'Game',
-        blurb: 'What this server runs. Everything after this adapts to it.',
+        blurb: 'Choose a game. Later steps and default settings depend on it.',
       },
     ];
     if (showTypeStep) {
       list.push({
         key: 'type',
         title: 'Server type',
-        blurb: 'Whether it takes plugins, mods, both, or nothing at all.',
+        blurb: 'What the server accepts: plugins, mods, both, or none.',
       });
     }
     list.push(
       {
         key: 'details',
         title: 'Name and size',
-        blurb: 'What to call it, and how much of the machine it gets.',
+        blurb: 'The server name and its resource limits.',
       },
       {
         key: 'settings',
@@ -332,7 +332,7 @@ export function CreateServerPage() {
       toast.create({
         title: `${created.name} is being created`,
         description:
-          'Platter is pulling the image and running the install. Watch it happen in the console.',
+          'Pulling the container image and running the install. Progress appears in the console.',
         type: 'info',
       });
 
@@ -394,7 +394,7 @@ export function CreateServerPage() {
   return (
     <>
       <PageHeader
-        description="Pick a game. Choose how much of the machine it gets. Press create."
+        description="The game, resource limits and settings for a new server."
         eyebrow="Servers"
         title="New server"
       />
@@ -499,9 +499,7 @@ export function CreateServerPage() {
                             onChange={(event) => setDescription(event.target.value)}
                             value={description}
                           />
-                          <FieldDescription>
-                            Optional. A note to yourself about what this server is for.
-                          </FieldDescription>
+                          <FieldDescription>Optional. Not shown to players.</FieldDescription>
                           <FieldError>{apiErrors.description}</FieldError>
                         </Field>
                       </div>

@@ -330,7 +330,7 @@ describe('routing', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: /no page here/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /page not found/i })).toBeInTheDocument();
     expect(screen.getByText('/nope')).toBeInTheDocument();
   });
 

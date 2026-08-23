@@ -69,8 +69,8 @@ function scorePassword(value: string): Strength {
   const labels = ['Too short', 'Weak', 'Fair', 'Strong', 'Very strong'];
   const advice =
     score >= 3
-      ? 'Good. Store it in a password manager — there is no reset email on a fresh install.'
-      : 'Longer beats more symbols. Four unrelated words works well.';
+      ? 'Store it in a password manager. Platter cannot send a password reset email.'
+      : 'Length helps more than symbols. Try four unrelated words.';
 
   return { score, label: labels[score] ?? 'Weak', advice };
 }
@@ -173,7 +173,7 @@ export function SetupPage() {
                   onChange={(event) => setDisplayName(event.target.value)}
                   value={displayName}
                 />
-                <FieldHelper>Shown next to anything you do, in the audit log included.</FieldHelper>
+                <FieldHelper>Shown next to your actions, including in the audit log.</FieldHelper>
                 <FieldError>{fieldErrors.displayName}</FieldError>
               </Field>
 

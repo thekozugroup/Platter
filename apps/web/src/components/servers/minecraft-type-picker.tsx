@@ -88,7 +88,8 @@ const FAMILIES: readonly Family[] = [
   {
     key: 'custom',
     title: 'Custom jar',
-    blurb: 'Runs a server jar you point at by URL or by path on the volume. You own what it does.',
+    blurb:
+      'Runs a server jar you supply by URL or by path on the volume. Platter does not manage or update it.',
     more: { one: 'custom option', other: 'custom options' },
   },
 ];

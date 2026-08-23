@@ -283,7 +283,7 @@ function PasswordCard() {
                   <PasswordInputTrigger aria-label="Toggle password visibility" />
                 </PasswordInputGroup>
               </PasswordInput>
-              <FieldHelper>At least 12 characters. Length beats symbols.</FieldHelper>
+              <FieldHelper>At least 12 characters.</FieldHelper>
               <FieldError>{fieldErrors.newPassword}</FieldError>
             </Field>
 
@@ -679,7 +679,7 @@ function ApiKeysCard() {
 
         {keys.isSuccess && keys.data.length === 0 ? (
           <EmptyState
-            description="Create one when a script, a scrape job or an agent needs to talk to Platter without a browser."
+            description="Create a key to authenticate requests without a browser session."
             size="sm"
             title="No API keys yet"
           />
@@ -723,9 +723,7 @@ function AppearanceCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Appearance</CardTitle>
-        <CardDescription>
-          Light is the canonical theme. The console stays dark either way.
-        </CardDescription>
+        <CardDescription>The server console stays dark in every theme.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {/* Three fixed-width segments overflowed their own card at 360px and took the whole

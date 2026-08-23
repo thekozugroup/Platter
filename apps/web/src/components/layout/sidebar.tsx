@@ -353,7 +353,7 @@ function AccountMenu() {
         >
           <MenuRadioItem value="easy">
             <Feather aria-hidden />
-            Easy — just the essentials
+            Easy — essentials only
           </MenuRadioItem>
           <MenuRadioItem value="advanced">
             <Eye aria-hidden />

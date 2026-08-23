@@ -94,8 +94,8 @@ export function PlayersPage() {
             blockedReason={blockedReason}
             emptyDescription={
               unavailable
-                ? 'Platter cannot see who is connected right now, so this list stays empty until it can.'
-                : 'Nobody is connected. Share the connect address from the server’s overview and they will appear here as they join.'
+                ? 'Platter cannot read the live player list right now.'
+                : 'Share the connect address shown above to invite players.'
             }
             emptyTitle={unavailable ? 'Nobody can be listed right now' : 'Nobody is playing'}
             isLoading={roster.isPending}
@@ -126,7 +126,7 @@ export function PlayersPage() {
 
           <PlayerList
             blockedReason={blockedReason}
-            emptyDescription="Nobody has joined yet. The first person to connect appears here, and stays even after they leave."
+            emptyDescription="Nobody has joined yet. Players are added when they first connect and stay listed after they leave."
             emptyTitle="No players recorded"
             isLoading={roster.isPending}
             players={players}

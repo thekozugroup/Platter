@@ -497,7 +497,7 @@ export function UsersPage() {
         {users.isSuccess && rows.length === 0 && !filtered ? (
           <EmptyState
             action={{ label: 'Create the first account', onClick: openCreate }}
-            description="Every account on Platter — who can sign in, what they can do, and which servers they own — lives here."
+            description="Accounts, roles and server ownership are managed here."
             icon={<UsersIcon />}
             title="No accounts yet"
           />
@@ -705,7 +705,7 @@ function SuspendDialog({ user, onClose }: { user: User | null; onClose: () => vo
           </AlertDialogBody>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel className={ACTION}>Never mind</AlertDialogCancel>
+          <AlertDialogCancel className={ACTION}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             className={ACTION}
             isLoading={update.isPending}

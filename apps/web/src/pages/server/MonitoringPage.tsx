@@ -130,7 +130,7 @@ export function MonitoringPage() {
 
   const offlineNote = isRunning
     ? null
-    : 'Live readings are taken only while the server is running. Everything below is the history Platter already recorded.';
+    : 'Live readings are taken only while the server is running. Everything below comes from earlier samples.';
 
   return (
     <PageBody>
@@ -256,7 +256,7 @@ export function MonitoringPage() {
             {...(server.startedAt === null
               ? {
                   emptyHint:
-                    'This server has not started yet, so there is nothing to plot. History begins the first time it runs.',
+                    'This server has not started yet. History begins the first time it runs.',
                 }
               : {})}
             live={isRunning}
@@ -271,7 +271,7 @@ export function MonitoringPage() {
         {/* -------------------------------------------------------------------- Limits */}
         <section aria-labelledby="monitoring-limits" className="flex flex-col gap-5">
           <h2 className={SECTION_HEADING} id="monitoring-limits">
-            Against its limits
+            Limits
           </h2>
           <div className="grid gap-8 rounded-md border border-separator-strong bg-surface p-6 sm:grid-cols-2">
             <LiveMeter

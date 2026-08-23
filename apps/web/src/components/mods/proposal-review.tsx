@@ -358,7 +358,7 @@ export function ProposalReview({
 
       <section className="flex flex-col gap-3 border-t border-separator pt-5">
         <h4 className="font-sans text-subhead font-semibold text-label">
-          The mod, as it was when this was suggested
+          Listing at the time it was suggested
         </h4>
         <ModDetailBody
           capturedAt={proposal.proposedAt}
@@ -485,7 +485,7 @@ export function ProposalReview({
                 maxLength={MAX_NOTE}
                 name="note"
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="So the same thing is not suggested again."
+                placeholder="Not compatible with this server"
                 rows={3}
                 value={note}
               />
@@ -839,7 +839,7 @@ export function ProposalQueue({ serverId, serverName, className }: ProposalQueue
     return (
       <EmptyState
         className={className}
-        description="Connect Claude, or any assistant that speaks MCP, and it can suggest mods for this server. They land here with the whole listing — what it does, who made it, its licence, how many people use it — and go on the server only if you say so."
+        description="Connect an assistant on the AI and MCP page to get suggestions here."
         icon={<Shield />}
         size="sm"
         title="No suggestions right now"

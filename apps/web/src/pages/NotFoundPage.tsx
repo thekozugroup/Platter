@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router';
 import { EmptyState } from '@/components/common/empty-state';
-import { PageBody, PageHeader } from '@/components/layout/page-header';
+import { PageBody } from '@/components/layout/page-header';
 
 /**
  * 404, inside the shell.
@@ -13,18 +13,21 @@ export function NotFoundPage() {
 
   return (
     <>
-      <PageHeader title="No page here" />
+      {/*
+        The heading belongs to the empty state, not to both. Titling the page and the panel
+        identically printed "Page not found" twice, one above the other.
+      */}
       <PageBody>
         <EmptyState
           action={{ label: 'Go to the dashboard', to: '/' }}
           secondaryAction={{ label: 'See all servers', to: '/servers' }}
           description={
             <>
-              Nothing is routed at <code className="font-mono text-label">{pathname}</code>. The
-              link may be out of date, or whatever lived here has been deleted.
+              No page exists at <code className="font-mono text-label">{pathname}</code>. The link
+              may be out of date, or the item may have been deleted.
             </>
           }
-          title="That address doesn’t exist"
+          title="Page not found"
         />
       </PageBody>
     </>

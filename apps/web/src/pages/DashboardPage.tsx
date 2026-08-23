@@ -251,7 +251,7 @@ export function DashboardPage() {
           {summary.attention.length > 0 ? (
             <section aria-labelledby="attention-heading" className="flex flex-col gap-4">
               <h2 className="text-title-2 text-label" id="attention-heading">
-                Needs you
+                Needs attention
               </h2>
               <ul className="flex flex-col gap-3">
                 {summary.attention.map((server) => (
@@ -328,7 +328,7 @@ export function DashboardPage() {
               <StatTile
                 detail={
                   summary.attention.length === 0
-                    ? 'Nothing to look at'
+                    ? 'No crashed, failed or suspended servers'
                     : 'Crashed, failed or suspended'
                 }
                 label="Needs attention"
@@ -438,7 +438,7 @@ export function DashboardPage() {
             {servers.isSuccess && summary.total === 0 ? (
               <EmptyState
                 action={{ label: 'Create your first server', to: '/servers/new' }}
-                description="Platter runs each game in its own container and gives you a console, a file browser, scheduled backups and a live view of what it is doing. Nothing is running yet."
+                description="Each server runs one game in its own container, with a console, file browser and scheduled backups."
                 icon={<ServerIcon />}
                 title="Nothing running yet"
               >

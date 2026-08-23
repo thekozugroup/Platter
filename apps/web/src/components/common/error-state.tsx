@@ -45,7 +45,7 @@ const RECOVERY: Partial<Record<ErrorCode, string>> = {
 /** A short, blameless headline. Never "Oops". */
 const HEADLINE: Partial<Record<ErrorCode, string>> = {
   unauthenticated: 'You are signed out',
-  invalid_credentials: 'That did not sign you in',
+  invalid_credentials: 'Sign-in failed',
   token_expired: 'Your session expired',
   forbidden: 'You do not have access',
   not_found: 'Not found',

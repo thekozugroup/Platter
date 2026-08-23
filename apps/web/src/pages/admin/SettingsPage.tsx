@@ -261,7 +261,7 @@ function BackupsCard() {
     <Card>
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Backups</CardTitle>
-        <CardDescription>How long Platter keeps the backups it takes on its own.</CardDescription>
+        <CardDescription>Retention for automatic backups.</CardDescription>
       </CardHeader>
       <CardContent>
         <p className="max-w-prose text-subhead text-label-secondary">

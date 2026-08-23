@@ -47,7 +47,7 @@ function CrashScreen({ error, homeTo = '/' }: { error: Error; homeTo?: string })
       </div>
 
       <p className="mt-4 max-w-prose text-caption text-label-tertiary">
-        If it happens again, the browser console holds the stack trace worth filing a bug with.
+        The browser console has the full stack trace. Include it when filing a bug.
       </p>
     </div>
   );
@@ -89,7 +89,7 @@ export function RouteErrorBoundary() {
         </h1>
         <p className="max-w-prose text-balance text-body text-label-secondary">
           {isNotFound
-            ? 'The address is wrong, or whatever used to be here has been deleted.'
+            ? 'The address is wrong, or the page was deleted.'
             : error.statusText || 'The router could not load this route.'}
         </p>
         <Button asChild className={pageActionClass} size="lg">

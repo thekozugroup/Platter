@@ -128,7 +128,7 @@ export function LoginPage() {
           </p>
           <h1 className="mt-6 text-title-1 text-label">Sign in</h1>
           <p className="mt-3 text-body text-label-secondary">
-            Your servers, your machine. Sign in to pick up where you left off.
+            Accounts are created by an administrator.
           </p>
 
           <form className="mt-8" noValidate onSubmit={(event) => void handleSubmit(event)}>

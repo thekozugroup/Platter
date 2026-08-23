@@ -490,8 +490,7 @@ export function FileBrowser({
 
           {!canWrite ? (
             <p className="text-caption text-label-tertiary" id="files-readonly-hint">
-              You can read these files but not change them. Ask the owner for the files.write
-              permission.
+              Read-only access. Ask the owner for the files.write permission.
             </p>
           ) : null}
         </div>
@@ -1421,8 +1420,7 @@ function DeleteDialog({
         </AlertDialogHeader>
         <AlertDialogBody className="flex flex-col gap-3 text-subhead text-label-secondary">
           <p>
-            Deleted straight off the volume — there is no trash to fish it back out of. Only a
-            backup taken before now can bring it back.
+            This cannot be undone. There is no trash — recovery requires a backup taken before now.
           </p>
           {rows.length > 1 ? (
             <ul className="max-h-40 overflow-y-auto rounded-sm bg-bg-sunken p-2 font-mono text-caption text-label-secondary">

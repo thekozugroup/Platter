@@ -84,7 +84,7 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
     return (
       <EmptyState
         className={className}
-        description="Nothing yet. Search above, open anything that looks right, and add it — Platter downloads it, checks the file is the one it was offered, and remembers where it came from."
+        description="Search above and open a mod to add it. Platter verifies each download and records where it came from."
         icon={<Package />}
         size="sm"
         title="No mods on this server yet"
@@ -169,7 +169,7 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
           </AlertDialogBody>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11 rounded-button px-5 text-subhead font-medium">
-              Keep it
+              Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               className="h-11 rounded-button px-5 text-subhead font-medium"
@@ -258,15 +258,15 @@ function InstalledRow({
               Version {candidate.latest.versionNumber} is available.
             </span>{' '}
             {candidate.prerelease
-              ? 'It is a test build — the author does not consider it finished.'
-              : 'It is a finished release, and it runs on this server.'}
+              ? 'Test build. Not marked stable by the author.'
+              : 'Stable release, compatible with this server.'}
           </p>
           <Button
             className="h-11 shrink-0 rounded-button px-4 text-subhead font-medium"
             onClick={onOpen}
             variant="outline"
           >
-            Look at it
+            View details
           </Button>
         </div>
       ) : null}

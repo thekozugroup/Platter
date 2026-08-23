@@ -573,7 +573,7 @@ interface PermissionGroup {
 const PERMISSION_GROUPS: readonly PermissionGroup[] = [
   {
     title: 'The server',
-    blurb: 'Seeing it at all, and changing what it is.',
+    blurb: 'The server and its details.',
     permissions: [
       {
         key: 'server.view',
@@ -603,7 +603,7 @@ const PERMISSION_GROUPS: readonly PermissionGroup[] = [
   },
   {
     title: 'Console',
-    blurb: 'Reading the log, and typing into it.',
+    blurb: 'Log output and commands.',
     permissions: [
       { key: 'console.read', label: 'Read', detail: 'Watch the live output and its scrollback.' },
       {
@@ -771,9 +771,7 @@ function PeopleCard() {
             {email.trim().length === 0 ? (
               <DisabledHint id="subuser-add-hint">Enter their email address.</DisabledHint>
             ) : draftPermissions.length === 0 ? (
-              <DisabledHint id="subuser-add-hint">
-                Pick at least one permission — an invitation with none does nothing.
-              </DisabledHint>
+              <DisabledHint id="subuser-add-hint">Select at least one permission.</DisabledHint>
             ) : null}
           </div>
         </form>
@@ -791,7 +789,7 @@ function PeopleCard() {
             />
           ) : rows.length === 0 ? (
             <p className="text-subhead text-label-secondary">
-              Only you. Nobody else can see this server.
+              No one else has access to this server.
             </p>
           ) : (
             <ul className="flex flex-col divide-y divide-separator border-y border-separator">
@@ -932,7 +930,7 @@ function PermissionPicker({
 
   return (
     <fieldset className="flex flex-col gap-4">
-      <legend className="mb-2 text-subhead font-medium text-label">What they can do</legend>
+      <legend className="mb-2 text-subhead font-medium text-label">Permissions</legend>
       <div className="grid gap-5 sm:grid-cols-2">
         {PERMISSION_GROUPS.map((group) => (
           <div className="flex flex-col gap-2" key={group.title}>

@@ -305,7 +305,7 @@ export const CHART_METRICS: Record<ChartMetric, MetricDefinition> = {
   },
   network: {
     label: 'Network',
-    caption: 'Throughput, differentiated from the container’s cumulative byte counters.',
+    caption: 'Bytes sent and received per second.',
     mode: 'rate',
     series: [
       { key: 'rx', metric: 'networkRx', label: 'Received', color: 'var(--chart-5)' },

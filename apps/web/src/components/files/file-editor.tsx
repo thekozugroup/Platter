@@ -100,7 +100,7 @@ export function FileEditor({ serverId, path, onClose, canWrite, className }: Fil
   const oversize = draft !== null && byteLength(draft) > LIMITS.maxFileEditBytes;
 
   const readOnlyReason = !canWrite
-    ? 'You can read this file but not change it. Ask the owner for the files.write permission.'
+    ? 'Editing requires the files.write permission. Ask the owner to grant it.'
     : truncated
       ? `This file is larger than Platter reads in one go, so only the first ${formatBytes(loaded?.sizeBytes ?? 0)} is shown. Saving would delete everything past the cut, so editing is off. Download it, change it locally, and upload it back.`
       : null;
@@ -296,8 +296,7 @@ export function FileEditor({ serverId, path, onClose, canWrite, className }: Fil
               Leave {fileName} without saving?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Your edits are only in this tab. Leave now and they are gone — the file on the server
-              keeps the version it already had.
+              Unsaved changes will be discarded. The file on the server is unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody className="text-subhead text-label-secondary">

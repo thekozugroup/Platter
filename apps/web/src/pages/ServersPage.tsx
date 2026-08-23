@@ -360,17 +360,17 @@ export function ServersPage() {
                 {statusFilter
                   ? ` with status ${SERVER_STATUS_LABELS[statusFilter as ServerStatus]}`
                   : ''}
-                . Widen the search, or clear it to see everything.
+                . Adjust or clear the filters.
               </>
             }
-            title="Nothing matches that"
+            title="No matching servers"
           />
         ) : null}
 
         {servers.isSuccess && rows.length === 0 && !filtered ? (
           <EmptyState
             action={{ label: 'Create your first server', to: '/servers/new' }}
-            description="A server is one game, running in its own container, with its own world, files and backups. Platter installs it, keeps it running, and gives you a console, a file browser and scheduled backups from the moment it exists."
+            description="Each server runs one game in its own container, with its own files, backups and console."
             icon={<Server />}
             secondaryAction={{ label: 'Back to the dashboard', to: '/' }}
             title="No servers yet"

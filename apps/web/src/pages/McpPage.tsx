@@ -53,7 +53,7 @@ export function McpPage() {
               <li>Suggest mods for you to approve.</li>
             </ul>
             <Alert>
-              <AlertTitle className="font-sans">It cannot install a mod</AlertTitle>
+              <AlertTitle className="font-sans">Mods require your approval</AlertTitle>
               <AlertDescription>
                 An assistant can only propose one. You see what it picked, who made it and what it
                 pulls in, and nothing reaches the server until you approve it.
@@ -79,7 +79,7 @@ export function McpPage() {
                 Paste this into your assistant’s MCP settings, with the key in place of the
                 placeholder.
               </li>
-              <li>Ask it to list your servers. If it can see them, you are connected.</li>
+              <li>Ask it to list your servers. If they appear, the connection works.</li>
             </ol>
 
             <CopyField label="MCP client configuration" showLabel value={stdioConfig(origin)} />

@@ -53,10 +53,10 @@ export function consoleInputBlockedReason(
     return 'Connecting to the console. The command line opens as soon as it is live.';
   }
   if (connectionState === 'reconnecting') {
-    return 'The console dropped and is reconnecting. Commands you send now would be lost.';
+    return 'Reconnecting to the console. The command line reopens once it is live.';
   }
   if (connectionState === 'closed') {
-    return 'The console is not connected, so there is nothing to send commands to.';
+    return 'The console is not connected.';
   }
   if (!canWrite) {
     return 'You can read this console but not write to it. Ask the owner for the console.write permission.';
@@ -192,7 +192,7 @@ export function ConsoleInput({
                 setStashed('');
               }
             }}
-            placeholder={disabled ? '' : 'say hello  ·  ↑ for history'}
+            placeholder={disabled ? '' : 'list  ·  ↑ for history'}
             ref={inputRef}
             spellCheck={false}
             value={draft}

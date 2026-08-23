@@ -211,7 +211,7 @@ export function ModSearch({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-caption text-label-tertiary">
             {gameVersion === null
-              ? 'This server follows whatever Minecraft is newest, so nothing here is narrowed by version.'
+              ? 'This server tracks the newest Minecraft release, so results are not filtered by version.'
               : anyVersion
                 ? `Showing every Minecraft version. This server runs ${gameVersion}.`
                 : `Only what runs on Minecraft ${gameVersion} here.`}
@@ -269,7 +269,7 @@ export function ModSearch({
           <EmptyState
             description={
               debouncedTerm === ''
-                ? 'Search by name, or pick a category. Open anything that looks right and you will see what it does, what it needs, and who made it before you add it.'
+                ? 'Search by name, or pick a category. Open a result to see its details before adding it.'
                 : `Nothing called “${debouncedTerm}” runs on this server${
                     anyVersion || gameVersion === null ? '' : ` on Minecraft ${gameVersion}`
                   }. Try a shorter word, or look at every Minecraft version.`
@@ -311,9 +311,7 @@ export function ModSearch({
               Load more results
             </Button>
           ) : (
-            <p className="text-caption text-label-tertiary">
-              That is every result for this search.
-            </p>
+            <p className="text-caption text-label-tertiary">End of results.</p>
           )}
         </div>
       ) : null}

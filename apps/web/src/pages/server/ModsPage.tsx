@@ -71,8 +71,8 @@ export function ModsPage() {
         </h2>
         <p className="max-w-prose text-subhead text-label-secondary">
           {hasSuggestions
-            ? 'An assistant picked these out. Nothing is on the server until you say so.'
-            : 'An assistant connected over MCP can suggest a mod. It cannot put one on the server — that is always your call.'}
+            ? 'Suggested by an assistant. Nothing is installed until you approve it.'
+            : 'An assistant connected over MCP can suggest mods. It cannot install them.'}
         </p>
       </div>
       <ProposalQueue serverId={server.id} serverName={server.name} />

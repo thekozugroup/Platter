@@ -113,9 +113,7 @@ export function LiveMeter({
           </p>
           <p className="font-mono text-subhead font-medium text-label tabular">{format(value)}</p>
         </div>
-        <p className="text-caption text-label-secondary">
-          No limit is set for this, so there is nothing to measure it against.
-        </p>
+        <p className="text-caption text-label-secondary">No limit is set for this reading.</p>
         {description ? <p className="text-caption text-label-tertiary">{description}</p> : null}
       </div>
     );

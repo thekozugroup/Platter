@@ -463,7 +463,7 @@ function ChangePortForm({
             </Button>
             {unchanged ? (
               <span className="text-caption text-label-tertiary" id={`${helpId}-same`}>
-                That is the port it already uses.
+                Enter a different port.
               </span>
             ) : null}
           </div>

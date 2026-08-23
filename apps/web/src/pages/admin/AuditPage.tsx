@@ -273,7 +273,7 @@ export function AuditPage() {
             Export
           </PageAction>
         }
-        description="Every action anyone — or anything — has taken on this installation, newest first."
+        description="Every action taken on this installation, newest first."
         title="Audit log"
       >
         <div className="flex flex-wrap items-end gap-3">
@@ -391,7 +391,7 @@ export function AuditPage() {
 
         {audit.isSuccess && rows.length === 0 && !filtered ? (
           <EmptyState
-            description="Every action anyone takes — a restart, a file edit, a backup, a change made through an AI agent — is recorded here with who did it and when."
+            description="Actions taken on this installation are recorded here with the actor and the time."
             icon={<Article />}
             title="Nothing has happened yet"
           />
@@ -450,9 +450,7 @@ export function AuditPage() {
                 </Button>
               </div>
             ) : (
-              <p className="text-center text-caption text-label-tertiary">
-                That is everything for this filter.
-              </p>
+              <p className="text-center text-caption text-label-tertiary">No more entries.</p>
             )}
           </div>
         ) : null}

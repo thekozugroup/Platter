@@ -168,7 +168,7 @@ const CHANNEL_LABEL = {
 const CHANNEL_HINT = {
   release: 'The author considers this one done.',
   beta: 'The author expects bugs in this one.',
-  alpha: 'Rough. Expect breakage, and possibly lost worlds.',
+  alpha: 'Unstable. Crashes and world data loss are possible.',
 } as const;
 
 export function ReleaseChannelBadge({ channel }: { channel: ModVersion['channel'] }) {
@@ -382,7 +382,7 @@ function ModGallery({ mod }: { mod: ModDetail }) {
 const SERVER_SIDE_SENTENCE: Record<ModSide, string> = {
   required: 'Has to be installed on the server.',
   optional: 'Works on the server, and works without it.',
-  unsupported: 'Does nothing on a server — this one is for players’ own game.',
+  unsupported: 'Has no effect on the server.',
   unknown: 'The author does not say whether it belongs on a server.',
 };
 
@@ -569,7 +569,7 @@ function describeChanges(changes: readonly ProposalChange[]): string {
         .map((change) => CHANGED_FIELD_PHRASE[change.field] ?? change.field),
     ),
   ];
-  if (phrases.length === 0) return 'Something about the listing moved.';
+  if (phrases.length === 0) return 'The listing changed.';
   if (phrases.length === 1) return `What changed: ${phrases[0]}.`;
   return `What changed: ${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}.`;
 }
@@ -745,7 +745,7 @@ export function AddToServer({
       <div className="flex flex-col gap-3 outline-none" ref={panel} role="alert" tabIndex={-1}>
         <Alert variant={changed ? 'warning' : 'destructive'}>
           <AlertTitle className="font-sans">
-            {changed ? 'The download changed while you were reading' : 'Nothing was added'}
+            {changed ? 'The download has changed' : 'Nothing was added'}
           </AlertTitle>
           <AlertDescription>
             {changed

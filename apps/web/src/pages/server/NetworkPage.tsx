@@ -48,7 +48,7 @@ export function NetworkPage() {
         <section aria-labelledby="network-reachability" className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <h2 className="text-title-2 text-label" id="network-reachability">
-              Can anyone connect?
+              Reachability
             </h2>
             <p className="max-w-prose text-subhead text-label-secondary">
               Platter opens a real connection to the port from the machine it runs on. That proves
@@ -169,7 +169,7 @@ function ZoneRecords() {
         ) : null}
 
         <div className="flex flex-col gap-1.5">
-          <h3 className="font-sans text-subhead font-semibold text-label">The whole zone file</h3>
+          <h3 className="font-sans text-subhead font-semibold text-label">Zone file</h3>
           <p className="text-caption text-label-tertiary">
             For a provider that accepts a BIND-style import rather than one record at a time.
           </p>

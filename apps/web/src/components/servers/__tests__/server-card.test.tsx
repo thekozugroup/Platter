@@ -442,7 +442,7 @@ describe('DashboardPage', () => {
     renderScreen(<DashboardPage />);
 
     expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Needs you' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Needs attention' })).toBeInTheDocument();
     // A crashed server can be started, so the button is right there rather than a page away.
     expect(await screen.findByRole('button', { name: 'Start' })).toBeEnabled();
   });

@@ -424,7 +424,7 @@ export function NodesPage() {
             Add node
           </PageAction>
         }
-        description="Where your servers run, and how much room is left on each host."
+        description="Hosts that run game servers, and the capacity remaining on each."
         title="Nodes"
       />
 
@@ -451,7 +451,7 @@ export function NodesPage() {
         {nodes.isSuccess && rows.length === 0 ? (
           <EmptyState
             action={{ label: 'Add your first node', onClick: openCreate }}
-            description="A node is a machine Platter can run game servers on — usually this one, over its Docker socket. Add a node before creating a server."
+            description="A node is a machine that runs game servers. Add one before creating a server."
             icon={<ServerIcon />}
             title="No nodes yet"
           />
@@ -531,7 +531,7 @@ export function NodesPage() {
             </AlertDialogBody>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel className={ACTION}>Keep it</AlertDialogCancel>
+            <AlertDialogCancel className={ACTION}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className={ACTION}
               disabled={Boolean(deletingNode && deletingNode.serverCount > 0)}

@@ -536,9 +536,7 @@ describe('ModDetailSheet — the download changing underneath', () => {
     await user.click(await addButton());
 
     const alert = await screen.findByRole('alert');
-    expect(
-      within(alert).getByText('The download changed while you were reading'),
-    ).toBeInTheDocument();
+    expect(within(alert).getByText('The download has changed')).toBeInTheDocument();
     expect(
       within(alert).getByText(/the file’s fingerprint and where it downloads from/),
     ).toBeInTheDocument();

@@ -86,10 +86,10 @@ export function powerBlockedReason(status: ServerStatus, action: PowerAction): s
     return 'The install did not finish, so nothing is running. Start it to try the install again.';
   }
   if (status === 'deleting') {
-    return 'This server is being deleted. Its container and volume are on their way out.';
+    return 'This server is being deleted. Its container and volume are being removed.';
   }
   if (status === 'provisioning') {
-    return 'Platter is still creating the container. Power actions come back the moment it exists.';
+    return 'Platter is still creating the container. Power actions become available once it exists.';
   }
 
   switch (action) {

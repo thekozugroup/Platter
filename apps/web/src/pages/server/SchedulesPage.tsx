@@ -423,7 +423,7 @@ const PRESETS: readonly Preset[] = [
     cron: '0 3 * * 0',
     action: 'backup',
     payload: null,
-    blurb: 'Lighter on disk. Pair it with a lock on the ones you want to keep.',
+    blurb: 'Lighter on disk than a daily backup.',
   },
   {
     id: 'hourly-save',
@@ -509,7 +509,7 @@ function formFrom(schedule: Schedule): FormState {
 
 function formErrors(form: FormState): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (form.name.trim().length === 0) errors.name = 'Name it so you can tell two apart later.';
+  if (form.name.trim().length === 0) errors.name = 'Enter a name.';
   if (form.cron.trim().split(/\s+/).length !== 5) {
     errors.cron = 'A cron expression has five fields: minute, hour, day, month, weekday.';
   } else if (!parseCron(form.cron)) {
@@ -676,7 +676,7 @@ export function SchedulesPage() {
                 setShowForm(true);
               },
             }}
-            description="A nightly restart clears leaked memory before anyone notices, and a daily backup means a bad update costs a day rather than a world. Both take about ten seconds to set up."
+            description="Schedules run a restart, a backup, or a console command at times you choose."
             icon={<Clock />}
             size="sm"
             title="Nothing is scheduled"
@@ -880,7 +880,7 @@ function ScheduleFields({
       </Field>
 
       <Field>
-        <FieldLabel>What it does</FieldLabel>
+        <FieldLabel>Action</FieldLabel>
         <NativeSelect
           className="w-full max-w-sm [&>select]:h-11"
           onChange={(event) => onChange({ ...value, action: event.target.value as ScheduleAction })}
@@ -928,7 +928,7 @@ function ScheduleFields({
           variant="ghost"
         >
           <ChevronDown aria-hidden />
-          Edit the timing myself
+          Edit the timing
         </Button>
       ) : (
         <div className="flex flex-col gap-6 rounded-md border border-separator-strong p-4">
@@ -973,8 +973,8 @@ function ScheduleFields({
               <FieldLabel>Skip when the server is offline</FieldLabel>
               <FieldHelper>
                 {value.onlyWhenOnline
-                  ? 'A run is skipped rather than waking a server you deliberately stopped.'
-                  : 'The task runs even when the server is off — which is what you want for a start schedule.'}
+                  ? 'Runs are skipped instead of starting a stopped server.'
+                  : 'The task runs even when the server is off. Required for a start schedule.'}
               </FieldHelper>
             </div>
             <Switch

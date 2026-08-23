@@ -44,7 +44,7 @@ export function describeReachability(result: ReachabilityResult): ReachabilityVe
       headline: 'Reachable on your local network',
       body: `Something answered on ${address} in ${result.latencyMs} ms. ${result.detail}`,
       advice:
-        'This does not prove the internet can reach it. Platter probes from inside your own network, so it can only ever confirm the local side. If players outside your home cannot join, the port still needs forwarding on your router.',
+        'Platter probes from inside your network, so this confirms local reachability only. If players outside the network cannot join, forward the port on your router.',
     };
   }
 
@@ -69,14 +69,14 @@ export function describeReachability(result: ReachabilityResult): ReachabilityVe
 
   return {
     tone: 'warning',
-    headline: 'Couldn’t tell',
+    headline: 'Inconclusive',
     body: `${result.detail} ${
       result.protocol === 'udp'
-        ? 'UDP has no handshake, so silence looks identical for a healthy server and a dead one.'
+        ? 'UDP has no handshake, so a running server and a stopped one both return nothing.'
         : ''
     }`.trim(),
     advice:
-      'This is not evidence either way. The reliable test is someone actually connecting — or watching the console for their join line.',
+      'The reliable test is a real player connecting, or a join line appearing in the console.',
   };
 }
 
@@ -201,7 +201,7 @@ export function ReachabilityCheck({ serverId, allocations, className }: Reachabi
       */}
       <section className="flex flex-col gap-2 rounded-md border border-separator-strong bg-bg-sunken p-4">
         <h4 className="font-sans text-subhead font-semibold text-label">
-          Getting players in from outside your network
+          Player access from outside your network
         </h4>
         <ol className="ms-5 flex list-decimal flex-col gap-1.5 text-subhead leading-normal text-label-secondary">
           <li>
