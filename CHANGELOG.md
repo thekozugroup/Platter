@@ -11,7 +11,7 @@ change behaviour — the entry will say so.
 
 Nothing yet.
 
-## [0.1.0] — 2026-08-14
+## [0.1.0] — unreleased
 
 First public release. Everything below is new, so this entry describes what Platter _is_
 rather than what moved.
@@ -28,6 +28,11 @@ rather than what moved.
   plugins folder where it would quietly do nothing.
 - **Lifecycle behind a driver interface** with a faithful in-memory mock, which is why the
   whole test suite and all of CI run with no Docker daemon and no network.
+- **Java version follows the mods.** A pack that needs Java 21 or 25 selects the matching
+  image tag rather than failing at load with a class-file version number, and a crash caused
+  by the wrong runtime is diagnosed in those words.
+- Game containers run as the same uid as Platter, so files written by the game and files
+  written through the panel are readable by both.
 - `server.properties` editing that preserves your comments and key order. RCON and query
   clients. Player management — whitelist, ops, bans, kick — that falls back to log-derived
   history when RCON is off.
@@ -56,7 +61,15 @@ rather than what moved.
   a long-running install does not fill the disk with samples. TPS is reported only where the
   server actually reports it, and marked unavailable elsewhere rather than invented.
 - **Users** — roles, per-server permissions for collaborators, scoped API keys, TOTP, and an
-  audit log that records who did what.
+  audit log that records who did what. A server reports what the account reading it may do, so
+  a control that would be refused is not offered in the first place.
+- **Easy mode by default**, with advanced settings behind one switch rather than a disclosure
+  on every card. Anything that repairs a broken server stays visible in both modes.
+- **Update checks.** Settings shows the running version, whether a newer release exists, and
+  the command that applies it. Checking is one switch and can be turned off; Platter never
+  replaces its own container.
+- Each game has its own mark rather than a two-letter monogram — drawn as geometry, so there
+  is nothing to fetch and no trademarked artwork in the repository.
 
 ### Mods
 
@@ -88,6 +101,8 @@ rather than what moved.
   Destructive tools require an explicit confirmation argument, every call is authorised against
   the key's scopes and the same per-server permissions a human faces, and everything is audited
   with the agent's identity.
+- An **AI and MCP page** in the product: what an assistant can and cannot do, the
+  configuration to paste into a client, and a link to mint a scoped key.
 - **Platter holds no model credentials.** It calls no model and stores no provider key: the
   assistant is whichever MCP client you connect, authenticating as itself.
 
@@ -103,6 +118,11 @@ rather than what moved.
   there is no reverse proxy to configure and no CORS policy to get wrong.
 - SQLite by default, with Postgres supported. The image runs as an unprivileged user and shuts
   down promptly on `SIGTERM`.
+- `linux/amd64` and `linux/arm64`, so a Raspberry Pi or an Ampere VPS runs the published image
+  with no build step.
+- **Platter and the Docker daemon mean the same directory.** The data directory is bind-mounted
+  at the same path on both sides, and Platter verifies that at boot rather than assuming it —
+  without which a mod written through the panel lands somewhere the game container cannot see.
 
 ### Known limitations
 

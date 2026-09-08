@@ -268,14 +268,32 @@ Non-negotiable, and specifically audited:
 Plain, specific, calm — and confident enough to name real mechanics. Ghost writes
 "Your VM, your token, your billing", not "seamless cloud orchestration".
 
-- Terse declarative fragments. Imperative triads where they fit: _Pick a game. Pick a region.
-  Press play._
+This is interface text, not prose. Its job is to be read once, correctly, by somebody who
+came here to do something else. Writing that draws attention to itself costs the reader a
+second pass, and a second pass on every label is what makes a product tiring to use.
+
+- **Say what a thing is or does, once.** A label names, a description explains, a button
+  acts. When a heading already carries the meaning, the sentence under it is noise — and a
+  paragraph under every heading trains people to read none of them.
 - Second person, active voice. Sentence case everywhere — headings, buttons, labels.
 - Buttons are verbs: "Create server", not "Submit". "Delete backup", not "OK".
 - Name the real thing — Docker, RCON, a port, a mod loader — rather than a marketing
   abstraction. The people self-hosting a game server are not afraid of the words.
-- Say what happened, not how the system feels about it. "Couldn't reach the node" beats
+- Say what happened, not how the system feels about it. "Could not reach the node" beats
   "Oops! Something went wrong 😕".
+- **No contractions in product surfaces.** "Could not", not "couldn't". They read as speech,
+  and speech is where the apostrophe drifts between `'` and `’` and the same failure ends up
+  spelled three ways across three screens.
+- **No rhetoric where a noun belongs.** A row label is "File checksum", not "The file's
+  fingerprint"; a problem is "Conflicts with an installed mod", not "It clashes with a mod
+  already on this server". Lists are scanned, and a list of sentences cannot be.
+- **No jokes, no asides, no slogans repeated on the screen that already made the point.**
+  An em-dash aside that editorialises rather than informs is the most common way this creeps
+  back in.
 - Never blame the user. Never apologise twice.
 - Numbers get units and separators. Times are relative under a week, absolute beyond it,
   always with the exact timestamp in a tooltip.
+
+An error message keeps both halves: what happened, and what to do about it. Trimming the
+remedy to make a sentence shorter is the one economy that costs the reader something they
+cannot recover on their own.
