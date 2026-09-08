@@ -181,7 +181,7 @@ export function BackupsPage() {
                 },
                 onError: (cause: unknown) =>
                   toast.create({
-                    title: 'Couldn’t start the backup',
+                    title: 'Could not start the backup',
                     description: errorMessage(cause),
                     type: 'error',
                   }),
@@ -235,14 +235,14 @@ export function BackupsPage() {
           <ErrorState
             error={backups.error}
             onRetry={() => void backups.refetch()}
-            title="Couldn’t list the backups"
+            title="Could not list the backups"
             variant="inline"
           />
         ) : null}
 
         {backups.isSuccess && rows.length === 0 ? (
           <EmptyState
-            description="A backup captures the whole data volume — world, config, mods and plugins — as one archive you can put back later. Take one before every update; it is the only thing that undoes a bad one."
+            description="A backup archives the entire data volume — world, configuration, mods and plugins — for later restore. Take one before every update."
             icon={<Archive />}
             size="sm"
             title="No backups yet"
@@ -263,7 +263,7 @@ export function BackupsPage() {
                     download.mutate(backup.id, {
                       onError: (cause: unknown) =>
                         toast.create({
-                          title: 'Couldn’t download it',
+                          title: 'Could not download the backup',
                           description: errorMessage(cause),
                           type: 'error',
                         }),
@@ -276,7 +276,7 @@ export function BackupsPage() {
                       {
                         onError: (cause: unknown) =>
                           toast.create({
-                            title: 'Couldn’t change the lock',
+                            title: 'Could not change the lock',
                             description: errorMessage(cause),
                             type: 'error',
                           }),
@@ -343,7 +343,7 @@ export function BackupsPage() {
             },
             onError: (cause: unknown) =>
               toast.create({
-                title: 'Couldn’t delete it',
+                title: 'Could not delete the backup',
                 description: errorMessage(cause),
                 type: 'error',
               }),
@@ -610,8 +610,8 @@ function RestoreDialog({
                 </label>
                 <p className="text-caption text-label-secondary" id="restore-truncate-help">
                   {truncate
-                    ? 'Everything currently on the volume is deleted before the archive is unpacked. Files added since this backup — new mods, new worlds, new logs — are gone.'
-                    : 'Left off, the archive is merged in: files it contains are overwritten, and anything added since the backup is left alone. This is the safer choice and the default.'}
+                    ? 'Everything currently on the volume is deleted before the archive is unpacked. Files added since this backup — new mods, new worlds, new logs — are deleted.'
+                    : 'When off, the archive is merged: files it contains are overwritten and files added since the backup are kept. This is the default.'}
                 </p>
               </div>
             </div>

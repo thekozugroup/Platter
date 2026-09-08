@@ -258,7 +258,7 @@ function WhitelistCard({
           <ErrorState
             error={whitelist.error}
             onRetry={() => void whitelist.refetch()}
-            title="Couldn’t read the whitelist"
+            title="Could not read the whitelist"
             variant="inline"
           />
         ) : (
@@ -270,7 +270,7 @@ function WhitelistCard({
                 </p>
                 <p className="mt-1 text-caption text-label-secondary">
                   {unknownState
-                    ? 'Currently unknown — this is read from the running server.'
+                    ? 'Unknown until the server is running.'
                     : enabled
                       ? 'On. Players not on the list cannot join.'
                       : 'Off. Anyone who knows the address can join.'}
@@ -299,7 +299,7 @@ function WhitelistCard({
                     command.mutate({
                       id: `whitelist-enabled:${String(details.checked)}`,
                       done: details.checked ? 'Whitelist turned on' : 'Whitelist turned off',
-                      failed: 'Couldn’t change the whitelist',
+                      failed: 'Could not change the whitelist',
                       run: () => playerApi.setWhitelistEnabled(serverId, details.checked),
                     })
                   }
@@ -345,7 +345,7 @@ function WhitelistCard({
             <EntryList
               blockedReason={blockedReason}
               emptyDescription="Add the names of everyone who should be able to join, whether or not they have played here before."
-              emptyTitle="Nobody is whitelisted yet"
+              emptyTitle="No players are whitelisted"
               rows={names.map((name) => ({
                 key: `wl-${name}`,
                 primary: name,
@@ -412,7 +412,7 @@ function OperatorsCard({
       <CardContent className="flex flex-col gap-6">
         <AddByName
           blockedReason={blockedReason}
-          helper="Granting operator gives someone full control of the server. Only do this for people you trust with it."
+          helper="Operators have full control of the server. Grant it only to trusted players."
           isPending={command.isPending && command.variables?.id.startsWith('op:') === true}
           label="Make someone an operator"
           onSubmit={(name) => {
@@ -428,7 +428,7 @@ function OperatorsCard({
         ) : (
           <EntryList
             blockedReason={blockedReason}
-            emptyDescription="Nobody Platter has seen on this server is an operator. Add one above to give them full control."
+            emptyDescription="No operators. Add a player above to grant full control."
             emptyTitle="No operators yet"
             rows={operators.map((player) => ({
               key: `op-${player.name}`,
@@ -528,7 +528,7 @@ function BansCard({ serverId, blockedReason }: { serverId: string; blockedReason
           <ErrorState
             error={bans.error}
             onRetry={() => void bans.refetch()}
-            title="Couldn’t read the ban list"
+            title="Could not read the ban list"
             variant="inline"
           />
         ) : (
@@ -537,7 +537,7 @@ function BansCard({ serverId, blockedReason }: { serverId: string; blockedReason
               <h4 className="text-subhead font-medium text-label">Banned players</h4>
               <EntryList
                 blockedReason={blockedReason}
-                emptyDescription="Nobody is banned from this server."
+                emptyDescription="No players are banned."
                 emptyTitle="No banned players"
                 rows={bans.data.players.map((entry) => ({
                   key: `ban-${entry.target}`,
@@ -561,7 +561,7 @@ function BansCard({ serverId, blockedReason }: { serverId: string; blockedReason
               <h4 className="text-subhead font-medium text-label">Banned addresses</h4>
               <AddByName
                 blockedReason={blockedReason}
-                helper="An IPv4 or IPv6 address. Everyone connecting from it is refused. Households and mobile networks often share one address."
+                helper="An IPv4 or IPv6 address. All connections from it are refused. Households and mobile networks often share one address."
                 isPending={
                   command.isPending && command.variables?.id.startsWith('ban-ip:') === true
                 }

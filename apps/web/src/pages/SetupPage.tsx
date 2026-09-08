@@ -125,7 +125,7 @@ export function SetupPage() {
       });
     } catch (error) {
       if (error instanceof NetworkError) {
-        setFormError("Can't reach Platter. Check the API is running, then try again.");
+        setFormError('Cannot reach Platter. Check that the API is running, then try again.');
       } else if (error instanceof ApiError) {
         setFieldErrors(error.fieldErrors);
         setFormError(error.message);
@@ -147,8 +147,8 @@ export function SetupPage() {
           </p>
           <h1 className="mt-6 text-title-1 text-label">Create the owner account</h1>
           <p className="mt-3 text-body text-label-secondary">
-            Nobody has signed in to this installation yet. The first account owns it: it can create
-            servers, add nodes, and promote everyone else.
+            No account exists on this installation yet. The first account becomes the owner: it can
+            create servers, add nodes and promote other users.
           </p>
 
           <form className="mt-8" noValidate onSubmit={(event) => void handleSubmit(event)}>
@@ -277,7 +277,7 @@ export function SetupPage() {
             <li>
               <span className="font-medium text-label">2. Pick a game</span>
               <p className="mt-1 text-label-secondary">
-                Blueprints ship with Platter — Minecraft first, others alongside it.
+                Blueprints for twelve games are included, Minecraft among them.
               </p>
             </li>
             <li>

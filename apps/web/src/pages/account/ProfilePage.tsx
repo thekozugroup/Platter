@@ -231,8 +231,7 @@ function PasswordCard() {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Password</CardTitle>
         <CardDescription>
-          Changing it signs out every device, including this one. You will sign in again straight
-          away.
+          Changing the password signs out every device, including this one.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -358,8 +357,8 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
       <CardHeader>
         <CardTitle className={SECTION_TITLE}>Two-factor authentication</CardTitle>
         <CardDescription>
-          A six-digit code from an authenticator app, on top of your password. Platter never sends
-          codes by email or SMS.
+          A six-digit code from an authenticator app, in addition to your password. Codes are never
+          sent by email or SMS.
         </CardDescription>
       </CardHeader>
 
@@ -414,8 +413,7 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
                 value={code}
               />
               <FieldHelper>
-                Proving you still hold the second factor is what stops a stolen session from
-                removing it.
+                A current code is required so that a stolen session cannot remove the second factor.
               </FieldHelper>
             </Field>
             <div className="flex flex-wrap items-center gap-3">
@@ -487,8 +485,8 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
               <AlertTitle className="font-sans">Save your recovery codes now</AlertTitle>
               <AlertDescription>
                 <p>
-                  These are the only way back in if you lose the authenticator. They are shown once
-                  and are not stored in a form we can read back.
+                  These are the only way to sign in if the authenticator is lost. They are shown
+                  once and are not stored in a recoverable form.
                 </p>
                 <ul className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-footnote text-label sm:grid-cols-3">
                   {setupData.recoveryCodes.map((recoveryCode) => (

@@ -66,7 +66,7 @@ async function serverCountOf(userId: string): Promise<number> {
 function assertCanAct(actor: AuthenticatedUser, target: { role: string }): void {
   const targetRank = ROLE_RANK[target.role as UserRole] ?? 0;
   if (targetRank > ROLE_RANK[actor.role]) {
-    throw forbidden("You don't have access to this account.");
+    throw forbidden('You do not have access to this account.');
   }
 }
 
@@ -229,7 +229,7 @@ export async function updateUser(
     if (wouldLoseOwner) {
       const ownerCount = await tx.user.count({ where: { role: 'owner' } });
       if (ownerCount <= 1) {
-        throw conflict('Platter must always have at least one owner. Promote someone else first.');
+        throw conflict('At least one owner is required. Promote another user first.');
       }
     }
 
@@ -355,7 +355,7 @@ export async function deleteUser(
     if (target.role === 'owner') {
       const ownerCount = await tx.user.count({ where: { role: 'owner' } });
       if (ownerCount <= 1) {
-        throw conflict('Platter must always have at least one owner. Promote someone else first.');
+        throw conflict('At least one owner is required. Promote another user first.');
       }
     }
 

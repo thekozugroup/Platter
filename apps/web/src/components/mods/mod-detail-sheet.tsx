@@ -380,16 +380,16 @@ function ModGallery({ mod }: { mod: ModDetail }) {
  * fact about a Minecraft mod and was the least readable thing on the panel.
  */
 const SERVER_SIDE_SENTENCE: Record<ModSide, string> = {
-  required: 'Has to be installed on the server.',
-  optional: 'Works on the server, and works without it.',
-  unsupported: 'Has no effect on the server.',
+  required: 'Required on the server.',
+  optional: 'Optional on the server.',
+  unsupported: 'Not used on the server.',
   unknown: 'The author does not say whether it belongs on a server.',
 };
 
 const CLIENT_SIDE_SENTENCE: Record<ModSide, string> = {
-  required: 'Everyone joining has to install it too, or they cannot connect.',
-  optional: 'Players can install it as well, but nobody has to.',
-  unsupported: 'Players need nothing — it all happens on the server.',
+  required: 'Required on every client. Players without it cannot connect.',
+  optional: 'Optional on the client.',
+  unsupported: 'Not required on the client.',
   unknown: 'The author does not say whether players need it.',
 };
 
@@ -855,9 +855,7 @@ export function AddToServer({
             onChange={(event) => setVersionId(event.target.value)}
             value={versionId}
           >
-            <NativeSelectOption value="">
-              Newest one that works here (recommended)
-            </NativeSelectOption>
+            <NativeSelectOption value="">Newest compatible (recommended)</NativeSelectOption>
             {versions.map((version) => (
               <NativeSelectOption key={version.versionId} value={version.versionId}>
                 {version.versionNumber}
@@ -1000,8 +998,8 @@ function SheetInner({
             error={query.error}
             isRetrying={query.isFetching}
             onRetry={() => void query.refetch()}
-            recovery="The registry is outside Platter, so restarting it will not help. Try again in a minute."
-            title="Couldn’t load this mod"
+            recovery="The registry is an external service. Try again in a minute."
+            title="Could not load this mod"
             variant="inline"
           />
         ) : detail === undefined ? (

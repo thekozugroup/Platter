@@ -429,7 +429,7 @@ export function FileBrowser({
       <ErrorState
         error={listing.error}
         onRetry={() => void listing.refetch()}
-        title="Couldn’t read that folder"
+        title="Could not read the folder"
         variant="inline"
       />
     );
@@ -777,7 +777,7 @@ export function FileBrowser({
           const target = joinPath(path, name);
           if (creating === 'folder') {
             void runAction(
-              'Couldn’t create the folder',
+              'Could not create the folder',
               () => createDirectory.mutateAsync(target),
               `Created ${name}`,
             ).then((ok) => {
@@ -1361,8 +1361,8 @@ function CreateDialog({
               />
               <FieldHelper>
                 {isFolder
-                  ? 'Created inside the folder you are looking at.'
-                  : 'Created empty, in the folder you are looking at. Open it to write into it.'}
+                  ? 'Created in the current folder.'
+                  : 'Created empty in the current folder.'}
               </FieldHelper>
               <FieldError>{problem}</FieldError>
             </Field>

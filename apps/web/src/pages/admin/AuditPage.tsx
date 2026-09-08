@@ -262,7 +262,7 @@ export function AuditPage() {
               exportLog.mutate(undefined, {
                 onError: (cause: unknown) =>
                   toast.create({
-                    title: "Couldn't export the log",
+                    title: 'Could not export the log',
                     description: errorMessage(cause),
                     type: 'error',
                   }),
@@ -374,7 +374,7 @@ export function AuditPage() {
             error={audit.error}
             isRetrying={audit.isFetching}
             onRetry={() => void audit.refetch()}
-            title="Couldn’t load the audit log"
+            title="Could not load the audit log"
           />
         ) : null}
 

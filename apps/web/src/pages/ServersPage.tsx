@@ -347,7 +347,7 @@ export function ServersPage() {
             error={servers.error}
             isRetrying={servers.isFetching}
             onRetry={() => void servers.refetch()}
-            title="Couldn’t load your servers"
+            title="Could not load servers"
           />
         ) : null}
 
@@ -374,11 +374,7 @@ export function ServersPage() {
             icon={<Server />}
             secondaryAction={{ label: 'Back to the dashboard', to: '/' }}
             title="No servers yet"
-          >
-            <p className="max-w-prose text-subhead text-label-tertiary">
-              Pick a game. Choose how much memory it gets. Press create.
-            </p>
-          </EmptyState>
+          />
         ) : null}
 
         {servers.isSuccess && rows.length > 0 ? (

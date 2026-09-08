@@ -485,7 +485,7 @@ export function CreateServerPage() {
                             value={name}
                           />
                           <FieldDescription>
-                            What players and your collaborators see. You can rename it any time.
+                            Shown to players and collaborators. It can be changed later.
                           </FieldDescription>
                           <FieldError>{nameError ?? apiErrors.name}</FieldError>
                         </Field>
@@ -613,8 +613,8 @@ export function CreateServerPage() {
 
             {isLastStep && !submitBlocker ? (
               <p className="max-w-prose text-caption text-label-tertiary">
-                Creating it pulls the container image and runs the install, which takes a few
-                minutes the first time. You will land on the console and see it happen.
+                Creating the server pulls the container image and runs the install, which can take a
+                few minutes on the first run. The console opens automatically.
               </p>
             ) : null}
           </div>

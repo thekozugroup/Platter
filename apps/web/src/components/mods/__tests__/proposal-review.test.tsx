@@ -358,7 +358,7 @@ describe('ProposalReview — informed decision', () => {
     expect(add).toBeDisabled();
     // A disabled control always carries its reason, and the reason is tied to the control.
     expect(add).toHaveAccessibleDescription(/no longer works on Survival SMP/i);
-    expect(screen.getByText('Built for a different kind of server.')).toBeInTheDocument();
+    expect(screen.getByText('Built for a different server type.')).toBeInTheDocument();
     expect(
       screen.getByText(/This build needs Fabric and the server runs Paper./),
     ).toBeInTheDocument();
@@ -447,11 +447,11 @@ describe('ProposalReview — the listing changing underneath', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Add to server' }));
 
     const panel = await screen.findByRole('alert');
-    expect(within(panel).getByText('This is not what you were shown')).toBeInTheDocument();
+    expect(within(panel).getByText('The listing has changed')).toBeInTheDocument();
     expect(within(panel).getByText(/Nothing was added/)).toBeInTheDocument();
     // The difference is field-level and named in words, not in registry field names.
-    expect(within(panel).getByText('The file’s fingerprint')).toBeInTheDocument();
-    expect(within(panel).getByText('Where it downloads from')).toBeInTheDocument();
+    expect(within(panel).getByText('File checksum')).toBeInTheDocument();
+    expect(within(panel).getByText('Download URL')).toBeInTheDocument();
     expect(
       within(panel).getByText('https://elsewhere.invalid/fabric-api-0.102.0.jar'),
     ).toBeInTheDocument();
@@ -477,7 +477,7 @@ describe('ProposalReview — the listing changing underneath', () => {
     );
     await user.click(
       await screen.findByRole('button', {
-        name: 'I have read the changes — add the new one',
+        name: 'Accept the changes and install',
       }),
     );
 

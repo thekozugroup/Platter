@@ -111,7 +111,7 @@ export function CopyField({
       >
         {state === 'copied' ? `${label} copied` : null}
         {state === 'failed'
-          ? 'Couldn’t reach the clipboard. Select the value and press Ctrl+C.'
+          ? 'Could not reach the clipboard. Select the value and press Ctrl+C.'
           : null}
       </span>
     </div>

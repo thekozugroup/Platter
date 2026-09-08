@@ -89,7 +89,7 @@ describe('CapacityBar', () => {
     render(<CapacityBar allocated={0} format={mb} label="Disk" total={0} used={0} />);
 
     expect(screen.queryByRole('meter')).not.toBeInTheDocument();
-    expect(screen.getByText(/not detected a capacity figure/i)).toBeInTheDocument();
+    expect(screen.getByText(/no capacity figure has been detected/i)).toBeInTheDocument();
   });
 
   it('shows the reason instead of a bar when the figure is unavailable', () => {

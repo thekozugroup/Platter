@@ -48,7 +48,7 @@ const FAMILIES: readonly Family[] = [
   {
     key: 'vanilla',
     title: 'Vanilla',
-    blurb: 'The official server from Mojang. No mods, no plugins — exactly the game as shipped.',
+    blurb: 'The official Mojang server. No mods or plugins.',
     more: { one: 'vanilla option', other: 'vanilla options' },
   },
   {
@@ -76,7 +76,7 @@ const FAMILIES: readonly Family[] = [
     key: 'hybrid',
     title: 'Mods and plugins together',
     blurb:
-      'Runs both at once. Powerful, and the least stable option here: expect bugs neither project will support.',
+      'Runs both at once. The least stable option; issues are not supported by either project.',
     more: { one: 'hybrid server', other: 'hybrid servers' },
   },
   {
@@ -130,7 +130,7 @@ const TYPE_COPY: Record<string, TypeCopy> = {
     label: 'Purpur',
     family: 'plugins',
     accepts: 'plugins',
-    blurb: 'Paper plus several hundred extra gameplay toggles. Paper plugins drop straight in.',
+    blurb: 'Paper with several hundred additional gameplay options. Compatible with Paper plugins.',
   },
   SPIGOT: {
     label: 'Spigot',
@@ -476,8 +476,8 @@ export function MinecraftTypePicker({
   return (
     <div className={cn('flex flex-col gap-8', className)}>
       <p className="max-w-prose text-body text-balance text-label-secondary">
-        This decides what your server can run. You can change it later, but switching between
-        plugins and mods usually means starting the world over — so it is worth a minute now.
+        Determines what the server can run. It can be changed later, but switching between plugins
+        and mods usually requires a new world.
       </p>
 
       <RadioGroup

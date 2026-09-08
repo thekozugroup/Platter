@@ -261,7 +261,7 @@ export function ModSearch({
             error={query.error}
             isRetrying={query.isFetching}
             onRetry={() => void query.refetch()}
-            recovery="The registries are outside Platter, so restarting it will not help. Try again in a minute."
+            recovery="The registries are external services. Try again in a minute."
             title="The registry search failed"
             variant="inline"
           />

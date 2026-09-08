@@ -56,7 +56,7 @@ afterEach(() => {
 describe('AccessLists — what it promises', () => {
   it('never claims a name can be added while the server is down', async () => {
     renderLists(OFFLINE_REASON);
-    await screen.findByText('Nobody is whitelisted yet');
+    await screen.findByText('No players are whitelisted');
 
     expect(screen.queryByText(/before the server is even running/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/ahead of a session/i)).not.toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('AccessLists — what it promises', () => {
 
   it('states why nothing can be changed once, not once per control', async () => {
     renderLists(OFFLINE_REASON);
-    await screen.findByText('Nobody is whitelisted yet');
+    await screen.findByText('No players are whitelisted');
 
     expect(screen.getByText('These lists cannot be changed right now')).toBeInTheDocument();
     // The reason is visible exactly once inside this component; everywhere else it is a
@@ -82,7 +82,7 @@ describe('AccessLists — what it promises', () => {
 
   it('still ties the reason to every control it disables', async () => {
     renderLists(OFFLINE_REASON);
-    await screen.findByText('Nobody is whitelisted yet');
+    await screen.findByText('No players are whitelisted');
 
     for (const label of ['Add', 'Grant', 'Ban address']) {
       const button = screen.getByRole('button', { name: label });
@@ -93,7 +93,7 @@ describe('AccessLists — what it promises', () => {
 
   it('shows no banner at all when the server is answering', async () => {
     renderLists(null);
-    await screen.findByText('Nobody is whitelisted yet');
+    await screen.findByText('No players are whitelisted');
 
     expect(screen.queryByText('These lists cannot be changed right now')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled(); // empty field, not blocked

@@ -426,7 +426,7 @@ describe('ModDetailSheet — surprises are named before the download', () => {
 
     await user.click(await addButton());
 
-    expect(await screen.findByText('Only a test build fits.')).toBeInTheDocument();
+    expect(await screen.findByText('Only a prerelease build is compatible.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add it' })).toBeEnabled();
   });
 
@@ -452,7 +452,7 @@ describe('ModDetailSheet — surprises are named before the download', () => {
     await user.click(await addButton());
 
     expect(
-      await screen.findByText('It clashes with a mod already on this server.'),
+      await screen.findByText('Conflicts with an installed mod.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add it' })).toBeDisabled();
   });
@@ -505,7 +505,7 @@ describe('ModDetailSheet — honest about what is already there', () => {
     // 503 is retryable, so the real client tries twice more with backoff before giving up.
     // Waiting it out is the point: nothing may appear that implies the mod could be added.
     expect(
-      await screen.findByText('Couldn’t load this mod', {}, { timeout: 8000 }),
+      await screen.findByText('Could not load this mod', {}, { timeout: 8000 }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Add to/ })).not.toBeInTheDocument();
   }, 15000);
@@ -558,7 +558,7 @@ describe('ModDetailSheet — the listing itself', () => {
     renderSheet();
 
     // `clientSide: 'required'` used to render as the words "Client side: required".
-    expect(await screen.findByText(/Everyone joining has to install it too/)).toBeInTheDocument();
+    expect(await screen.findByText(/Required on every client/)).toBeInTheDocument();
     expect(screen.queryByText(/Client side:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Server side:/)).not.toBeInTheDocument();
   });

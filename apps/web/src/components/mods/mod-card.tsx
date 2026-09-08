@@ -150,7 +150,7 @@ export function modCompatibility(
   if (mod.projectType === 'modpack') {
     return {
       ok: false,
-      reason: 'This is a modpack, not a single mod. Change the server type to install one.',
+      reason: 'Modpack. Change the server type to install it.',
     };
   }
 

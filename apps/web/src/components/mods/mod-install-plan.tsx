@@ -116,19 +116,19 @@ export function nameList(titles: readonly string[]): string {
  * human already — so a new kind degrades to slightly more technical prose, never to a blank.
  */
 const PROBLEM_HEADLINE: Record<string, string> = {
-  no_compatible_version: 'No version of this fits this server',
-  wrong_loader: 'Built for a different kind of server',
-  version_conflict: 'Two mods want different versions of the same thing',
-  incompatible_with_installed: 'It clashes with a mod already on this server',
-  incompatible_installed: 'Something already on this server does not fit it',
-  dependency_cycle: 'These mods need each other in a circle',
+  no_compatible_version: 'No compatible version for this server',
+  wrong_loader: 'Built for a different server type',
+  version_conflict: 'Two mods require different versions of the same dependency',
+  incompatible_with_installed: 'Conflicts with an installed mod',
+  incompatible_installed: 'An installed mod is incompatible with it',
+  dependency_cycle: 'Circular dependency',
   no_download: 'The author does not allow automatic downloads',
   unknown_game_version: 'This server has no fixed Minecraft version',
-  prerelease_selected: 'Only a test build fits',
+  prerelease_selected: 'Only a prerelease build is compatible',
   modpack_managed: 'This server runs a modpack that manages its own mods',
-  graph_too_large: 'It needs too many other mods to add in one go',
-  lookup_failed: 'The registry did not answer',
-  already_installed: 'It is already here',
+  graph_too_large: 'Too many dependencies to install at once',
+  lookup_failed: 'The registry did not respond',
+  already_installed: 'Already installed',
 };
 
 export function problemHeadline(problem: ResolutionProblem): string | null {

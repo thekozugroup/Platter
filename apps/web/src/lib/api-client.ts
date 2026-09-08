@@ -59,7 +59,7 @@ export class ApiError extends Error {
 /** A failure before we ever reached the API — offline, DNS, connection reset. */
 export class NetworkError extends Error {
   constructor(cause?: unknown) {
-    super("Can't reach the server. Check your connection.");
+    super('Cannot reach the server. Check your connection.');
     this.name = 'NetworkError';
     this.cause = cause;
   }

@@ -460,7 +460,7 @@ function NoAccess() {
               choose exactly what you are allowed to do.
             </>
           }
-          title="You don’t have access to this server"
+          title="You do not have access to this server"
         />
       </PageBody>
     </>

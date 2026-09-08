@@ -165,8 +165,8 @@ function disabledReasonFor(
   action: 'suspend' | 'delete',
   { isSelf, isSoleOwner, canAct }: { isSelf: boolean; isSoleOwner: boolean; canAct: boolean },
 ): string | undefined {
-  if (!canAct) return "You don't have access to this account.";
-  if (isSoleOwner) return 'Platter needs at least one owner. Promote someone else first.';
+  if (!canAct) return 'You do not have access to this account.';
+  if (isSoleOwner) return 'At least one owner is required. Promote another user first.';
   if (isSelf) return `You can't ${action} your own account while signed in as them.`;
   return undefined;
 }
@@ -361,7 +361,7 @@ export function UsersPage() {
           onError: (cause: unknown) => {
             setFormErrors(cause instanceof ApiError ? cause.fieldErrors : {});
             toast.create({
-              title: "Couldn't save the account",
+              title: 'Could not save the account',
               description: errorMessage(cause),
               type: 'error',
             });
@@ -377,7 +377,7 @@ export function UsersPage() {
         onError: (cause: unknown) => {
           setFormErrors(cause instanceof ApiError ? cause.fieldErrors : {});
           toast.create({
-            title: "Couldn't create the account",
+            title: 'Could not create the account',
             description: errorMessage(cause),
             type: 'error',
           });
@@ -489,7 +489,7 @@ export function UsersPage() {
                 updateParams({ q: '', role: '', suspended: '' });
               },
             }}
-            description="No account matches these filters. Widen the search, or clear it to see everyone."
+            description="No account matches these filters. Widen the search, or clear it to see all accounts."
             title="Nothing matches that"
           />
         ) : null}
@@ -648,7 +648,7 @@ export function UsersPage() {
                 editingUser &&
                 editingUser.role === 'owner' &&
                 (ownerCount === undefined || ownerCount <= 1)
-                  ? 'Platter needs at least one owner. Promote someone else to owner first.'
+                  ? 'At least one owner is required. Promote another user to owner first.'
                   : undefined
               }
               value={formValue}
@@ -692,8 +692,8 @@ function SuspendDialog({ user, onClose }: { user: User | null; onClose: () => vo
           </AlertDialogTitle>
           <AlertDialogDescription>
             {nextSuspended
-              ? 'They are signed out immediately and cannot sign back in until reactivated.'
-              : 'They can sign in again right away.'}
+              ? 'The user is signed out immediately and cannot sign in until reactivated.'
+              : 'The user can sign in again immediately.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {nextSuspended && user && user.serverCount > 0 ? (
@@ -725,7 +725,7 @@ function SuspendDialog({ user, onClose }: { user: User | null; onClose: () => vo
                   },
                   onError: (cause: unknown) =>
                     toast.create({
-                      title: "Couldn't do that",
+                      title: 'Action failed',
                       description: errorMessage(cause),
                       type: 'error',
                     }),
@@ -820,7 +820,7 @@ function DeleteDialog({ user, onClose }: { user: User | null; onClose: () => voi
                     // The API's own message already names what happened and, for both cases
                     // this dialog cannot already prevent, exactly what to do about it.
                     toast.create({
-                      title: "Couldn't delete the account",
+                      title: 'Could not delete the account',
                       description: errorMessage(cause),
                       type: 'error',
                     });

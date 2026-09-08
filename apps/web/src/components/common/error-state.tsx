@@ -30,7 +30,7 @@ const RECOVERY: Partial<Record<ErrorCode, string>> = {
   driver_error: "Check the node's Docker daemon logs for the underlying error.",
   insufficient_resources: 'Free memory or disk on the node, or lower this server’s limits.',
   no_allocation_available: "Widen the node's port range, or free a port from another server.",
-  ai_unavailable: 'Set an AI provider key in admin settings to turn these features on.',
+  ai_unavailable: 'Connect an assistant over MCP. See the AI and MCP page.',
   ai_rate_limited: 'Wait a moment and send it again.',
   validation_failed: 'Correct the highlighted fields and submit again.',
   internal_error: 'If it keeps happening, check the API logs with the request id below.',
@@ -103,7 +103,7 @@ export function ErrorState({
   const recovery =
     recoveryOverride ??
     (isNetwork
-      ? 'Check your connection, then retry. If the API is on another machine, check it is still running.'
+      ? 'Check your connection and retry. If the API runs on another machine, confirm it is running.'
       : apiError
         ? RECOVERY[apiError.code]
         : undefined);

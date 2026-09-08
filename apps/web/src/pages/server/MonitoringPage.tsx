@@ -305,8 +305,7 @@ export function MonitoringPage() {
             rangeLabel={describeRange(range)}
           />
           <p className="text-caption text-label-tertiary">
-            Follows the range selected above. Platter records a sample only while a server is
-            running, so this is a record of what it saw rather than a claim about what it did not.
+            Follows the range selected above. Samples are recorded only while the server is running.
           </p>
         </section>
       </div>

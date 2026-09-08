@@ -195,7 +195,7 @@ function IdentityCard() {
               setFieldErrors(fields);
               if (fields.name) nameRef.current?.focus();
               toast.create({
-                title: 'Couldn’t save that',
+                title: 'Could not save changes',
                 description: errorMessage(cause),
                 type: 'error',
               });
@@ -298,7 +298,7 @@ function StartupCard() {
               className="hit-target"
               onCheckedChange={({ checked }) =>
                 setAutoStart.mutate(checked === true, {
-                  onError: onError('Couldn’t change auto-start'),
+                  onError: onError('Could not change auto-start'),
                 })
               }
             />
@@ -311,7 +311,7 @@ function StartupCard() {
               className="hit-target"
               onCheckedChange={({ checked }) =>
                 setAutoRestart.mutate(checked === true, {
-                  onError: onError('Couldn’t change auto-restart'),
+                  onError: onError('Could not change auto-restart'),
                 })
               }
             />
@@ -419,8 +419,8 @@ function LimitsCard() {
 
         {capacityQuery.isError ? (
           <p className="text-caption text-label-tertiary">
-            Couldn’t read the node’s free space, so these ranges are the blueprint’s rather than the
-            node’s. The API still refuses anything that will not fit.
+            Could not read the node’s free space, so these ranges are the blueprint’s rather than
+            the node’s. The API still refuses anything that will not fit.
           </p>
         ) : null}
 
@@ -442,7 +442,7 @@ function LimitsCard() {
                     }),
                   onError: (cause: unknown) =>
                     toast.create({
-                      title: 'Couldn’t save the limits',
+                      title: 'Could not save the limits',
                       description: errorMessage(cause),
                       type: 'error',
                     }),
@@ -533,7 +533,7 @@ function VariablesCard() {
                   onError: (cause: unknown) => {
                     setApiErrors(cause instanceof ApiError ? cause.fieldErrors : {});
                     toast.create({
-                      title: 'Couldn’t save the settings',
+                      title: 'Could not save the settings',
                       description: errorMessage(cause),
                       type: 'error',
                     });
@@ -578,9 +578,13 @@ const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       {
         key: 'server.view',
         label: 'View',
-        detail: 'See the server and its status. Everything else needs this.',
+        detail: 'View the server and its status. Required by every other permission.',
       },
-      { key: 'server.update', label: 'Edit', detail: 'Rename it and change its description.' },
+      {
+        key: 'server.update',
+        label: 'Edit',
+        detail: 'Rename the server and edit its description.',
+      },
       {
         key: 'server.delete',
         label: 'Delete',
@@ -590,13 +594,13 @@ const PERMISSION_GROUPS: readonly PermissionGroup[] = [
   },
   {
     title: 'Power',
-    blurb: 'Turning it on and off.',
+    blurb: 'Start, stop and restart.',
     permissions: [
       { key: 'power.start', label: 'Start', detail: 'Bring the server up.' },
       {
         key: 'power.stop',
         label: 'Stop',
-        detail: 'Shut it down, and kill it if it will not stop.',
+        detail: 'Stop the server, or kill it if it does not stop.',
       },
       { key: 'power.restart', label: 'Restart', detail: 'Stop then start in one action.' },
     ],
@@ -609,7 +613,7 @@ const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       {
         key: 'console.write',
         label: 'Send commands',
-        detail: 'Type straight into the game process. This includes op and ban.',
+        detail: 'Send commands directly to the game process, including op and ban.',
       },
     ],
   },
@@ -674,8 +678,8 @@ const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     permissions: [
       {
         key: 'ai.use',
-        label: 'Use the assistant',
-        detail: 'Ask it about this server and accept its proposals.',
+        label: 'Use AI assistance',
+        detail: 'Allow an assistant to read this server and submit proposals.',
       },
     ],
   },
@@ -725,7 +729,7 @@ function PeopleCard() {
                 onError: (cause: unknown) => {
                   setFieldErrors(cause instanceof ApiError ? cause.fieldErrors : {});
                   toast.create({
-                    title: 'Couldn’t add them',
+                    title: 'Could not add the user',
                     description: errorMessage(cause),
                     type: 'error',
                   });
@@ -839,7 +843,7 @@ function PeopleCard() {
                           {
                             onError: (cause: unknown) =>
                               toast.create({
-                                title: 'Couldn’t change their permissions',
+                                title: 'Could not change permissions',
                                 description: errorMessage(cause),
                                 type: 'error',
                               }),
@@ -866,12 +870,11 @@ function PeopleCard() {
               Remove {removing?.displayName} from {server.name}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              They lose access immediately, including any console they have open right now.
+              Access is revoked immediately, including any open console.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody className="text-subhead text-label-secondary">
-            Their Platter account is untouched, and anything they created — backups, schedules,
-            files — stays exactly where it is.
+            Their account is unaffected. Backups, schedules and files they created remain in place.
           </AlertDialogBody>
           <AlertDialogFooter>
             <AlertDialogCancel className={ACTION}>Keep their access</AlertDialogCancel>
@@ -887,7 +890,7 @@ function PeopleCard() {
                   },
                   onError: (cause: unknown) =>
                     toast.create({
-                      title: 'Couldn’t remove them',
+                      title: 'Could not remove the user',
                       description: errorMessage(cause),
                       type: 'error',
                     }),
@@ -1034,7 +1037,7 @@ function MaintenanceCard() {
                     },
                     onError: (cause: unknown) =>
                       toast.create({
-                        title: 'Couldn’t start the reinstall',
+                        title: 'Could not start the reinstall',
                         description: errorMessage(cause),
                         type: 'error',
                       }),
@@ -1141,7 +1144,7 @@ function DangerCard() {
                     },
                     onError: (cause: unknown) =>
                       toast.create({
-                        title: 'Couldn’t delete it',
+                        title: 'Could not delete the server',
                         description: errorMessage(cause),
                         type: 'error',
                       }),

@@ -103,7 +103,7 @@ function GeneralCard() {
                   onError: (cause: unknown) => {
                     setFieldErrors(cause instanceof ApiError ? cause.fieldErrors : {});
                     toast.create({
-                      title: "Couldn't save settings",
+                      title: 'Could not save settings',
                       description: errorMessage(cause),
                       type: 'error',
                     });
@@ -403,7 +403,7 @@ function UpdatesCard() {
                 {
                   onError: (cause: unknown) =>
                     toast.create({
-                      title: 'Couldn’t change update checks',
+                      title: 'Could not change update checks',
                       description: errorMessage(cause),
                       type: 'error',
                     }),
@@ -440,7 +440,7 @@ function IntegrationsCard() {
               here implied Platter would call a model on your behalf, which it does not.
             */}
             <IntegrationRow
-              description="Mods and plugins, searched live. Nothing to set up."
+              description="Mods and plugins, searched live. No configuration required."
               name="Modrinth"
               state={sources.includes('modrinth') ? 'configured' : 'not-configured'}
             />

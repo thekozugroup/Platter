@@ -303,7 +303,7 @@ export function DashboardPage() {
               <ErrorState
                 error={servers.error}
                 onRetry={() => void servers.refetch()}
-                title="Couldn’t load your servers"
+                title="Could not load servers"
                 variant="inline"
               />
             ) : null}
@@ -441,11 +441,7 @@ export function DashboardPage() {
                 description="Each server runs one game in its own container, with a console, file browser and scheduled backups."
                 icon={<ServerIcon />}
                 title="Nothing running yet"
-              >
-                <p className="max-w-prose text-subhead text-label-tertiary">
-                  Pick a game. Choose how much memory it gets. Press create.
-                </p>
-              </EmptyState>
+              />
             ) : null}
 
             {servers.isSuccess && summary.total > 0 ? (
@@ -480,15 +476,15 @@ export function DashboardPage() {
               <ErrorState
                 error={activity.error}
                 onRetry={() => void activity.refetch()}
-                title="Couldn’t load recent activity"
+                title="Could not load recent activity"
                 variant="inline"
               />
             ) : null}
 
             {activity.isSuccess && activity.data.data.length === 0 ? (
               <p className="text-subhead text-label-secondary">
-                Nothing has happened yet. Every action anyone takes — a restart, a file edit, a
-                backup — is recorded here with who did it and when.
+                No activity yet. Actions such as restarts, file edits and backups are recorded here
+                with the actor and time.
               </p>
             ) : null}
 

@@ -338,8 +338,8 @@ export function VariableFields({
           <div className="flex flex-col gap-1">
             <h3 className="font-sans text-title-3 font-semibold text-label">Game settings</h3>
             <p className="max-w-prose text-subhead text-label-secondary">
-              Sensible defaults are already filled in. Every one of these can be changed later
-              without recreating the server.
+              Defaults are filled in. Each setting can be changed later without recreating the
+              server.
             </p>
           </div>
           <FieldGroup className="gap-6">

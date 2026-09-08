@@ -120,7 +120,7 @@ export function FilesPage() {
           {frozen ? (
             <p className="text-caption text-label-tertiary" role="status">
               {server.status === 'deleting'
-                ? 'This server is being deleted, so the volume is read-only until it is gone.'
+                ? 'This server is being deleted. The volume is read-only until removal completes.'
                 : 'This server is suspended. Its files are readable but nothing can be changed until an administrator lifts the suspension.'}
             </p>
           ) : null}

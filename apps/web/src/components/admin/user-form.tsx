@@ -216,7 +216,7 @@ export function UserForm({
           </PasswordInput>
           <FieldHelper>
             {mode === 'create'
-              ? 'At least 12 characters. Length beats symbols.'
+              ? 'At least 12 characters. Length matters more than symbols.'
               : 'Leave this blank to keep the current password. Setting one signs the account out everywhere.'}
           </FieldHelper>
           <FieldError>{errors.password}</FieldError>

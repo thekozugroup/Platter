@@ -149,23 +149,23 @@ export function PendingProposalsBadge({ serverId, className }: PendingProposalsB
  * occasionally the thing being checked — but it is not what leads.
  */
 const CHANGE_FIELD_LABEL: Record<string, string> = {
-  projectId: 'Which project it is',
-  slug: 'Which project it is',
+  projectId: 'Project',
+  slug: 'Project',
   title: 'Its name',
-  serverSide: 'Whether it belongs on a server',
+  serverSide: 'Server-side support',
   license: 'Its licence',
-  versionId: 'The version',
-  versionNumber: 'The version number',
-  filename: 'The file name',
-  url: 'Where it downloads from',
-  sizeBytes: 'The file size',
-  sha512: 'The file’s fingerprint',
-  sha1: 'The file’s fingerprint',
-  loaders: 'Which servers it runs on',
-  gameVersions: 'Which Minecraft versions it supports',
-  requires: 'What else it needs',
+  versionId: 'Version',
+  versionNumber: 'Version number',
+  filename: 'File name',
+  url: 'Download URL',
+  sizeBytes: 'File size',
+  sha512: 'File checksum',
+  sha1: 'File checksum',
+  loaders: 'Loaders',
+  gameVersions: 'Game versions',
+  requires: 'Dependencies',
   summary: 'Its summary',
-  description: 'Its description',
+  description: 'Description',
   author: 'Who made it',
 };
 
@@ -176,7 +176,7 @@ function ChangeTable({ changes }: { changes: readonly ProposalChange[] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-lg border-collapse text-caption">
         <caption className="sr-only">
-          What is different between the listing you were shown and the listing now
+          Differences between the listing at proposal time and the listing now
         </caption>
         <thead>
           <tr className="border-b border-separator-strong text-start">
@@ -475,7 +475,7 @@ export function ProposalReview({
               Dismiss {proposal.title}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Nothing is added and nothing is deleted. The suggestion goes away.
+              Nothing is installed or removed. The proposal is closed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogBody>
@@ -490,7 +490,7 @@ export function ProposalReview({
                 value={note}
               />
               <FieldDescription>
-                Kept with the suggestion, and readable by whoever made it.
+                Stored with the proposal and visible to the proposer.
               </FieldDescription>
             </Field>
           </AlertDialogBody>
@@ -577,7 +577,7 @@ function Standing({
       <Alert>
         <AlertTitle className="font-sans">Dismissed</AlertTitle>
         <AlertDescription>
-          {proposal.reviewedByName ?? 'Somebody'} dismissed this{' '}
+          {proposal.reviewedByName ?? 'A reviewer'} dismissed this{' '}
           {proposal.reviewedAt === null ? '' : formatRelativeTime(proposal.reviewedAt)}. Nothing was
           added.
           {proposal.reviewNote === null ? null : (
@@ -642,8 +642,8 @@ function Proposer({ proposal, serverName }: { proposal: ModProposal; serverName:
               also whose permissions it was limited to.
             */}
             {name === null
-              ? 'Came in over MCP with no account attached — a machine credential.'
-              : 'Came in over MCP. Nothing it sends can install anything on its own.'}
+              ? 'Submitted over MCP with a machine credential, not a user account.'
+              : 'Submitted over MCP. Proposals cannot install anything without approval.'}
             {' · '}
             <time
               dateTime={proposal.proposedAt}
@@ -682,7 +682,7 @@ function DriftPanel({
         <WarningDiamond aria-hidden className="mt-0.5 size-5 shrink-0 text-danger" />
         <div className="min-w-0">
           <h4 className="font-sans text-title-3 font-semibold text-danger">
-            This is not what you were shown
+            The listing has changed
           </h4>
           <p className="mt-1 text-subhead leading-normal text-label-secondary">
             {materialCount === 0
@@ -702,7 +702,7 @@ function DriftPanel({
           onClick={onAcknowledge}
           variant="destructive"
         >
-          I have read the changes — add the new one
+          Accept the changes and install
         </Button>
         <p className="text-caption text-label-secondary">
           Leaving this page adds nothing. The suggestion stays open, and dismissing it is still the
@@ -829,7 +829,7 @@ export function ProposalQueue({ serverId, serverName, className }: ProposalQueue
           void pendingQuery.refetch();
           void failedQuery.refetch();
         }}
-        title="Couldn’t check for suggestions"
+        title="Could not check for proposals"
         variant="inline"
       />
     );

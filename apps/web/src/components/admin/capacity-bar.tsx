@@ -116,7 +116,7 @@ export function CapacityBar({
           {label}
         </p>
         <p className="text-caption text-label-secondary">
-          Platter has not detected a capacity figure for this yet.
+          No capacity figure has been detected yet.
         </p>
         {description ? <p className="text-caption text-label-tertiary">{description}</p> : null}
       </div>

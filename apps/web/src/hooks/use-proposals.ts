@@ -207,7 +207,7 @@ export function useApproveProposal(
     },
     onError: (error, { title }) => {
       toast.create({
-        title: title ? `Couldn’t install ${title}` : 'The install didn’t finish',
+        title: title ? `Couldn’t install ${title}` : 'The install did not finish',
         description: `${errorMessage(error)} Nothing usable was left on the server.`,
         type: 'error',
       });

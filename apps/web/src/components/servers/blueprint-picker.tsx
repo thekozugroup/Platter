@@ -100,7 +100,7 @@ export function BlueprintPicker({ value, onChange, className }: BlueprintPickerP
       <ErrorState
         error={blueprints.error}
         onRetry={() => void blueprints.refetch()}
-        title="Couldn’t load the game catalogue"
+        title="Could not load the game catalogue"
         variant="inline"
       />
     );

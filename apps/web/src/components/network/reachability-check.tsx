@@ -231,8 +231,7 @@ export function ReachabilityCheck({ serverId, allocations, className }: Reachabi
           </li>
         </ol>
         <p className="text-caption text-label-tertiary">
-          Platter cannot verify any of this from here, which is why it never claims a port is
-          reachable from the internet.
+          Platter cannot verify these steps, so it does not report internet reachability.
         </p>
       </section>
     </div>

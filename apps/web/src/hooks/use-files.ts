@@ -253,7 +253,7 @@ export async function fetchAuthenticatedBlob(
   const headers = new Headers();
   if (api.accessToken) headers.set('authorization', `Bearer ${api.accessToken}`);
   const response = await fetch(api.url(path, query), { headers, credentials: 'include' });
-  if (!response.ok) throw new Error("Couldn't download that. Try again.");
+  if (!response.ok) throw new Error('Download failed. Try again.');
 
   const blob = await response.blob();
   const disposition = response.headers.get('content-disposition');

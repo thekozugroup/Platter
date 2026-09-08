@@ -371,7 +371,7 @@ describe('PowerControls', () => {
     // wrapper's own accessible name.
     const blocked = screen.getByRole('button', { name: /^Start — unavailable\./ });
     expect(blocked).toHaveAttribute('aria-disabled', 'true');
-    expect(blocked).toHaveAccessibleName(/It is already running\./);
+    expect(blocked).toHaveAccessibleName(/Already running\./);
     expect(blocked).toHaveAttribute('tabindex', '0');
   });
 

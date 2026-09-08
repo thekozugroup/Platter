@@ -407,7 +407,7 @@ const PRESETS: readonly Preset[] = [
     cron: '0 4 * * *',
     action: 'restart',
     payload: null,
-    blurb: 'Clears leaked memory and reloads config while nobody is on.',
+    blurb: 'Clears leaked memory and reloads configuration while no players are online.',
   },
   {
     id: 'daily-backup',
@@ -595,13 +595,13 @@ export function SchedulesPage() {
                     title: `${schedule.name} scheduled`,
                     description: schedule.nextRunAt
                       ? `First run ${formatRelativeTime(schedule.nextRunAt)}.`
-                      : 'It is saved but disabled, so it will not run yet.',
+                      : 'Saved but disabled. It will not run until enabled.',
                     type: 'success',
                   });
                 },
                 onError: (cause: unknown) =>
                   toast.create({
-                    title: 'Couldn’t save the schedule',
+                    title: 'Could not save the schedule',
                     description: errorMessage(cause),
                     type: 'error',
                   }),
@@ -654,7 +654,7 @@ export function SchedulesPage() {
           <ErrorState
             error={schedules.error}
             onRetry={() => void schedules.refetch()}
-            title="Couldn’t list the schedules"
+            title="Could not list the schedules"
             variant="inline"
           />
         ) : null}
@@ -700,7 +700,7 @@ export function SchedulesPage() {
                       }),
                     onError: (cause: unknown) =>
                       toast.create({
-                        title: 'Couldn’t run it',
+                        title: 'Could not run the schedule',
                         description: errorMessage(cause),
                         type: 'error',
                       }),
@@ -712,7 +712,7 @@ export function SchedulesPage() {
                     {
                       onError: (cause: unknown) =>
                         toast.create({
-                          title: 'Couldn’t change it',
+                          title: 'Could not update the schedule',
                           description: errorMessage(cause),
                           type: 'error',
                         }),
@@ -741,7 +741,7 @@ export function SchedulesPage() {
               },
               onError: (cause: unknown) =>
                 toast.create({
-                  title: 'Couldn’t save the change',
+                  title: 'Could not save the change',
                   description: errorMessage(cause),
                   type: 'error',
                 }),
@@ -782,7 +782,7 @@ export function SchedulesPage() {
                   },
                   onError: (cause: unknown) =>
                     toast.create({
-                      title: 'Couldn’t delete it',
+                      title: 'Could not delete the schedule',
                       description: errorMessage(cause),
                       type: 'error',
                     }),
@@ -1015,7 +1015,7 @@ function CronPreview({ cron, timezone }: { cron: string; timezone: string }) {
       role="status"
     >
       <p className="text-subhead font-medium text-label">
-        {description ?? 'Platter can’t preview that expression'}
+        {description ?? 'This expression cannot be previewed'}
       </p>
       {description === null ? (
         <p className="text-caption text-label-secondary">

@@ -122,7 +122,7 @@ export const ROSTER_UNAVAILABLE_TITLE: Record<RosterUnavailableReason, string> =
   not_enabled: 'RCON is switched off',
   no_password: 'RCON has no password yet',
   offline: 'The server is not running',
-  unreachable: 'Platter can’t reach RCON',
+  unreachable: 'Platter cannot reach RCON',
   timeout: 'RCON did not answer in time',
   auth_failed: 'RCON rejected the password',
   protocol_error: 'RCON answered with something unreadable',
@@ -303,7 +303,7 @@ function buildActions(
       done: `Kicked ${name}`,
       failed: `Couldn’t kick ${name}`,
       run: (reason) => playerApi.kick(serverId, name, reason),
-      blocked: blockedReason ?? (player.online ? null : 'They are not online right now.'),
+      blocked: blockedReason ?? (player.online ? null : 'The player is not online.'),
       confirm: {
         title: `Kick ${name}?`,
         destructive: true,
@@ -371,7 +371,7 @@ function buildActions(
           confirm: {
             title: `Make ${name} an operator?`,
             destructive: false,
-            button: 'Make them an operator',
+            button: 'Grant operator',
             body: (
               <>
                 Operators can run any command on{' '}

@@ -48,7 +48,7 @@ export const SERVER_STATUS_HINTS: Record<ServerStatus, string> = {
   installing: "Running the blueprint's install script.",
   install_failed: 'The install script exited non-zero. Reinstall to try again.',
   offline: 'The container exists but is not running.',
-  starting: 'Booting. It is up once the blueprint sees its ready line.',
+  starting: 'Starting. Marked running once the ready line appears in the log.',
   running: 'Up and accepting players.',
   stopping: 'Shutting down gracefully.',
   restarting: 'Stopping, then starting again.',

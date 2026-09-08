@@ -711,7 +711,7 @@ function EmptyChart({
       </p>
       <p className="max-w-prose text-balance text-subhead text-label-secondary">
         {hint ??
-          'Platter samples a server only while it is running. Start it, or widen the range to reach further back.'}
+          'Samples are recorded only while the server is running. Start the server, or widen the range.'}
       </p>
     </div>
   );

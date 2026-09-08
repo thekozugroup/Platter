@@ -74,7 +74,7 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
         error={query.error}
         isRetrying={query.isFetching}
         onRetry={() => void query.refetch()}
-        title="Couldn’t read the installed mods"
+        title="Could not read the installed mods"
         variant="inline"
       />
     );
@@ -114,7 +114,7 @@ export function InstalledMods({ serverId, onOpenMod, className }: InstalledModsP
           </Button>
           {updates.isFetched && !updates.isFetching && updateByMod.size === 0 ? (
             <p className="text-caption text-label-tertiary" role="status">
-              Everything is on its newest compatible version.
+              All mods are on their newest compatible version.
             </p>
           ) : null}
         </div>

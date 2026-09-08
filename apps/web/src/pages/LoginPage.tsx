@@ -75,7 +75,7 @@ export function LoginPage() {
 
   function handleFailure(error: unknown) {
     if (error instanceof NetworkError) {
-      setFormError("Can't reach Platter. Check the API is running, then try again.");
+      setFormError('Cannot reach Platter. Check that the API is running, then try again.');
       return;
     }
 
@@ -99,7 +99,7 @@ export function LoginPage() {
       }
       // Deliberately identical for an unknown email and a wrong password.
       setCredentialsRejected(true);
-      setFormError('That email and password don’t match an account.');
+      setFormError('The email and password do not match an account.');
       return;
     }
 
@@ -232,7 +232,7 @@ export function LoginPage() {
         <div>
           <h2 className="text-title-2 text-label">Game servers, plainly</h2>
           <p className="mt-4 max-w-prose text-body text-label-secondary">
-            Pick a game. Pick a node. Press play.
+            Self-hosted game servers, managed from one place.
           </p>
         </div>
 
@@ -246,13 +246,14 @@ export function LoginPage() {
           <div>
             <dt className="font-medium text-label">A real console, not a log viewer</dt>
             <dd className="mt-1 text-label-secondary">
-              Stream stdout live and send commands straight to the process.
+              Live console output, with commands sent directly to the process.
             </dd>
           </div>
           <div>
             <dt className="font-medium text-label">Agent-controllable</dt>
             <dd className="mt-1 text-label-secondary">
-              The same API drives an MCP server, so an assistant can help — with your approval.
+              An MCP server exposes the same API, so an assistant can propose changes for your
+              approval.
             </dd>
           </div>
         </dl>

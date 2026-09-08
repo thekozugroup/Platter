@@ -39,7 +39,7 @@ export function McpPage() {
 
   return (
     <>
-      <PageHeader description="Connect an AI assistant to this Platter." title="AI and MCP" />
+      <PageHeader description="Connect an AI assistant to this installation." title="AI and MCP" />
       <PageBody className="flex flex-col gap-8">
         <Card>
           <CardHeader>
@@ -55,8 +55,8 @@ export function McpPage() {
             <Alert>
               <AlertTitle className="font-sans">Mods require your approval</AlertTitle>
               <AlertDescription>
-                An assistant can only propose one. You see what it picked, who made it and what it
-                pulls in, and nothing reaches the server until you approve it.
+                An assistant can only propose a mod. The proposal shows what was chosen, who made it
+                and what it depends on. Nothing reaches the server until it is approved.
               </AlertDescription>
             </Alert>
           </CardContent>

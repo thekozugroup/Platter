@@ -232,7 +232,7 @@ export function NodeForm({ value, onChange, fieldErrors, formId, onSubmit }: Nod
             maxLength={300}
             name="description"
             onChange={(event) => onChange({ ...value, description: event.target.value })}
-            placeholder="Where this machine lives, or what it is for. Optional."
+            placeholder="Location or purpose of this machine. Optional."
             rows={2}
             value={value.description}
           />

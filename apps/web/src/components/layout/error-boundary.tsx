@@ -29,8 +29,7 @@ function CrashScreen({ error, homeTo = '/' }: { error: Error; homeTo?: string })
     <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-bg px-6 py-16 text-center">
       <h1 className="text-title-1 text-label">This screen crashed</h1>
       <p className="max-w-prose text-balance text-body text-label-secondary">
-        Platter hit a bug while drawing this page. Your servers are unaffected — nothing here talks
-        to them until the page loads.
+        This page failed to render. Your servers are unaffected.
       </p>
 
       <pre className="max-w-full overflow-x-auto rounded-sm border border-separator-strong bg-bg-sunken px-4 py-3 text-start font-mono text-caption text-label-secondary">

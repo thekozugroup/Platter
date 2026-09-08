@@ -238,7 +238,7 @@ describe('CopyField', () => {
     await user.click(screen.getByRole('button', { name: /copy server address/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(/couldn’t reach the clipboard/i),
+      expect(screen.getByRole('status')).toHaveTextContent(/could not reach the clipboard/i),
     );
   });
 });
@@ -454,7 +454,7 @@ describe('AppShell', () => {
       </Providers>,
     );
 
-    expect(await screen.findByText(/don’t have access to this/i)).toBeInTheDocument();
+    expect(await screen.findByText(/do not have access to this/i)).toBeInTheDocument();
     // Still on the address they asked for: no redirect loop to debug from the outside.
     expect(router.state.location.pathname).toBe('/admin/users');
   });

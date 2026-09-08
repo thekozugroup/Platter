@@ -641,7 +641,7 @@ export function ConsoleView({
           ) : null}
           {copyState === 'failed' ? (
             <span className="text-console-stderr">
-              Couldn’t reach the clipboard. Select the text and press Ctrl+C.
+              Could not reach the clipboard. Select the text and press Ctrl+C.
             </span>
           ) : null}
         </span>

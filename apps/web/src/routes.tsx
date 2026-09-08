@@ -37,11 +37,11 @@ function MissingScreen({ modulePath }: { modulePath: string }) {
           description={
             <>
               This route is wired up, but <code className="font-mono">{modulePath}</code> does not
-              exist yet. It appears as soon as the file lands.
+              exist yet.
             </>
           }
           size="sm"
-          title="This screen has not shipped"
+          title="This screen is not available"
         />
       </PageBody>
     </>
@@ -161,7 +161,7 @@ function RequireRole({ minimum }: { minimum: UserRole }) {
               if you need this.
             </>
           }
-          title="You don’t have access to this"
+          title="You do not have access to this"
         />
       </PageBody>
     </>

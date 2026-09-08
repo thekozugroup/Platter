@@ -20,7 +20,7 @@ export function badRequest(message: string, details?: Record<string, string[]>):
   return new PlatterError('bad_request', message, details ? { details } : {});
 }
 
-export function forbidden(message = "You don't have access to this."): PlatterError {
+export function forbidden(message = 'You do not have access to this.'): PlatterError {
   return new PlatterError('forbidden', message);
 }
 

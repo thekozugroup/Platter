@@ -43,7 +43,7 @@ export function PlayersPage() {
         <ErrorState
           error={roster.error}
           onRetry={() => void roster.refetch()}
-          title="Couldn’t load the player list"
+          title="Could not load the player list"
         />
       </PageBody>
     );
@@ -97,7 +97,7 @@ export function PlayersPage() {
                 ? 'Platter cannot read the live player list right now.'
                 : 'Share the connect address shown above to invite players.'
             }
-            emptyTitle={unavailable ? 'Nobody can be listed right now' : 'Nobody is playing'}
+            emptyTitle={unavailable ? 'Player list unavailable' : 'Nobody is playing'}
             isLoading={roster.isPending}
             players={players}
             scope="online"
@@ -126,7 +126,7 @@ export function PlayersPage() {
 
           <PlayerList
             blockedReason={blockedReason}
-            emptyDescription="Nobody has joined yet. Players are added when they first connect and stay listed after they leave."
+            emptyDescription="No players have joined yet. Players are listed on first connection and remain listed after leaving."
             emptyTitle="No players recorded"
             isLoading={roster.isPending}
             players={players}

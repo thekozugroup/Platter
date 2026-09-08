@@ -62,7 +62,7 @@ export function AddressPanel({ serverId, serverName, className }: AddressPanelPr
         error={query.error}
         isRetrying={query.isFetching}
         onRetry={() => void query.refetch()}
-        title="Couldn’t work out this server’s address"
+        title="Could not determine this server’s address"
         variant="inline"
       />
     );

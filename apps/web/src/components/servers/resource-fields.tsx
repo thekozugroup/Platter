@@ -282,7 +282,7 @@ export function ResourceFields({
         bound={bounds.cpu}
         display={formatCpu(value.cpuCores)}
         error={errors?.cpuCores}
-        help="A quota, not a reservation. Unlimited lets the server use whatever the machine has spare."
+        help="A limit, not a reservation. Unlimited allows the server to use any spare CPU on the machine."
         label="CPU"
         maxLabel={formatCpu(bounds.cpu.max)}
         minLabel="Unlimited"

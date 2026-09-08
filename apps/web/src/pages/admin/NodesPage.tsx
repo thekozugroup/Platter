@@ -169,7 +169,7 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
       },
       onError: (cause: unknown) =>
         toast.create({
-          title: "Couldn't reach that node",
+          title: 'Could not reach the node',
           description: errorMessage(cause),
           type: 'error',
         }),
@@ -247,7 +247,7 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           label="Memory"
           total={capacity.data?.memoryTotalMb ?? node.memoryTotalMb}
           unavailable={
-            capacity.isError ? "Couldn't read live memory usage from this node." : undefined
+            capacity.isError ? 'Could not read live memory usage from this node.' : undefined
           }
           used={capacity.data?.memoryUsedMb ?? 0}
         />
@@ -258,7 +258,7 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           label="Disk"
           total={capacity.data?.diskTotalMb ?? node.diskTotalMb}
           unavailable={
-            capacity.isError ? "Couldn't read live disk usage from this node." : undefined
+            capacity.isError ? 'Could not read live disk usage from this node.' : undefined
           }
           used={capacity.data?.diskUsedMb ?? 0}
         />
@@ -269,7 +269,7 @@ function NodeCard({ node, onEdit, onDelete }: NodeCardProps) {
           label="Ports"
           total={capacity.data?.portsTotal ?? node.portRangeEnd - node.portRangeStart + 1}
           unavailable={
-            capacity.isError ? "Couldn't read live port usage from this node." : undefined
+            capacity.isError ? 'Could not read live port usage from this node.' : undefined
           }
           used={capacity.data?.portsUsed ?? 0}
           warnAt={0.9}
@@ -390,7 +390,7 @@ export function NodesPage() {
           },
           onError: (cause: unknown) => {
             toast.create({
-              title: "Couldn't save the node",
+              title: 'Could not save the node',
               description: errorMessage(cause),
               type: 'error',
             });
@@ -405,7 +405,7 @@ export function NodesPage() {
         },
         onError: (cause: unknown) => {
           toast.create({
-            title: "Couldn't add the node",
+            title: 'Could not add the node',
             description: errorMessage(cause),
             type: 'error',
           });
@@ -545,7 +545,7 @@ export function NodesPage() {
                   },
                   onError: (cause: unknown) => {
                     toast.create({
-                      title: "Couldn't remove the node",
+                      title: 'Could not remove the node',
                       description: errorMessage(cause),
                       type: 'error',
                     });

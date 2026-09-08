@@ -271,7 +271,7 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
     const handleCommand = async (command: string): Promise<void> => {
       if (!authed || typeof serverId !== 'string') return;
       if (!canWrite) {
-        send({ type: 'error', code: 'forbidden', message: 'You cannot type in this console.' });
+        send({ type: 'error', code: 'forbidden', message: 'This console is read-only.' });
         return;
       }
 

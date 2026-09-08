@@ -145,7 +145,7 @@ export function FileEditor({ serverId, path, onClose, canWrite, className }: Fil
           },
           onError: (cause: unknown) =>
             toast.create({
-              title: 'Couldn’t save the file',
+              title: 'Could not save the file',
               description: errorMessage(cause),
               type: 'error',
             }),

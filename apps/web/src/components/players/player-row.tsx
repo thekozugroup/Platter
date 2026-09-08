@@ -65,7 +65,7 @@ export function describePresence(player: PlayerRecord, now: number = Date.now())
   }
   if (player.online) return 'Online now';
   if (player.lastSeen) return `Last seen ${formatRelativeTime(player.lastSeen)}`;
-  return 'Never seen on this server';
+  return 'Has not joined yet';
 }
 
 /** `14h 20m played · 32 sessions`. */

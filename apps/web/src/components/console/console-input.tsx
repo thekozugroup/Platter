@@ -59,7 +59,7 @@ export function consoleInputBlockedReason(
     return 'The console is not connected.';
   }
   if (!canWrite) {
-    return 'You can read this console but not write to it. Ask the owner for the console.write permission.';
+    return 'Read-only access. Ask the owner for the console.write permission.';
   }
   if (status === null) return 'Waiting for the server to report its status.';
   if (status === 'running') return null;

@@ -95,16 +95,16 @@ export function powerBlockedReason(status: ServerStatus, action: PowerAction): s
   switch (action) {
     case 'start':
       return status === 'installing'
-        ? 'It is installing. It starts on its own when the install finishes.'
-        : `It is already ${SERVER_STATUS_LABELS[status].toLowerCase()}.`;
+        ? 'Installing. The server starts automatically when the install completes.'
+        : `Already ${SERVER_STATUS_LABELS[status].toLowerCase()}.`;
     case 'stop':
-      return 'There is nothing running to stop.';
+      return 'No running process to stop.';
     case 'restart':
       return status === 'offline' || status === 'crashed'
         ? 'Restart needs a running server. Start it instead.'
         : `Not while it is ${SERVER_STATUS_LABELS[status].toLowerCase()}. Wait for it to settle.`;
     case 'kill':
-      return 'There is no running process to kill.';
+      return 'No running process to kill.';
     default:
       return SERVER_STATUS_HINTS[status];
   }

@@ -55,11 +55,11 @@ interface PortPurpose {
 const PURPOSE: Record<string, PortPurpose> = {
   game: {
     label: 'Game',
-    hint: 'What players connect to. This is the one that has to be reachable.',
+    hint: 'The port players connect to. Must be reachable from outside.',
   },
   rcon: {
     label: 'RCON',
-    hint: 'Remote console. Platter uses it internally — never forward it to the internet.',
+    hint: 'Remote console, used internally by Platter. Do not expose it to the internet.',
   },
   query: {
     label: 'Query',
@@ -175,7 +175,7 @@ export function PortTable({ serverId, className }: PortTableProps) {
         error={query.error}
         isRetrying={query.isFetching}
         onRetry={() => void query.refetch()}
-        title="Couldn’t read the port allocations"
+        title="Could not read the port allocations"
         variant="inline"
       />
     );
@@ -397,7 +397,7 @@ function ChangePortForm({
             </AlertTitle>
             <AlertDescription>
               {change.data.requiresRestart
-                ? 'The container that is already running keeps its current mapping. Restart the server for the new port to take effect, and tell players the new address.'
+                ? 'The running container keeps its current mapping. Restart the server to apply the new port. Players will need the new address.'
                 : 'It takes effect the next time this server starts.'}
             </AlertDescription>
           </Alert>
