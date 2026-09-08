@@ -138,11 +138,16 @@ date.
 ## `pnpm verify`
 
 ```bash
-pnpm verify        # typecheck && lint && test
+pnpm verify        # typecheck && lint && format:check && test
 ```
 
-**This must pass before you open a pull request.** CI runs the same three plus `pnpm format:check`
-and the Playwright suite.
+**This must pass before you open a pull request.** CI runs the same four, plus the Playwright
+suite and the Docker image build.
+
+`verify` deliberately stops short of Playwright, which needs a downloaded browser. That leaves
+one gap worth knowing about: **the end-to-end specs assert interface text**, so a change to
+wording that `verify` is perfectly happy with can still turn CI red. If you have edited copy,
+run `pnpm test:e2e` too.
 
 | Command             | What it enforces                                                                                                                                                                                    |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -150,6 +155,7 @@ and the Playwright suite.
 | `pnpm lint`         | `eslint . --max-warnings=0`. A warning is a failure.                                                                                                                                                |
 | `pnpm test`         | Vitest in all three packages.                                                                                                                                                                       |
 | `pnpm format:check` | Prettier: single quotes, semicolons, trailing commas, 100 columns. `pnpm format` fixes it.                                                                                                          |
+| `pnpm test:e2e`     | Playwright, not part of `verify`: needs a browser. Run it after changing interface text — the specs read the screen, so they assert the words on it.                                                |
 
 If `verify` fails on a fresh checkout rather than on your change, you probably skipped
 `pnpm --filter @platter/shared build` or `prisma generate` — see [Setup](#setup).

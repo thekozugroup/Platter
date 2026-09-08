@@ -268,6 +268,34 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
 
   owner: async ({ ownerSession }, run, testInfo) => {
+    /*
+     * Whatever the previous test left on screen is what this one starts with, because the
+     * page is worker-scoped. An open sheet is the case that bites: its overlay swallows the
+     * next spec's first click, and the spec fails somewhere unrelated to what it is testing.
+     *
+     * `mod-proposal.spec.ts` ends with one open deliberately — it stops at the Add button
+     * rather than pressing it — so whether the following spec's first click landed depended
+     * on whether that describe's cleanup happened to redirect the page first. That is a
+     * race, and it behaved like one: green in CI and red locally on the same commit.
+     *
+     * Closing here rather than in the spec that opens it, because the hazard belongs to the
+     * shared page, not to any one test — the next spec to leave something open should not
+     * have to rediscover this.
+     */
+    const overlay = ownerSession.getByRole('dialog').or(ownerSession.getByRole('alertdialog'));
+    if (
+      await overlay
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await ownerSession.keyboard.press('Escape');
+      await overlay
+        .first()
+        .waitFor({ state: 'hidden', timeout: 5000 })
+        .catch(() => undefined);
+    }
+
     await run(ownerSession);
     if (testInfo.status !== testInfo.expectedStatus) {
       // The worker-scoped context is outside Playwright's automatic artifacts, and a failure

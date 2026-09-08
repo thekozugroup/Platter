@@ -46,7 +46,7 @@ test('a fresh install sends you to setup, and the owner you make lands on the da
   ).toBeVisible();
 
   // The screen says what this account is for before asking for anything.
-  await expect(page.getByText(/The first account owns it/i)).toBeVisible();
+  await expect(page.getByText(/The first account becomes the owner/i)).toBeVisible();
 
   await page.getByLabel('Your name').fill(OWNER.displayName);
   await page.getByLabel('Username').fill(OWNER.username);

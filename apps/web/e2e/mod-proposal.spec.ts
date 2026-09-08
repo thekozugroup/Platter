@@ -140,7 +140,7 @@ test.describe('a mod an agent suggested', () => {
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('heading')).toHaveText(`Dismiss ${MOD_TITLE}?`);
-    await expect(dialog).toContainText(/Nothing is added and nothing is deleted/i);
+    await expect(dialog).toContainText(/Nothing is installed or removed/i);
 
     await dialog.getByLabel('Why not? (optional)').fill('Client-side only on this server.');
     await dialog.getByRole('button', { name: 'Dismiss it' }).click();
