@@ -20,25 +20,49 @@
 export type GlyphRect = readonly [number, number, number, number];
 
 export const GAME_GLYPHS: Readonly<Record<string, readonly GlyphRect[]>> = {
-  /** Pickaxe — the first thing you make, in every version of the game. */
+  /**
+   * Pickaxe — the first thing you make, in every version of the game.
+   *
+   * The head is a stepped arc with the ends dropping below the centre, which is the only
+   * thing separating it from `hammer`: drawn as a flat bar the two marks were the same
+   * picture, and Minecraft and Terraria sat next to each other in the list wearing it.
+   */
   pickaxe: [
-    [4, 6, 4, 2],
-    [8, 4, 8, 2],
-    [16, 6, 4, 2],
-    [11, 8, 2, 12],
+    [3, 8, 3, 2],
+    [6, 6, 4, 2],
+    [10, 5, 4, 2],
+    [14, 6, 4, 2],
+    [18, 8, 3, 2],
+    [11, 7, 2, 14],
   ],
-  /** Grass block: soil with a lighter cap, the Bedrock counterpart to the pickaxe. */
+  /**
+   * Grass block, the Bedrock counterpart to the pickaxe.
+   *
+   * The fringe between cap and soil is what makes it a grass block rather than two stacked
+   * bars — a single fill cannot carry the two tones the real block uses.
+   */
   block: [
-    [3, 5, 18, 4],
+    [3, 4, 18, 4],
+    [3, 8, 2, 2],
+    [7, 8, 2, 2],
+    [11, 8, 2, 2],
+    [15, 8, 2, 2],
+    [19, 8, 2, 2],
     [3, 10, 18, 9],
   ],
-  /** Longship under sail. */
+  /**
+   * Longship under sail: square sail over a hull with both ends swept up.
+   *
+   * The sail is one shape rather than two halves split by the mast. Split, at 24 pixels it
+   * read as an unrelated pair of blocks and the mark meant nothing.
+   */
   longship: [
-    [3, 11, 2, 4],
+    [11, 2, 2, 2],
+    [6, 4, 12, 8],
+    [2, 12, 2, 4],
+    [20, 12, 2, 4],
     [3, 15, 18, 3],
-    [6, 18, 12, 2],
-    [11, 4, 2, 11],
-    [13, 5, 6, 7],
+    [5, 18, 14, 2],
   ],
   /** Paw print. */
   paw: [
@@ -79,11 +103,11 @@ export const GAME_GLYPHS: Readonly<Record<string, readonly GlyphRect[]>> = {
     [16, 4, 3, 8],
     [16, 1, 2, 2],
   ],
-  /** Fog bank. */
+  /** Fog bank: offset bands, because centred ones stack into a single solid shape. */
   fog: [
-    [7, 6, 9, 4],
-    [4, 10, 16, 4],
-    [6, 15, 12, 3],
+    [6, 6, 11, 3],
+    [9, 11, 11, 3],
+    [4, 16, 12, 3],
   ],
   /** Skull — the eyes and teeth are the gaps, not shapes. */
   skull: [
@@ -104,14 +128,18 @@ export const GAME_GLYPHS: Readonly<Record<string, readonly GlyphRect[]>> = {
     [15, 11, 7, 2],
     [11, 11, 2, 2],
   ],
-  /** Campfire. */
+  /**
+   * Campfire: a flame over a log.
+   *
+   * The tip sits off centre. Drawn symmetrically the steps read as a pyramid rather than
+   * something burning.
+   */
   campfire: [
-    [10, 3, 4, 4],
-    [9, 7, 6, 4],
-    [8, 11, 8, 4],
-    [3, 16, 18, 3],
-    [5, 13, 3, 3],
-    [16, 13, 3, 3],
+    [12, 2, 2, 3],
+    [10, 5, 4, 3],
+    [9, 8, 6, 4],
+    [8, 12, 8, 3],
+    [3, 17, 18, 3],
   ],
 };
 

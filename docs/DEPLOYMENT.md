@@ -330,7 +330,7 @@ setting it too.
 | `NO_PROXY`    | —       | Comma-separated hosts to reach directly. Conventional semantics. |
 
 Set these if your network requires a proxy for outbound traffic, and Platter will route mod
-registry and Anthropic requests through it.
+registry and update-check requests through it.
 
 This needs saying because it is not the default it looks like: **Node's `fetch` ignores these
 variables**, unlike curl, git and npm. An application has to opt in, and Platter does — at

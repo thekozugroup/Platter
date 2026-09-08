@@ -78,14 +78,14 @@ origin, so there is no reverse proxy to configure and no CORS policy to get wron
 
 ## What it looks like
 
-<img alt="Platter's dashboard: two servers, allocation meters, and recent activity" src="docs/assets/screenshot-dashboard.png" width="100%">
+<img alt="Platter's dashboard: three servers with their game marks, allocation meters, and status" src="docs/assets/screenshot-dashboard.png" width="100%">
 
 Every server you run, what is allocated, and what has happened lately. Colour is never the only
 signal — a status is always a word as well as a dot.
 
-<img alt="The mod browser: Modrinth results filtered to what a Fabric 1.21.1 server runs" src="docs/assets/screenshot-mods.png" width="100%">
+<img alt="The mod browser: Modrinth results filtered to what a Paper 1.21.4 server runs" src="docs/assets/screenshot-mods.png" width="100%">
 
-The mod browser, searching Modrinth live and narrowed to what this Fabric 1.21.1 server can
+The mod browser, searching Modrinth live and narrowed to what this Paper 1.21.4 server can
 actually run. Mod artwork is proxied through Platter rather than fetched from a registry CDN, so
 the content security policy stays at `img-src 'self'` — your browser never tells Modrinth which
 mods you are reading about.
