@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Server } from '@platter/shared';
+import { SERVER_PERMISSIONS, type Server } from '@platter/shared';
 import { queryKeys } from '@/lib/query.js';
 import { useCreateServer, useServers } from '../use-servers.js';
 import { useRenameServer } from '../use-server.js';
@@ -44,6 +44,7 @@ function makeServer(overrides: Partial<Server> = {}): Server {
     limits: { memoryMb: 4096, diskMb: 10_240, cpuCores: 2, swapMb: 0, ioWeight: 500 },
     allocations: [],
     connectString: null,
+    permissions: [...SERVER_PERMISSIONS],
     variables: {},
     redactedVariables: [],
     autoStart: true,

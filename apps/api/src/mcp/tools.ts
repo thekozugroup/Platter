@@ -64,7 +64,12 @@ import {
   presentStatus,
 } from '../services/servers.js';
 import { METRIC_NAMES, RESOLUTIONS, querySeries, type Resolution } from '../services/timeseries.js';
-import { authorizeServer, assertScope, type McpPrincipal } from './auth.js';
+import {
+  authorizeServer,
+  assertScope,
+  grantedServerPermissions,
+  type McpPrincipal,
+} from './auth.js';
 
 /**
  * Platter's tools, as an MCP client sees them.
@@ -553,7 +558,11 @@ const getServerTool = defineTool({
     const row = await authorizeServer(context.principal, args.serverId, 'server.view');
     // Redaction and the connect string are both applied by the DTO itself now, so every
     // reader — REST and MCP alike — gets the same answer without repeating the rule here.
-    const dto = await loadServerDto(row.id, context.logger);
+    const dto = await loadServerDto(
+      row.id,
+      await grantedServerPermissions(context.principal, row),
+      context.logger,
+    );
     const blueprint = await findBlueprint(row.blueprintKey);
 
     return {
@@ -2680,7 +2689,11 @@ const getServerAddressTool = defineTool({
   },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
-    const dto = await loadServerDto(server.id, context.logger);
+    const dto = await loadServerDto(
+      server.id,
+      await grantedServerPermissions(context.principal, server),
+      context.logger,
+    );
     const node = await prisma.node.findUnique({
       where: { id: server.nodeId },
       select: { publicHost: true },
@@ -2806,7 +2819,11 @@ const checkReachabilityTool = defineTool({
   },
   handler: async (args, context) => {
     const server = await authorizeServer(context.principal, args.serverId, 'server.view');
-    const dto = await loadServerDto(server.id, context.logger);
+    const dto = await loadServerDto(
+      server.id,
+      await grantedServerPermissions(context.principal, server),
+      context.logger,
+    );
     const node = await prisma.node.findUnique({
       where: { id: server.nodeId },
       select: { publicHost: true },

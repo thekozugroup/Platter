@@ -128,6 +128,13 @@ export function ModsPage() {
       </div>
 
       <ModDetailSheet
+        /*
+         * `files.write` is what the approval half of the flow demands
+         * (`apps/api/src/routes/proposals.ts`), so a collaborator holding `ai.use` alone can
+         * read this page and propose through an assistant but must not be offered a button
+         * whose only outcome is a 403.
+         */
+        canAdd={server.permissions.includes('files.write')}
         onAdded={() => {
           added.current = true;
         }}

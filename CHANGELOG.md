@@ -112,10 +112,6 @@ rather than what moved.
 - **Mod description images are not rendered.** `img-src` is pinned to `'self'` and the API
   rewrites artwork URLs only for icons and gallery images, not inside free-text bodies, so a
   meaningful `alt` becomes a caption and a bare label is dropped.
-- **The mod approval screen still shows blank icons.** It emits raw CDN URLs that the content
-  security policy blocks; the browse and detail screens go through the proxy and are fine.
-- **`canAdd` defaults to true.** A collaborator holding `ai.use` but not `files.write` sees an
-  Add button that will fail with a 403 on the approval half.
 - **No email.** There is no password reset, because a fresh self-hosted box has no mail server.
   An administrator resets a password from the admin area.
 

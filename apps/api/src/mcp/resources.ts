@@ -9,7 +9,7 @@ import { MINECRAFT_SERVER_TYPES } from '../blueprints/index.js';
 import { prisma } from '../db.js';
 import { getBlueprint, hasBlueprint, listBlueprintSummaries } from '../services/blueprints.js';
 import { listServers, loadServerDto, presentStatus } from '../services/servers.js';
-import { assertScope, authorizeServer } from './auth.js';
+import { assertScope, authorizeServer, grantedServerPermissions } from './auth.js';
 import { readRecentLines, toLogEntries, type ToolContext } from './tools.js';
 
 /**
@@ -185,7 +185,11 @@ async function readServerConfig(
 ): Promise<ReadResourceResult> {
   const uri = serverConfigUri(serverId);
   const row = await authorizeServer(context.principal, serverId, 'server.view');
-  const dto = await loadServerDto(row.id, context.logger);
+  const dto = await loadServerDto(
+    row.id,
+    await grantedServerPermissions(context.principal, row),
+    context.logger,
+  );
   const blueprint = hasBlueprint(row.blueprintKey) ? getBlueprint(row.blueprintKey) : null;
   const node = await prisma.node.findUnique({
     where: { id: row.nodeId },

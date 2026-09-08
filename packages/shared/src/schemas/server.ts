@@ -48,6 +48,20 @@ export const serverSchema = z.object({
    * a thing anyone can connect to.
    */
   connectString: z.string().nullable(),
+  /**
+   * What the account asking for this server may do to it, already intersected with the
+   * scopes of the credential that asked.
+   *
+   * The client needs this to tell "you cannot" from "not right now". Without it a screen
+   * has two bad options: hide a control a permitted user needs, or offer one that answers
+   * 403 — and the second is what Platter did, so a collaborator holding `ai.use` but not
+   * `files.write` was shown an Add button that could never work.
+   *
+   * It is a statement about the caller, not about the server, so it is never cached across
+   * users and never appears on the list response, where one row would be answering for
+   * whoever asked last.
+   */
+  permissions: z.array(z.enum(SERVER_PERMISSIONS)),
   variables: z.record(z.string(), z.string()),
   /** Keys whose value came back as `[redacted]`. Password-typed variables are never sent. */
   redactedVariables: z.array(z.string()),

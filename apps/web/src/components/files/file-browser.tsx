@@ -234,6 +234,13 @@ export interface FileBrowserProps {
   onOpenFile: (entry: FileEntry) => void;
   canWrite: boolean;
   canDelete: boolean;
+  /**
+   * Why writing is off, when it is off for a reason worth naming. `'permission'` is the
+   * only one this component explains, because it is the only one the reader can act on —
+   * a suspended server is explained by the page, which knows which of the two states it is
+   * in and says so once.
+   */
+  readOnlyReason?: 'permission' | null;
   className?: string;
 }
 
@@ -245,6 +252,7 @@ export function FileBrowser({
   onOpenFile,
   canWrite,
   canDelete,
+  readOnlyReason = null,
   className,
 }: FileBrowserProps) {
   const queryClient = useQueryClient();
@@ -466,7 +474,9 @@ export function FileBrowser({
             disabled={!canWrite}
             onClick={() => setCreating('folder')}
             variant="outline"
-            {...(canWrite ? {} : { 'aria-describedby': 'files-readonly-hint' })}
+            {...(canWrite || readOnlyReason !== 'permission'
+              ? {}
+              : { 'aria-describedby': 'files-readonly-hint' })}
           >
             <FolderPlus aria-hidden />
             New folder
@@ -476,7 +486,9 @@ export function FileBrowser({
             disabled={!canWrite}
             onClick={() => setCreating('file')}
             variant="outline"
-            {...(canWrite ? {} : { 'aria-describedby': 'files-readonly-hint' })}
+            {...(canWrite || readOnlyReason !== 'permission'
+              ? {}
+              : { 'aria-describedby': 'files-readonly-hint' })}
           >
             <FileIcon aria-hidden />
             New file
@@ -488,7 +500,7 @@ export function FileBrowser({
             </Button>
           </FileUploadTrigger>
 
-          {!canWrite ? (
+          {!canWrite && readOnlyReason === 'permission' ? (
             <p className="text-caption text-label-tertiary" id="files-readonly-hint">
               Read-only access. Ask the owner for the files.write permission.
             </p>

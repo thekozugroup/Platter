@@ -205,6 +205,24 @@ export async function authorizeServer(
   return server;
 }
 
+/**
+ * Everything this principal may do on one server, intersected with its key's scopes.
+ *
+ * `authorizeServer` answers one yes-or-no question; this answers the whole set, which is
+ * what a server document has to carry so a client can tell "you cannot" from "not now".
+ * A key scoped narrower than its account must report the narrower set, or an agent would
+ * plan against a permission the very next call refuses.
+ */
+export async function grantedServerPermissions(
+  principal: McpPrincipal,
+  server: Pick<ServerRecord, 'id' | 'ownerId'>,
+): Promise<readonly ServerPermission[]> {
+  const held = await serverPermissionsFor(server, principal.user);
+  if (!held) return [];
+  const { scopes } = principal;
+  return [...held].filter((permission) => scopes === null || scopes.has(permission));
+}
+
 // ---------------------------------------------------------------------------
 // Identity for the audit log
 // ---------------------------------------------------------------------------

@@ -66,13 +66,14 @@ export function FilesPage() {
   }, [setParams]);
 
   /*
-   * Permissions are not readable from the client — the API decides — so this is deliberately
-   * optimistic and the real refusal comes back as a 403 with a message. The one thing that is
-   * knowable up front is a suspended or deleting server, where every write will fail.
+   * Two separate reasons a write cannot happen, and they are not interchangeable: the
+   * account may not hold the grant, or the server may be suspended or on its way out. The
+   * API is still the authority — this only decides what to offer and what to say about it.
    */
   const frozen = server.status === 'deleting' || server.status === 'suspended';
-  const canWrite = !frozen;
-  const canDelete = !frozen;
+  const mayWrite = server.permissions.includes('files.write');
+  const canWrite = mayWrite && !frozen;
+  const canDelete = server.permissions.includes('files.delete') && !frozen;
 
   return (
     <PageBody className="flex flex-col gap-8">
@@ -110,6 +111,7 @@ export function FilesPage() {
           <FileBrowser
             canDelete={canDelete}
             canWrite={canWrite}
+            readOnlyReason={mayWrite ? null : 'permission'}
             onNavigate={navigate}
             onOpenFile={openFile}
             path={path}

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { API_PREFIX } from '@platter/shared';
+import { API_PREFIX, SERVER_PERMISSIONS } from '@platter/shared';
 import { prisma } from '../../db.js';
 import { newId } from '../../lib/ids.js';
 import { generateApiKey } from '../../plugins/auth.js';
@@ -762,5 +762,70 @@ describe('what the audit log is allowed to remember', () => {
     expect(redactCommand('say  hello   world')).toBe('say  hello   world');
 
     expect(serverId).toBeTruthy();
+  });
+});
+
+describe('a server says what the caller may do to it', () => {
+  /**
+   * The client used to guess, and guessed generously.
+   *
+   * Nothing in the server document said what the reader was allowed to do, so screens
+   * defaulted to offering everything and let the API refuse: the mod sheet showed an Add
+   * button to a collaborator holding `ai.use` but not `files.write`, and pressing it
+   * returned a 403 with no way to have known. `permissions` is what lets a screen tell
+   * "you cannot" from "not right now" — so it has to be the caller's real set, not the
+   * server's.
+   */
+  it('reports a collaborator’s own grant, not the owner’s', async () => {
+    const owner = await createTestUser('owner');
+    const serverId = await createServer(owner);
+    const member = await addCollaborator(serverId, ['server.view', 'ai.use']);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: authHeaders(member),
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    const permissions = response.json().permissions as string[];
+    expect(permissions).toEqual(expect.arrayContaining(['server.view', 'ai.use']));
+    // The exact grant that made the Add button a lie.
+    expect(permissions).not.toContain('files.write');
+    expect(permissions).not.toContain('server.delete');
+  });
+
+  it('gives the owner the whole vocabulary', async () => {
+    const owner = await createTestUser('owner');
+    const serverId = await createServer(owner);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: authHeaders(owner),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().permissions).toEqual(expect.arrayContaining([...SERVER_PERMISSIONS]));
+  });
+
+  /**
+   * A key scoped narrower than its account must report the narrower set. Reporting the
+   * account's permissions would have a client plan against something the very next request
+   * refuses — which is the same fault as the Add button, one layer down.
+   */
+  it('narrows to the scopes of the key that asked', async () => {
+    const owner = await createTestUser('owner');
+    const serverId = await createServer(owner);
+    const token = await issueKey(owner.id, ['server.view']);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `${BASE}/servers/${serverId}`,
+      headers: apiKeyHeaders(token),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().permissions).toEqual(['server.view']);
   });
 });

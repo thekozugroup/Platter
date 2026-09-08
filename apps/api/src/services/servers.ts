@@ -241,6 +241,7 @@ export function toServerDto(
   row: ServerWithAllocations,
   blueprint: Blueprint | null,
   connectString: string | null,
+  permissions: Iterable<ServerPermission>,
   log?: FastifyBaseLogger,
 ): Server {
   const { variables, redacted } = redactVariables(
@@ -259,6 +260,7 @@ export function toServerDto(
     limits: toLimits(row),
     allocations: toAllocations(row.allocations, blueprint),
     connectString,
+    permissions: [...permissions],
     variables,
     redactedVariables: redacted,
     autoStart: row.autoStart,
@@ -345,14 +347,18 @@ async function findBlueprint(key: string, log?: FastifyBaseLogger): Promise<Blue
 // Reading
 // ---------------------------------------------------------------------------
 
-export async function loadServerDto(serverId: string, log?: FastifyBaseLogger): Promise<Server> {
+export async function loadServerDto(
+  serverId: string,
+  permissions: Iterable<ServerPermission>,
+  log?: FastifyBaseLogger,
+): Promise<Server> {
   const row = await prisma.server.findUnique({
     where: { id: serverId },
     include: { allocations: true },
   });
   if (!row) throw notFound('server');
   const blueprint = await findBlueprint(row.blueprintKey, log);
-  return toServerDto(row, blueprint, await connectStringFor(row), log);
+  return toServerDto(row, blueprint, await connectStringFor(row), permissions, log);
 }
 
 /**
@@ -803,7 +809,14 @@ export async function createServer(
     });
     if (!created) throw notFound('server');
 
-    const dto = toServerDto(created, blueprint, await connectStringFor(created), log);
+    // The creator is the owner, so the full vocabulary applies without a lookup.
+    const dto = toServerDto(
+      created,
+      blueprint,
+      await connectStringFor(created),
+      ALL_SERVER_PERMISSIONS,
+      log,
+    );
     if (input.startOnCreate) startInstall(serverId, log);
     return dto;
   } catch (error) {
@@ -841,6 +854,7 @@ function withoutEchoedSecrets(
 export async function updateServer(
   server: ServerRecord,
   input: UpdateServerRequest,
+  permissions: Iterable<ServerPermission>,
   log: FastifyBaseLogger,
 ): Promise<Server> {
   const blueprint = await findBlueprint(server.blueprintKey, log);
@@ -885,7 +899,7 @@ export async function updateServer(
   });
   // New limits and variables reach the container when it is next created; the lifecycle
   // service recreates from the row on start, so nothing is applied behind the operator.
-  return toServerDto(updated, blueprint, await connectStringFor(updated), log);
+  return toServerDto(updated, blueprint, await connectStringFor(updated), permissions, log);
 }
 
 // ---------------------------------------------------------------------------

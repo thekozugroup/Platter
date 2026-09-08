@@ -22,6 +22,7 @@ import { redactCommand } from '../lib/redact.js';
 import {
   assertRequestScope,
   assertScope,
+  effectiveServerPermissions,
   requireServer,
   type AuthenticatedUser,
   type ServerRecord,
@@ -89,6 +90,21 @@ function actor(request: { auth: { user: AuthenticatedUser } | null }): Authentic
   // one, this fails loudly instead of attributing the action to nobody.
   if (!request.auth) throw unauthenticated();
   return request.auth.user;
+}
+
+/**
+ * What the caller may do to this server, for the `permissions` field of the response.
+ *
+ * Resolved per request rather than cached: it depends on the account *and* on the scopes of
+ * the credential in use, so the same server answers differently to a browser session and to
+ * a read-only API key held by the same person.
+ */
+async function callerPermissions(
+  request: FastifyRequest,
+  server: ServerRecord,
+): Promise<readonly ServerPermission[]> {
+  if (!request.auth) throw unauthenticated();
+  return [...(await effectiveServerPermissions(request.auth, server, request.log))];
 }
 
 /**
@@ -167,7 +183,10 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
         response: { 200: serverSchema },
       },
     },
-    async (request) => loadServerDto(requireServer(request).id, request.log),
+    async (request) => {
+      const server = requireServer(request);
+      return loadServerDto(server.id, await callerPermissions(request, server), request.log);
+    },
   );
 
   app.patch(
@@ -184,7 +203,12 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       const server = requireServer(request);
-      const updated = await updateServer(server, request.body, request.log);
+      const updated = await updateServer(
+        server,
+        request.body,
+        await callerPermissions(request, server),
+        request.log,
+      );
       await recordAuditFromRequest(request, {
         action: 'server.updated',
         targetType: 'server',
@@ -244,7 +268,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
         targetId: server.id,
         targetName: server.name,
       });
-      return loadServerDto(server.id, request.log);
+      return loadServerDto(server.id, await callerPermissions(request, server), request.log);
     },
   );
 
@@ -295,7 +319,7 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
         targetName: server.name,
         metadata: { action, force },
       });
-      return loadServerDto(server.id, request.log);
+      return loadServerDto(server.id, await callerPermissions(request, server), request.log);
     },
   );
 
