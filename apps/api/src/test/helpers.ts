@@ -32,8 +32,6 @@ export interface TestUser extends AuthenticatedUser {
  */
 const TRUNCATION_ORDER = [
   'auditLog',
-  'message',
-  'conversation',
   'schedule',
   'backup',
   'serverSubuser',
@@ -151,14 +149,14 @@ export function apiKeyHeaders(token: string): Record<string, string> {
  * Empties every table between tests.
  *
  * Deletes rather than dropping and recreating: `prisma db push` costs seconds and the
- * connection would have to be re-established, whereas eleven `DELETE`s against an empty
- * SQLite database are microseconds. In-process caches that key on a server id are reset
+ * connection would have to be re-established, whereas a handful of `DELETE`s against an
+ * empty SQLite database are microseconds. In-process caches that key on a server id are reset
  * alongside, or a later test would inherit the previous one's log hub.
  */
 export async function resetDatabase(): Promise<void> {
   for (const table of TRUNCATION_ORDER) {
-    // Indexed access on the client is what lets this be a data-driven list rather than
-    // eleven near-identical statements that drift when a model is added.
+    // Indexed access on the client is what lets this be a data-driven list rather than a
+    // column of near-identical statements that drift when a model is added.
     await (prisma[table] as { deleteMany: () => Promise<unknown> }).deleteMany();
   }
   resetLogHubs();

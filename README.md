@@ -188,7 +188,8 @@ Destructive tools need an explicit confirmation argument, every call is authoris
 API key's scopes and the same per-server permissions a human faces, and everything is audited
 with the agent's identity.
 
-AI features hide cleanly when `ANTHROPIC_API_KEY` is unset. Nothing else is affected.
+Platter holds no model API key and calls no model itself. The assistant is whichever MCP
+client you point at it, using its own account.
 
 ## Configuration
 
@@ -201,7 +202,6 @@ The ones that matter:
 | `PUBLIC_HOST`          | `127.0.0.1`     | The address players use. Set this deliberately.   |
 | `PORT_RANGE_START/END` | `25000`–`25999` | Host ports Platter may allocate                   |
 | `DOCKER_GID`           | `999`           | `stat -c '%g' /var/run/docker.sock`               |
-| `ANTHROPIC_API_KEY`    | —               | Optional. AI features hide cleanly when unset.    |
 | `REGISTRATION_ENABLED` | `false`         | Off by default — invite users from the admin area |
 | `DATABASE_URL`         | SQLite          | Postgres supported; see DEPLOYMENT.md             |
 

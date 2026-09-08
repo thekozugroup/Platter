@@ -88,7 +88,8 @@ rather than what moved.
   Destructive tools require an explicit confirmation argument, every call is authorised against
   the key's scopes and the same per-server permissions a human faces, and everything is audited
   with the agent's identity.
-- AI features **hide cleanly when `ANTHROPIC_API_KEY` is unset**. Nothing else is affected.
+- **Platter holds no model credentials.** It calls no model and stores no provider key: the
+  assistant is whichever MCP client you connect, authenticating as itself.
 
 ### Installing
 

@@ -55,7 +55,6 @@ model User {
   servers       Server[]
   subuserGrants ServerSubuser[]
   backups       Backup[]
-  conversations Conversation[]
 
   @@index([role])
 }
@@ -170,7 +169,6 @@ model Server {
   subusers      ServerSubuser[]
   backups       Backup[]
   schedules     Schedule[]
-  conversations Conversation[]
 
   @@index([ownerId])
   @@index([nodeId])
@@ -303,46 +301,6 @@ model AuditLog {
   @@index([actorId])
   @@index([targetId])
   @@index([action])
-}
-
-// ---------------------------------------------------------------------------
-// AI assistant
-// ---------------------------------------------------------------------------
-
-model Conversation {
-  id        String   @id
-  /// Null for the global assistant (e.g. "help me pick a game"); set for server chats.
-  serverId  String?
-  userId    String
-  title     String   @default("New conversation")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // The transcript is worth keeping after the server is gone — it is often the record of
-  // why the server was configured the way it was.
-  server   Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
-  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
-
-  @@index([userId, updatedAt])
-  @@index([serverId])
-}
-
-model Message {
-  id             String   @id
-  conversationId String
-  /// `user` | `assistant`.
-  role           String
-  content        String
-  /// JSON `ProvisionProposal`; null unless the turn produced one.
-  proposal       String?
-  /// JSON `Diagnosis`; null unless the turn produced one.
-  diagnosis      String?
-  createdAt      DateTime @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId, createdAt])
 }
 
 // ---------------------------------------------------------------------------

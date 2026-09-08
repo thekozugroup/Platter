@@ -369,7 +369,9 @@ describe('ResourceChart', () => {
     expect(
       await screen.findByText(/Nothing recorded for CPU in the last hour/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/samples are recorded only while the server is running/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/samples are recorded only while the server is running/i),
+    ).toBeInTheDocument();
   });
 
   it('offers every range as a real 44px control', async () => {

@@ -345,7 +345,7 @@ describe('routing', () => {
           uptimeSeconds: 1,
           needsSetup: false,
           counts: { users: 1, servers: 0, nodes: 1 },
-          features: { ai: false, metrics: true, registrationEnabled: false },
+          features: { metrics: true, registrationEnabled: false },
         });
       }
       return json({ error: { code: 'not_found', message: 'no' } }, 404);

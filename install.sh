@@ -668,11 +668,6 @@ PORT_RANGE_END=25999
 # reach the daemon. Re-read it with: stat -c '%g' /var/run/docker.sock
 DOCKER_GID=$DOCKER_GID
 
-# Optional. Without a key the AI features are hidden rather than broken; everything else
-# works. https://console.anthropic.com
-ANTHROPIC_API_KEY=
-AI_MODEL=claude-opus-5
-
 # Off by default: on a self-hosted panel, open registration means anyone who finds the URL
 # can make an account. Invite people from the admin area instead. The first account is
 # created regardless of this setting, and always owns the installation.
@@ -728,8 +723,6 @@ services:
       PUBLIC_HOST: ${PUBLIC_HOST:-127.0.0.1}
       PORT_RANGE_START: ${PORT_RANGE_START:-25000}
       PORT_RANGE_END: ${PORT_RANGE_END:-25999}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-claude-opus-5}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # All three derive from the one directory below. The image's defaults point at /data,

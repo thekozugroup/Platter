@@ -451,9 +451,7 @@ describe('ModDetailSheet — surprises are named before the download', () => {
 
     await user.click(await addButton());
 
-    expect(
-      await screen.findByText('Conflicts with an installed mod.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Conflicts with an installed mod.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add it' })).toBeDisabled();
   });
 });

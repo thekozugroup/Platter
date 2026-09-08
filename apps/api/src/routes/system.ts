@@ -87,7 +87,6 @@ const systemInfoSchema = z.object({
     nodes: z.number().int(),
   }),
   features: z.object({
-    ai: z.boolean(),
     metrics: z.boolean(),
     registrationEnabled: z.boolean(),
   }),
@@ -254,7 +253,6 @@ const systemRoutes: FastifyPluginAsync = async (fastify) => {
         needsSetup: users === 0,
         counts: { users, servers, nodes },
         features: {
-          ai: config.aiEnabled,
           metrics: config.metricsEnabled,
           registrationEnabled: config.registrationEnabled,
         },

@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync } from 'fastify';
-import aiRoutes from './ai.js';
 import auditRoutes from './audit.js';
 import authRoutes from './auth.js';
 import backupRoutes from './backups.js';
@@ -39,7 +38,6 @@ const routes: FastifyPluginAsync = async (app) => {
   await app.register(userRoutes, { prefix: '/users' });
   await app.register(auditRoutes, { prefix: '/audit' });
   await app.register(systemRoutes, { prefix: '/system' });
-  await app.register(aiRoutes, { prefix: '/ai' });
   // The MCP transport is not REST and carries its own JSON-RPC envelope; it lives under
   // the API prefix so a single base URL and API key cover both surfaces.
   await app.register(mcpRoutes, { prefix: '/mcp' });

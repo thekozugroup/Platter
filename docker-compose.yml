@@ -35,9 +35,6 @@ services:
       PUBLIC_HOST: ${PUBLIC_HOST:-127.0.0.1}
       PORT_RANGE_START: ${PORT_RANGE_START:-25000}
       PORT_RANGE_END: ${PORT_RANGE_END:-25999}
-      # Optional — AI features degrade gracefully to hidden when unset.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-claude-opus-5}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Closed by default. The very first account is created regardless of this, so a new
       # instance is claimable without ever opening registration.

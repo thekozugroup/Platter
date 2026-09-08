@@ -58,15 +58,15 @@ const BLANK_IS_MEANINGFUL = new Set(['WEB_ROOT', 'CORS_ORIGINS']);
 /**
  * `KEY=` in an environment file means "not set", not "set to the empty string".
  *
- * Docker Compose forces this question and gives only one answer. `ANTHROPIC_API_KEY:
- * ${ANTHROPIC_API_KEY:-}` puts an empty string into the container for every operator who has
- * no Anthropic key, and compose has no syntax for "leave this variable out entirely". Without
- * this step the project's own `docker-compose.yml` and its own `.env.example` — which ships
- * `ANTHROPIC_API_KEY=` — produced a container that refused to boot, crash-looping on:
+ * Docker Compose forces this question and gives only one answer. `KEY: ${KEY:-}` puts an
+ * empty string into the container for every operator who has not set it, and compose has no
+ * syntax for "leave this variable out entirely". A field declared the obvious way —
+ * `z.string().min(1).optional()` — then rejects it, and the container refuses to boot:
  *
- *     ANTHROPIC_API_KEY: Too small: expected string to have >=1 characters
+ *     SOME_KEY: Too small: expected string to have >=1 characters
  *
- * The same fault hit `cp .env.example .env && pnpm dev`, because dotenv loads a bare `KEY=`
+ * That is what happened to this project's own `docker-compose.yml` and `.env.example`, and
+ * the same fault hit `cp .env.example .env && pnpm dev`, because dotenv loads a bare `KEY=`
  * as `''` too. So this is stripped once, here, for every key rather than patched per-field:
  * the rule is that blank is absent, and the two exceptions above are named explicitly.
  */
@@ -110,9 +110,6 @@ const envSchema = z
     PUBLIC_HOST: z.string().min(1).default('127.0.0.1'),
     PORT_RANGE_START: portNumberSchema.default(25000),
     PORT_RANGE_END: portNumberSchema.default(25999),
-
-    ANTHROPIC_API_KEY: z.string().min(1).optional(),
-    AI_MODEL: z.string().min(1).default('claude-opus-5'),
 
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
@@ -223,11 +220,6 @@ export const config = Object.freeze({
   publicHost: env.PUBLIC_HOST,
   portRangeStart: env.PORT_RANGE_START,
   portRangeEnd: env.PORT_RANGE_END,
-
-  anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,
-  aiModel: env.AI_MODEL,
-  /** AI routes advertise themselves as unavailable rather than 500ing without a key. */
-  aiEnabled: env.ANTHROPIC_API_KEY !== undefined,
 
   logLevel: env.LOG_LEVEL,
   trustProxy: parseTrustProxy(env.TRUST_PROXY),

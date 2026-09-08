@@ -3,7 +3,6 @@ export * from './errors.js';
 export * from './format.js';
 export * from './ws.js';
 
-export * from './schemas/ai.js';
 export * from './schemas/audit.js';
 export * from './schemas/auth.js';
 export * from './schemas/backup.js';
