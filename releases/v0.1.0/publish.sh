@@ -18,7 +18,7 @@
 set -eu
 
 TAG=v0.1.0
-REVIEWED=6da3694ca24506a2a5ec2b7d88faf1278a9e0cc0
+REVIEWED=26a15d096ea05e49880ed38e22c8eb89af0561cf
 
 USE_HEAD=false
 [ "${1:-}" = "--head" ] && USE_HEAD=true
