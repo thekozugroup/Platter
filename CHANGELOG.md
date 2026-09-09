@@ -11,7 +11,7 @@ change behaviour — the entry will say so.
 
 Nothing yet.
 
-## [0.1.0] — unreleased
+## [0.1.0] — 2026-09-09
 
 First public release. Everything below is new, so this entry describes what Platter _is_
 rather than what moved.
