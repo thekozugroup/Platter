@@ -65,6 +65,37 @@ jobs:
           JWT_SECRET: ci-secret-not-used-outside-continuous-integration-0000
         run: pnpm verify
 
+      # A tag that disagrees with package.json produces an install that misreports itself for
+      # the life of that version, and the update check turns that into a standing lie: it
+      # compares the running version against the newest release, so a 0.2.0 image still
+      # carrying 0.1.0 tells every operator an update is available — and keeps telling them
+      # after they take it. Nothing else in the pipeline would notice, because every test
+      # passes either way.
+      #
+      # The prerelease suffix is stripped before comparing: v0.2.0-rc.1 is built from the
+      # 0.2.0 source, and requiring the manifests to carry `-rc.1` would mean a commit whose
+      # only purpose is to be reverted.
+      - name: Manifest versions match the tag
+        run: |
+          set -eu
+          TAG='${{ inputs.tag || github.ref_name }}'
+          EXPECTED=$(printf '%s' "${TAG#v}" | cut -d- -f1)
+
+          status=0
+          for manifest in package.json apps/api/package.json apps/web/package.json \
+            packages/shared/package.json; do
+            actual=$(node -p "require('./$manifest').version")
+            if [ "$actual" != "$EXPECTED" ]; then
+              echo "::error file=$manifest::version is $actual; the tag says $EXPECTED"
+              status=1
+            fi
+          done
+          [ "$status" -eq 0 ] || {
+            echo "Bump the version in every manifest, commit, then move the tag."
+            exit 1
+          }
+          echo "every manifest reports $EXPECTED"
+
   image:
     name: Build and push image
     needs: verify

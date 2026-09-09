@@ -413,6 +413,33 @@ six months is the most valuable thing in the diff.
 
 ---
 
+## Releasing
+
+Pushing a tag is the whole publish step. `.github/workflows/release.yml` re-runs the full gate
+against the tagged tree, builds and pushes `linux/amd64` and `linux/arm64` images to GHCR,
+smoke-tests the published image before anyone can pull it, and writes the GitHub release from
+the matching `CHANGELOG.md` section. Nothing is published if the gate fails.
+
+1. **Bump the version in all four manifests** — the root, `apps/api`, `apps/web` and
+   `packages/shared`. The API reports its own `package.json` version as the running version,
+   and the update check compares that against the newest release: an image built from an
+   unbumped manifest tells every operator an update is available and keeps telling them after
+   they take it. The release workflow refuses a tag that disagrees with the manifests, so this
+   fails loudly rather than shipping.
+2. **Write the `CHANGELOG.md` section** for that version, dated. It becomes the release body
+   verbatim; a missing section publishes a pointer instead, which nobody deciding whether to
+   upgrade can use.
+3. Tag and push: `git tag -a v0.2.0 -m "Platter 0.2.0" && git push origin v0.2.0`.
+
+A tag containing a hyphen (`v0.2.0-rc.1`) is treated as a prerelease: the image is published
+under that version and `latest` is deliberately not moved. The manifests keep the plain
+`0.2.0` — the suffix is stripped before they are compared.
+
+If a release is prepared somewhere without permission to push a tag, stage it under
+[`releases/`](releases/) instead and publish from somewhere that has.
+
+---
+
 ## Where the contracts live
 
 Four documents, and they are all load-bearing.
