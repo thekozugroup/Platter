@@ -435,9 +435,9 @@ function IntegrationsCard() {
         ) : (
           <div className="divide-y divide-separator">
             {/*
-              No Anthropic row. Platter has no AI of its own to configure — the AI is whatever
-              client you point at the MCP server, and it brings its own account. A key field
-              here implied Platter would call a model on your behalf, which it does not.
+              Mod registries only. There is no model provider to configure here, because
+              Platter never calls one: the assistant is whichever client you point at the MCP
+              server, authenticating as itself. A key field here would have implied otherwise.
             */}
             <IntegrationRow
               description="Mods and plugins, searched live. No configuration required."

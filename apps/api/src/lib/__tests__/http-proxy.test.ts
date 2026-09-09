@@ -4,7 +4,8 @@ import { configureHttpProxy, proxyConfigured } from '../http-proxy.js';
 
 /**
  * Node's `fetch` ignores `HTTP_PROXY`/`HTTPS_PROXY`, unlike curl, git and npm. Every outbound
- * call Platter makes — mod registries, the Anthropic API — therefore goes direct unless a
+ * call Platter makes — the mod registries, the release feed the update check reads —
+ * therefore goes direct unless a
  * dispatcher is installed, and an operator behind an egress proxy sees mod search fail with
  * nothing in the logs naming the proxy as the cause.
  *
