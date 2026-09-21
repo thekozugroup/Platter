@@ -78,6 +78,25 @@ export const serverSchema = z.object({
 });
 export type Server = z.infer<typeof serverSchema>;
 
+/**
+ * The published modpack a server runs, when it runs one.
+ *
+ * Its own artwork rather than the game's mark: somebody running *All the Mods 10* does not
+ * think of it as "a Minecraft server", and a dashboard of identical Minecraft tiles is one
+ * you have to read the labels of. Resolved on request from the registry rather than stored,
+ * because the pack's identity already lives in the server's variables — the container image
+ * needs it to install the pack at all.
+ */
+export const serverModpackSchema = z.object({
+  source: z.enum(['modrinth', 'curseforge', 'ftb']),
+  /** Slug, project id or numeric pack id, depending on the source. */
+  ref: z.string(),
+  title: z.string(),
+  /** Already proxied onto this origin, or null when the registry has no artwork for it. */
+  iconUrl: z.string().nullable(),
+});
+export type ServerModpack = z.infer<typeof serverModpackSchema>;
+
 /** What the dashboard grid needs — cheap to compute, safe to poll. */
 export const serverSummarySchema = z.object({
   id: idSchema,

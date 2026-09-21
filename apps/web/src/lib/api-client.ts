@@ -171,6 +171,20 @@ class ApiClient {
    * on mount would send six refreshes; with rotating refresh tokens, five of those are
    * replays of a spent token and would log the user out.
    */
+  /**
+   * Mints a fresh access token, for a caller that cannot go through `request`.
+   *
+   * The console socket is the only one: it authenticates in its first frame rather than
+   * with a header, so nothing about it passes through the 401-and-retry path that keeps
+   * every REST call's token current. A console left open past the token's fifteen minutes
+   * with no other activity on the page reconnected with an expired token, was closed as
+   * unauthorised, and treated that as permanent — the pane went dead until a reload, on a
+   * session that was still perfectly valid.
+   */
+  async ensureFreshToken(): Promise<string | null> {
+    return this.#refresh();
+  }
+
   async #refresh(): Promise<string | null> {
     this.#refreshInFlight ??= (async () => {
       try {

@@ -1,5 +1,6 @@
 import { LIMITS } from '@platter/shared';
 import type { BlueprintSignals, LogLine, ServerStatus } from '@platter/shared';
+import { sleep } from '../lib/async.js';
 import type { OrchestrationDriver } from './driver.js';
 
 /**
@@ -16,6 +17,20 @@ import type { OrchestrationDriver } from './driver.js';
 
 const CAPACITY = LIMITS.consoleScrollback;
 const MAX_LINE = LIMITS.maxConsoleLineLength;
+
+/**
+ * How long to wait before reopening a stream that ended by itself, and how many times.
+ *
+ * A follow stream is not supposed to end while the container runs, but it does: the daemon
+ * restarts, the container is recreated under Platter, the log file rotates. When it did,
+ * nothing reopened it — the hub kept its subscribers, kept reporting `attached: false`,
+ * and never produced another line. The server was still running and still writing; Platter
+ * had simply stopped listening, with nothing on screen to say so.
+ *
+ * Bounded, because the other reason a stream ends immediately is that the container is
+ * gone, and retrying that forever is a loop against the daemon.
+ */
+const REOPEN_DELAYS_MS = [1_000, 2_000, 5_000, 10_000] as const;
 
 export type LogStream = LogLine['stream'];
 
@@ -78,6 +93,15 @@ export class LogHub {
 
   private controller: AbortController | null = null;
   private streamGeneration = 0;
+  /**
+   * The newest line's timestamp, so a reattach can ask for what happened *since* rather
+   * than replaying a tail the ring already holds.
+   */
+  private lastAt: Date | null = null;
+  /** Whether a historical read has already filled this ring. See `hydrate`. */
+  private hydrated = false;
+  /** The last stream failure, reported once by `run` rather than once per attempt. */
+  private lastError: string | null = null;
   private readyPatterns: RegExp[] = [];
   private crashPatterns: RegExp[] = [];
   /** Latched per attach: a boot emits its ready line once, not once per matching line. */
@@ -124,6 +148,7 @@ export class LogHub {
     };
 
     this.ring[(seq - 1) % CAPACITY] = line;
+    if (input.timestamp) this.lastAt = input.timestamp;
     this.emit({ type: 'line', line });
     this.matchSignals(line);
     return line;
@@ -152,6 +177,79 @@ export class LogHub {
     return lines;
   }
 
+  /** True once a historical read has filled this ring, or once one is provably unnecessary. */
+  get hasHistory(): boolean {
+    return this.hydrated;
+  }
+
+  /**
+   * Reads the container's existing output once, and puts it in front of whatever the ring
+   * already holds.
+   *
+   * This exists because attaching and having history are different needs, and conflating
+   * them cost the console everything it was for. The player tracker attaches on boot with
+   * `tail: 0` — it must, or replaying a join line would reopen a session for somebody who
+   * left hours ago — and `attach` is idempotent, so a console opening afterwards found a
+   * stream already running and asked for nothing. On a server that had been quiet since
+   * Platter restarted, the pane showed "Waiting for output. Nothing has been logged yet."
+   * about a server with a full log file.
+   *
+   * A one-shot read rather than a second follow stream: two follow streams on one container
+   * is what the reference counting exists to prevent, and this one has to end by itself.
+   *
+   * Lines already in the ring are dropped by timestamp so the overlap between "the last 500
+   * lines" and "what arrived since the stream opened" is not printed twice.
+   */
+  async hydrate(driver: OrchestrationDriver, limit: number = CAPACITY): Promise<void> {
+    if (this.hydrated) return;
+    // Marked before the await: two consoles opening at once must not both read the history.
+    this.hydrated = true;
+
+    const existing = this.backlog(CAPACITY);
+    const earliest = existing[0] ? Date.parse(existing[0].timestamp) : Number.POSITIVE_INFINITY;
+    const seen = new Set(existing.map((line) => `${line.timestamp}\u0000${line.content}`));
+
+    const history: LogLine[] = [];
+    try {
+      for await (const line of driver.streamLogs(this.serverId, { tail: limit, follow: false })) {
+        const timestamp = (line.timestamp ?? new Date()).toISOString();
+        // Anything at or after the ring's own start is already accounted for.
+        if (Date.parse(timestamp) >= earliest) continue;
+        if (seen.has(`${timestamp}\u0000${line.content}`)) continue;
+        history.push({ seq: 0, stream: line.stream, content: line.content, timestamp });
+      }
+    } catch {
+      // A container that cannot be read still has whatever the ring holds. The console
+      // route says so in the one place a person will look; this is not that place.
+      this.hydrated = existing.length > 0;
+      return;
+    }
+    if (history.length === 0) return;
+
+    this.rewrite([...history, ...existing]);
+  }
+
+  /**
+   * Replaces the ring's contents, renumbering from one.
+   *
+   * Only `hydrate` calls this, and only before a console has been sent its first backlog —
+   * the sequence numbers a client holds must never be renumbered underneath it.
+   */
+  private rewrite(lines: readonly LogLine[]): void {
+    const kept = lines.slice(-CAPACITY);
+    this.ring.fill(undefined);
+    this.nextSeq = 1;
+    this.stored = 0;
+    for (const line of kept) {
+      const seq = this.nextSeq;
+      this.nextSeq += 1;
+      this.stored = Math.min(this.stored + 1, CAPACITY);
+      this.ring[(seq - 1) % CAPACITY] = { ...line, seq };
+    }
+    const newest = kept[kept.length - 1];
+    if (newest) this.lastAt = new Date(newest.timestamp);
+  }
+
   /**
    * Opens the single driver stream. Idempotent: a second caller joins the existing one,
    * which is what makes "attach on every start, and on every console open" safe.
@@ -168,10 +266,64 @@ export class LogHub {
     this.streamGeneration += 1;
     const generation = this.streamGeneration;
 
-    void this.pump(options.driver, controller.signal, options.tail ?? CAPACITY).finally(() => {
-      // A later attach may already own the hub; only the current stream may clear it.
-      if (this.streamGeneration === generation) this.controller = null;
-    });
+    // A ring with content already covers everything up to `lastAt`, so the stream asks for
+    // what came after it instead of replaying a tail. Without this every reopen printed the
+    // scrollback a second time underneath itself.
+    const resume = this.lastAt;
+    void this.run(options.driver, controller, generation, options.tail ?? CAPACITY, resume);
+  }
+
+  /**
+   * Keeps one stream alive for as long as anybody is watching.
+   *
+   * A follow stream is not supposed to end while the container runs, and it does anyway:
+   * the daemon restarts, the container is recreated under Platter, the log file rotates.
+   * Nothing reopened it. The hub kept its subscribers and never produced another line, so
+   * the server went on running and writing while Platter quietly stopped listening.
+   *
+   * The retry lives here rather than in `pump` so a reopen resumes from the newest line the
+   * hub holds. Replaying a tail instead would print the scrollback underneath itself once
+   * per reconnection.
+   */
+  private async run(
+    driver: OrchestrationDriver,
+    controller: AbortController,
+    generation: number,
+    tail: number,
+    resume: Date | null,
+  ): Promise<void> {
+    let since = resume;
+
+    for (let attempt = 0; ; attempt += 1) {
+      this.lastError = null;
+      await this.pump(driver, controller.signal, tail, since);
+
+      // Aborted, superseded by a later attach, or nobody left to tell: all three mean stop.
+      if (controller.signal.aborted) break;
+      // A later attach already owns the hub; it must not have its controller cleared below.
+      if (this.streamGeneration !== generation) return;
+      if (this.listeners.size === 0) break;
+
+      const wait = REOPEN_DELAYS_MS[attempt];
+      if (wait === undefined) {
+        this.system(
+          this.lastError === null
+            ? 'Live output stopped and could not be reopened. Reload the page to try again.'
+            : `Live output stopped: ${this.lastError}. Reload the page to try again.`,
+        );
+        break;
+      }
+
+      // Resume from the newest line rather than the tail, so nothing is printed twice.
+      since = this.lastAt;
+      try {
+        await sleep(wait, controller.signal);
+      } catch {
+        break;
+      }
+    }
+
+    if (this.streamGeneration === generation) this.controller = null;
   }
 
   /** Aborts the driver stream. Safe to call when nothing is attached. */
@@ -186,18 +338,20 @@ export class LogHub {
     driver: OrchestrationDriver,
     signal: AbortSignal,
     tail: number,
+    since: Date | null,
   ): Promise<void> {
     try {
-      for await (const line of driver.streamLogs(this.serverId, { tail, signal })) {
+      const options = since ? { since, signal } : { tail, signal };
+      for await (const line of driver.streamLogs(this.serverId, options)) {
         if (signal.aborted) break;
         this.append({ stream: line.stream, content: line.content, timestamp: line.timestamp });
       }
     } catch (error) {
-      // An aborted stream is how every detach ends; only a real failure is worth showing.
+      // An aborted stream is how every detach ends, and a stream that ends on its own is
+      // about to be reopened. `run` decides whether this is worth a line in the console —
+      // saying it here would print the same sentence once per attempt.
       if (!signal.aborted) {
-        this.system(
-          `Console stream ended: ${error instanceof Error ? error.message : 'unknown error'}`,
-        );
+        this.lastError = error instanceof Error ? error.message : 'unknown error';
       }
     }
   }

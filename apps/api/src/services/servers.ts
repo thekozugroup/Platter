@@ -31,6 +31,7 @@ import { allocatePorts, releasePorts } from './allocations.js';
 import { getBlueprint } from './blueprints.js';
 import { installServer } from './lifecycle.js';
 import { resolveConnectStrings } from './network.js';
+import { detectModpack, type ModpackRef } from './modpacks.js';
 import { getPlayerCount } from './players.js';
 import type { AuthenticatedUser, ServerRecord } from '../plugins/auth.js';
 
@@ -94,6 +95,19 @@ function parseVariables(
     if (typeof value === 'string') values[key] = value;
   }
   return values;
+}
+
+/**
+ * The modpack this server is configured to run, or null.
+ *
+ * Here rather than in `modpacks.ts` so the variables column is parsed by the one function
+ * that knows how it is stored, and `parseVariables` stays private to this module.
+ */
+export function modpackFor(
+  server: Pick<ServerRecord, 'id' | 'variables'>,
+  log?: FastifyBaseLogger,
+): ModpackRef | null {
+  return detectModpack(parseVariables(server.variables, server.id, log));
 }
 
 /**

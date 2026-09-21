@@ -558,11 +558,16 @@ export function ConsoleView({
 
           {empty ? (
             <p className="py-6 text-console-dim">
+              {/*
+                Not "nothing has been logged": that is a claim about the server, and the
+                pane is in no position to make it. It used to appear whenever the stream
+                failed to open, which is exactly when the server had logged plenty.
+              */}
               {filtering
                 ? `No line matches “${trimmedQuery}”.`
                 : connectionState === 'closed'
                   ? 'The console is not connected.'
-                  : 'Waiting for output. Nothing has been logged yet.'}
+                  : 'No output yet.'}
             </p>
           ) : (
             <div className={cn('min-w-full', !wrap && 'w-max')}>

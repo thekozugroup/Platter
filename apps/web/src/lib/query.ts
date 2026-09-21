@@ -25,6 +25,7 @@ export const queryKeys = {
     detail: (id: string) => ['servers', 'detail', id] as const,
     stats: (id: string) => ['servers', 'detail', id, 'stats'] as const,
     subusers: (id: string) => ['servers', 'detail', id, 'subusers'] as const,
+    modpack: (id: string) => ['servers', 'detail', id, 'modpack'] as const,
   },
   files: {
     all: (serverId: string) => ['servers', serverId, 'files'] as const,

@@ -583,7 +583,8 @@ export class MockDriver implements OrchestrationDriver {
       .slice(-Math.max(0, tail));
 
     const pending: DriverLogLine[] = [...replay];
-    let ended = !container.running;
+    // A one-shot read ends with the history, whether or not the container is still running.
+    let ended = options.follow === false || !container.running;
     let waiter: Deferred<void> | null = null;
 
     const wake = (): void => {

@@ -2,6 +2,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import type { WebSocket } from '@fastify/websocket';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import {
+  LIMITS,
   PlatterError,
   WS_CLOSE,
   WS_PATH,
@@ -38,6 +39,16 @@ import type { AuthContext } from '../plugins/auth.js';
 
 /** How long a socket may stay unauthenticated before it is closed. */
 const AUTH_TIMEOUT_MS = 10_000;
+
+/**
+ * How much scrollback a console is handed when it opens.
+ *
+ * The whole ring, not a slice of it. This used to be 200 against a 500-line ring, so the
+ * oldest 300 lines Platter was holding could not be reached from the interface at all —
+ * and the start of a boot, which is where the cause of a failed one is written, is exactly
+ * the part that falls off the top.
+ */
+const BACKLOG_LINES = LIMITS.consoleScrollback;
 
 /** Stats are a poll against the driver, so this is a compromise between a live-looking
  * graph and a container inspection every second for every open tab. */
@@ -241,7 +252,17 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
       send({ type: 'ready', serverId, status: access.status, canWrite: access.canWrite });
 
       const hub = getLogHub(serverId);
-      send({ type: 'logs', lines: hub.backlog(200) });
+
+      // History first, then the backlog frame, then the live stream — in that order.
+      //
+      // Reversed, the console flashes empty and the server's existing output arrives
+      // afterwards looking like live output: it auto-scrolls, it is announced to a screen
+      // reader as new, and on a hub attached without history (the player tracker does that
+      // on every boot) it never arrives at all.
+      await hydrateHistory(serverId, hub, log);
+      if (closed) return;
+
+      send({ type: 'logs', lines: hub.backlog(BACKLOG_LINES) });
 
       unsubscribe = hub.subscribe((event) => {
         if (event.type === 'line') send({ type: 'log', line: event.line });
@@ -357,8 +378,41 @@ const consoleRoutes: FastifyPluginAsync = async (fastify) => {
   });
 };
 
-/** Best effort: a console that cannot open a log stream still shows scrollback, status
- * frames and Platter's own system lines. */
+/**
+ * Reads the container's existing output into the hub, once, before anything is sent.
+ *
+ * Separate from `attachStream` because a hub can be attached and still hold no history:
+ * the player tracker opens its stream with `tail: 0` so that replaying a join line does not
+ * resurrect a session for somebody who left. A console arriving afterwards found
+ * `hub.attached` true, asked for nothing, and showed an empty pane for a server with a full
+ * log — which is the bug this pair of functions was split to fix.
+ */
+async function hydrateHistory(
+  serverId: string,
+  hub: ReturnType<typeof getLogHub>,
+  log: FastifyRequest['log'],
+): Promise<void> {
+  if (hub.hasHistory) return;
+  try {
+    const server = await prisma.server.findUnique({
+      where: { id: serverId },
+      include: { node: true },
+    });
+    if (!server) return;
+    await hub.hydrate(getDriverForNode(server.node));
+  } catch (error) {
+    log.warn({ err: error, serverId }, 'could not read the console history');
+  }
+}
+
+/**
+ * Opens the live stream, and says so in the console when it cannot.
+ *
+ * The failure used to go to a `warn` log and nowhere else, so the operator got a console
+ * that connected, showed whatever was already there and then never moved again —
+ * indistinguishable from a server that had gone quiet. A system line costs one row of
+ * scrollback and turns an unexplained silence into a stated one.
+ */
 async function attachStream(
   serverId: string,
   hub: ReturnType<typeof getLogHub>,
@@ -375,6 +429,9 @@ async function attachStream(
     hub.attach({ driver: getDriverForNode(server.node), signals: blueprint?.signals });
   } catch (error) {
     log.warn({ err: error, serverId }, 'could not open a console log stream');
+    hub.system(
+      `Live output is unavailable: ${error instanceof Error ? error.message : 'unknown error'}. Scrollback above is what Platter already had.`,
+    );
   }
 }
 

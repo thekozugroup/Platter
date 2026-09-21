@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { ApiKey, SessionUser } from '@platter/shared';
+import type { ApiKey, ApiKeyScope, SessionUser } from '@platter/shared';
 import { formatRelativeTime } from '@platter/shared';
 import { Lightbulb } from 'pixelarticons/react/Lightbulb.js';
 import { Monitor } from 'pixelarticons/react/Monitor.js';
@@ -21,6 +21,7 @@ import {
   PasswordInputTrigger,
 } from '@/components/ui/password-input';
 import { QrCode, QrCodeFrame } from '@/components/ui/qr-code';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   SegmentGroup,
   SegmentGroupItem,
@@ -557,9 +558,63 @@ function TwoFactorCard({ user }: { user: SessionUser }) {
 
 // ---------------------------------------------------------------------------------------
 
+/**
+ * What a key is allowed to do, as three answers rather than twenty-six checkboxes.
+ *
+ * The API has taken a `scopes` array since scopes existed; this form never sent one, so
+ * every key the product could mint was unrestricted — while the page that tells you to make
+ * one for your assistant said "choose what it is allowed to do". The scope vocabulary is
+ * per-permission and long, and a list of twenty-six checkboxes is a form nobody reads: what
+ * an operator is actually deciding is how much of their server they are handing over.
+ *
+ * `[]` is unrestricted, and stays the last option rather than the first. It is what every
+ * key minted before this existed already is, so it cannot be removed — but it should not be
+ * what someone picks by not reading.
+ */
+const KEY_PRESETS = [
+  {
+    id: 'read',
+    label: 'Read and diagnose',
+    detail: 'See servers, read logs and metrics. Changes nothing.',
+    scopes: ['server.view', 'console.read', 'files.read', 'backups.read', 'schedules.read'],
+  },
+  {
+    id: 'operate',
+    label: 'Operate',
+    detail: 'Everything above, plus start, stop, restart and console commands.',
+    scopes: [
+      'server.view',
+      'console.read',
+      'console.write',
+      'files.read',
+      'backups.read',
+      'backups.create',
+      'schedules.read',
+      'power.start',
+      'power.stop',
+      'power.restart',
+      'ai.use',
+    ],
+  },
+  {
+    id: 'full',
+    label: 'Everything this account can do',
+    detail: 'No restriction. The key can do anything you can, including delete a server.',
+    scopes: [],
+  },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  detail: string;
+  scopes: readonly ApiKeyScope[];
+}>;
+
+type KeyPresetId = (typeof KEY_PRESETS)[number]['id'];
+
 function ApiKeysCard() {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
+  const [preset, setPreset] = useState<KeyPresetId>('operate');
   const [issued, setIssued] = useState<{ name: string; token: string } | null>(null);
 
   const keys = useQuery({
@@ -568,9 +623,10 @@ function ApiKeysCard() {
   });
 
   const create = useMutation({
-    mutationFn: (input: { name: string }) =>
+    mutationFn: (input: { name: string; scopes: readonly ApiKeyScope[] }) =>
       api.post<ApiKey & { token: string }>('/auth/keys', {
         name: input.name,
+        scopes: input.scopes,
         expiresInDays: null,
       }),
     onSuccess: (created) => {
@@ -606,7 +662,7 @@ function ApiKeysCard() {
         <CardTitle className={SECTION_TITLE}>API keys</CardTitle>
         <CardDescription>
           Long-lived credentials for scripts, Prometheus and the MCP transport. A key cannot change
-          your password or create more keys.
+          your password or create more keys, and never carries more than the account that made it.
         </CardDescription>
       </CardHeader>
 
@@ -629,11 +685,12 @@ function ApiKeysCard() {
         ) : null}
 
         <form
-          className="flex flex-wrap items-end gap-3"
+          className="flex flex-col gap-4"
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            create.mutate({ name: name.trim() });
+            const chosen = KEY_PRESETS.find((option) => option.id === preset) ?? KEY_PRESETS[1];
+            create.mutate({ name: name.trim(), scopes: chosen.scopes });
           }}
         >
           <Field className="max-w-xs flex-1">
@@ -647,21 +704,41 @@ function ApiKeysCard() {
               value={name}
             />
           </Field>
-          <Button
-            {...(name.trim().length === 0 ? { 'aria-describedby': 'key-create-hint' } : {})}
-            className={ACTION}
-            disabled={name.trim().length === 0}
-            isLoading={create.isPending}
-            size="lg"
-            type="submit"
+          <RadioGroup
+            aria-label="What this key may do"
+            className="flex flex-col gap-2"
+            onValueChange={({ value: next }) => {
+              if (next !== null) setPreset(next as KeyPresetId);
+            }}
+            value={preset}
           >
-            Create key
-          </Button>
-          {name.trim().length === 0 ? (
-            <DisabledHint id="key-create-hint">
-              Name the key so you can revoke it later.
-            </DisabledHint>
-          ) : null}
+            {KEY_PRESETS.map((option) => (
+              <RadioGroupItem className="items-start gap-2.5" key={option.id} value={option.id}>
+                <span className="flex flex-col">
+                  <span className="text-subhead font-medium text-label">{option.label}</span>
+                  <span className="text-caption text-label-secondary">{option.detail}</span>
+                </span>
+              </RadioGroupItem>
+            ))}
+          </RadioGroup>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              {...(name.trim().length === 0 ? { 'aria-describedby': 'key-create-hint' } : {})}
+              className={ACTION}
+              disabled={name.trim().length === 0}
+              isLoading={create.isPending}
+              size="lg"
+              type="submit"
+            >
+              Create key
+            </Button>
+            {name.trim().length === 0 ? (
+              <DisabledHint id="key-create-hint">
+                Name the key so you can revoke it later.
+              </DisabledHint>
+            ) : null}
+          </div>
         </form>
 
         {keys.isPending ? (

@@ -5,6 +5,7 @@ import {
   type upsertSubuserRequestSchema,
   type PowerAction,
   type Server,
+  type ServerModpack,
   type ServerPermission,
   type ServerStats,
   type ServerSubuser,
@@ -31,6 +32,28 @@ export function useServer(serverId: string | undefined): UseQueryResult<Server> 
     queryKey: queryKeys.servers.detail(serverId ?? ''),
     queryFn: () => api.get<Server>(`/servers/${serverId}`),
     enabled: Boolean(serverId),
+  });
+}
+
+/**
+ * The published modpack a server runs, with its own artwork.
+ *
+ * A separate request from the server itself, because answering it means asking Modrinth or
+ * Feed the Beast, and the dashboard has to paint whether or not they are reachable. Cached
+ * hard for the same reason a pack's artwork is: it is the same picture today as yesterday,
+ * and an unresolved pack is not an error — the server keeps the game's mark.
+ */
+export function useServerModpack(
+  serverId: string | undefined,
+): UseQueryResult<{ modpack: ServerModpack | null }> {
+  return useQuery({
+    queryKey: queryKeys.servers.modpack(serverId ?? ''),
+    queryFn: () => api.get<{ modpack: ServerModpack | null }>(`/servers/${serverId}/modpack`),
+    enabled: Boolean(serverId),
+    staleTime: 6 * 60 * 60 * 1000,
+    gcTime: 12 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 }
 

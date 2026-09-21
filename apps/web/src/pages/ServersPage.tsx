@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import {
   SERVER_STATUSES,
   formatMegabytes,
+  type BlueprintSummary,
   type Paginated,
   type ServerStatus,
   type ServerSummary,
@@ -16,7 +17,7 @@ import { Server } from 'pixelarticons/react/Server.js';
 import { connectAddress } from '@/components/common/connect-address';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
-import { GameIcon } from '@/components/common/game-icon';
+import { ServerMark } from '@/components/servers/server-mark';
 import { SERVER_STATUS_LABELS, StatusPill } from '@/components/common/status-pill';
 import { PageAction, PageBody, PageHeader } from '@/components/layout/page-header';
 import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
@@ -101,22 +102,25 @@ function useDebounced<T>(value: T, delayMs: number): T {
 function ServerRow({
   server,
   subtitle,
-  monogram,
-  hue,
+  blueprint,
 }: {
   server: ServerSummary;
   subtitle: string;
-  monogram: string | undefined;
-  hue: number | undefined;
+  /*
+   * The blueprint itself, not three fields off it. Unpacked, this row took the monogram and
+   * the hue and left the glyph behind, so the same server wore a pixel mark in the grid and
+   * two letters in the list — the one view where they sit a tab apart.
+   */
+  blueprint: BlueprintSummary | undefined;
 }) {
   return (
     <li className={cn(cardSurface, 'p-4')}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <GameIcon
+        <ServerMark
+          blueprint={blueprint}
           blueprintKey={server.blueprintKey}
-          hue={hue}
-          monogram={monogram}
-          name={server.name}
+          serverId={server.id}
+          serverName={server.name}
           size="md"
         />
 
@@ -401,9 +405,8 @@ export function ServersPage() {
                   const blueprint = blueprints.get(server.blueprintKey);
                   return (
                     <ServerRow
-                      hue={blueprint?.icon.hue}
+                      blueprint={blueprint}
                       key={server.id}
-                      monogram={blueprint?.icon.monogram}
                       server={server}
                       subtitle={blueprintSubtitle(server.blueprintKey, blueprint)}
                     />

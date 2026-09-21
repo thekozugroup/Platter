@@ -556,6 +556,7 @@ export function CreateServerPage() {
             {blueprint && limits ? (
               <div className="flex flex-wrap items-center gap-3">
                 <GameIcon
+                  glyph={blueprint.icon.glyph}
                   hue={blueprint.icon.hue}
                   monogram={blueprint.icon.monogram}
                   name={blueprint.name}

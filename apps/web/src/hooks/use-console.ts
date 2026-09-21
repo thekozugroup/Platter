@@ -17,6 +17,32 @@ import { throttle } from '@/lib/utils.js';
 const LINE_BUFFER_CAP = 2000;
 const FLUSH_INTERVAL_MS = 150;
 
+/** What makes two log lines the same line. See `onBacklog`. */
+function lineKey(line: LogLine): string {
+  return `${line.timestamp}\u0000${line.stream}\u0000${line.content}`;
+}
+
+/**
+ * Everything on screen, everything in flight and everything the server just sent, once each
+ * and in time order.
+ */
+function mergeLines(
+  previous: readonly LogLine[],
+  pending: readonly LogLine[],
+  backlog: readonly LogLine[],
+): LogLine[] {
+  const byKey = new Map<string, LogLine>();
+  for (const line of [...backlog, ...previous, ...pending]) {
+    const key = lineKey(line);
+    if (!byKey.has(key)) byKey.set(key, line);
+  }
+
+  const merged = [...byKey.values()].sort(
+    (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
+  );
+  return merged.length > LINE_BUFFER_CAP ? merged.slice(merged.length - LINE_BUFFER_CAP) : merged;
+}
+
 export interface UseConsoleResult {
   lines: LogLine[];
   connectionState: ConnectionState;
@@ -84,15 +110,24 @@ export function useConsole(serverId: string): UseConsoleResult {
         flush();
       },
       onBacklog: (backlog) => {
-        // The API answers with the whole scrollback, not the part we are missing, so this
-        // replaces the buffer. Appending it is what puts every boot line on screen twice.
-        pendingRef.current = [];
+        /*
+         * Merged, not replaced.
+         *
+         * The API answers with its whole scrollback rather than the part we are missing, so
+         * this used to overwrite the buffer — which on a reconnect threw away everything
+         * past the server's ring. An operator reading a stack trace had it vanish because
+         * the wifi blinked. It also dropped whatever was sitting in the throttle window,
+         * which is how lines that arrived in the last 150ms went missing entirely.
+         *
+         * Identity is the line's own content and time, not its sequence number: `seq` is
+         * assigned by the hub and restarts at one when Platter does, so two different lines
+         * can share it across a reconnect. Sorting is stable, so lines written within the
+         * same second keep the order they arrived in.
+         */
         if (!mountedRef.current) return;
-        setLines(
-          backlog.length > LINE_BUFFER_CAP
-            ? backlog.slice(backlog.length - LINE_BUFFER_CAP)
-            : backlog,
-        );
+        const pending = pendingRef.current;
+        pendingRef.current = [];
+        setLines((previous) => mergeLines(previous, pending, backlog));
       },
       onStatus: (status, exitCode) => {
         setServerStatus(status);

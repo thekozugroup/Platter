@@ -67,6 +67,8 @@ export const ICON_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
   'media.forgecdn.net',
   'mediafilez.forgecdn.net',
   'edge.forgecdn.net',
+  // Feed the Beast pack art, for servers running an FTB modpack.
+  'cdn.feed-the-beast.com',
 ]);
 
 /**

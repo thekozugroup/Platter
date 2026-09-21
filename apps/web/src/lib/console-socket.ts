@@ -41,6 +41,8 @@ export class ConsoleSocket {
   #state: ConnectionState = 'closed';
   #attempt = 0;
   #closedByUs = false;
+  /** One refresh-and-retry per socket, so a genuinely revoked key cannot loop. */
+  #retriedAfterRefresh = false;
   #canWrite = false;
 
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -125,9 +127,32 @@ export class ConsoleSocket {
         return;
       }
 
-      // Auth failures are terminal: reconnecting with the same bad token just loops.
-      // Everything else — including a normal close from a server restart — retries.
+      /*
+       * An expired token and a revoked one close the socket identically, and only one of
+       * them is terminal. The socket authenticates in its first frame, so it never goes
+       * through the 401-and-retry path that keeps every REST call's token current: a
+       * console left open past the token's fifteen minutes reconnects with a stale one and
+       * is refused. Treating that as permanent killed the pane on a session that was still
+       * valid — a laptop waking from sleep was enough.
+       *
+       * So the first refusal buys one refresh and one more attempt. A second refusal is
+       * about access rather than freshness, and says so.
+       */
       if (event.code === WS_CLOSE.unauthorized || event.code === WS_CLOSE.forbidden) {
+        if (!this.#retriedAfterRefresh) {
+          this.#retriedAfterRefresh = true;
+          this.#setState('reconnecting');
+          void api.ensureFreshToken().then((token) => {
+            if (this.#closedByUs) return;
+            if (token === null) {
+              this.#handlers.onError?.('You do not have access to this console.');
+              this.#setState('closed');
+              return;
+            }
+            this.#open();
+          });
+          return;
+        }
         this.#handlers.onError?.('You do not have access to this console.');
         this.#setState('closed');
         return;

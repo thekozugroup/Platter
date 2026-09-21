@@ -11,6 +11,7 @@ import {
   serverSchema,
   serverStatsSchema,
   serverSubuserSchema,
+  serverModpackSchema,
   serverSummarySchema,
   updateServerRequestSchema,
   upsertSubuserRequestSchema,
@@ -27,7 +28,9 @@ import {
   type AuthenticatedUser,
   type ServerRecord,
 } from '../plugins/auth.js';
+import { proxiedIconUrl } from '../mods/icon-proxy.js';
 import { recordAuditFromRequest } from '../services/audit.js';
+import { resolveModpack } from '../services/modpacks.js';
 import {
   deleteServer,
   performPowerAction,
@@ -42,6 +45,7 @@ import {
   listServers,
   listSubusers,
   loadServerDto,
+  modpackFor,
   removeSubuser,
   serverPermissionsFor,
   updateServer,
@@ -186,6 +190,47 @@ const serverRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const server = requireServer(request);
       return loadServerDto(server.id, await callerPermissions(request, server), request.log);
+    },
+  );
+
+  /**
+   * The pack a modpack server runs, with its own artwork.
+   *
+   * Its own route rather than a field on the server, because resolving it is a request to
+   * somebody else's API: on the list response that would put a third-party round trip in
+   * front of the dashboard, and the dashboard has to paint whether or not Modrinth is
+   * reachable. As a separate call it is cached both ends and its absence costs nothing —
+   * the server keeps the game's mark, which is a true picture of it either way.
+   */
+  app.get(
+    '/:serverId/modpack',
+    {
+      preHandler: app.requireServerAccess('server.view'),
+      schema: {
+        tags: ['servers'],
+        summary: 'The published modpack this server runs, if any',
+        params: serverIdParamSchema,
+        response: { 200: z.object({ modpack: serverModpackSchema.nullable() }) },
+      },
+    },
+    async (request) => {
+      const server = requireServer(request);
+      const pack = modpackFor(server, request.log);
+      if (!pack) return { modpack: null };
+
+      const artwork = await resolveModpack(pack, request.log);
+      if (!artwork) return { modpack: null };
+
+      return {
+        modpack: {
+          source: artwork.source,
+          ref: artwork.ref,
+          title: artwork.title,
+          // Same rule as every other registry image: `img-src 'self'` means a raw CDN URL
+          // renders as nothing at all, which is indistinguishable from a pack with no art.
+          iconUrl: proxiedIconUrl(server.id, artwork.iconUrl),
+        },
+      };
     },
   );
 

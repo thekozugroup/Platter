@@ -22,6 +22,7 @@ import { useSidebarServers } from '@/components/layout/sidebar';
 import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
 import { PowerControls } from '@/components/servers/power-controls';
 import { ServerCard, ServerCardSkeleton, cardSurface } from '@/components/servers/server-card';
+import { ServerMark } from '@/components/servers/server-mark';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { api } from '@/lib/api-client.js';
@@ -262,6 +263,17 @@ export function DashboardPage() {
                     )}
                     key={server.id}
                   >
+                    {/*
+                      The same mark the grid below gives these servers. Without it the one
+                      list that matters most was the only one you could not scan by picture.
+                    */}
+                    <ServerMark
+                      blueprint={blueprints.get(server.blueprintKey)}
+                      blueprintKey={server.blueprintKey}
+                      serverId={server.id}
+                      serverName={server.name}
+                      size="md"
+                    />
                     <div className="min-w-0 flex-1 basis-56">
                       <h3 className="font-sans text-body font-semibold tracking-title text-label">
                         <Link

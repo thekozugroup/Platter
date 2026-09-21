@@ -843,16 +843,24 @@ export class DockerDriver implements OrchestrationDriver {
       throw this.wrap(error, 'inspect');
     }
 
+    // Branched rather than parameterised because the two are different calls, not one call
+    // with a flag: dockerode hands back a live stream for `follow: true` and a single Buffer
+    // for `follow: false`, and its types overload on the literal.
     let stream: NodeJS.ReadableStream;
+    const common = {
+      stdout: true,
+      stderr: true,
+      timestamps: true,
+      tail: options.tail ?? 100,
+      ...(options.since ? { since: Math.floor(options.since.getTime() / 1000) } : {}),
+    };
     try {
-      stream = await container.logs({
-        follow: true,
-        stdout: true,
-        stderr: true,
-        timestamps: true,
-        tail: options.tail ?? 100,
-        ...(options.since ? { since: Math.floor(options.since.getTime() / 1000) } : {}),
-      });
+      if (options.follow === false) {
+        const body = await container.logs({ ...common, follow: false });
+        stream = Readable.from([body]);
+      } else {
+        stream = await container.logs({ ...common, follow: true });
+      }
     } catch (error) {
       throw this.wrap(error, 'logs');
     }

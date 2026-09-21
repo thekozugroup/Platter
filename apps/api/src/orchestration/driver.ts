@@ -94,6 +94,15 @@ export interface LogStreamOptions {
   tail?: number;
   /** Emit only lines after this timestamp. */
   since?: Date;
+  /**
+   * Whether to keep the stream open after the history is exhausted. Defaults to true.
+   *
+   * `false` is a one-shot read: the history, then end. It exists because "catch me up on
+   * what I missed" and "tell me what happens next" are different questions, and answering
+   * the first with a follow stream is what made a console that was already being watched
+   * for player joins — attached with no history — unable to show any.
+   */
+  follow?: boolean;
   /** Aborts the stream; always provide one so sockets clean up on disconnect. */
   signal?: AbortSignal;
 }

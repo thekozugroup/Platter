@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { formatMegabytes, type BlueprintSummary, type ServerSummary } from '@platter/shared';
 import { connectAddress } from '@/components/common/connect-address';
-import { GameIcon } from '@/components/common/game-icon';
+import { ServerMark } from '@/components/servers/server-mark';
 import { StatusPill } from '@/components/common/status-pill';
 import { cn } from '@/lib/utils';
 
@@ -94,12 +94,11 @@ export function ServerCard({ server, blueprint, className }: ServerCardProps) {
       to={`/servers/${server.id}`}
     >
       <div className="flex items-start gap-3 p-4">
-        <GameIcon
+        <ServerMark
+          blueprint={blueprint}
           blueprintKey={server.blueprintKey}
-          glyph={blueprint?.icon.glyph}
-          hue={blueprint?.icon.hue}
-          monogram={blueprint?.icon.monogram}
-          name={server.name}
+          serverId={server.id}
+          serverName={server.name}
           size="md"
         />
 

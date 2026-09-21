@@ -28,7 +28,7 @@ import { Settings2 } from 'pixelarticons/react/Settings2.js';
 import { User } from 'pixelarticons/react/User.js';
 import { Users } from 'pixelarticons/react/Users.js';
 import { avatarStyle } from '@/components/common/avatar-ink';
-import { GameIcon } from '@/components/common/game-icon';
+import { ServerMark } from '@/components/servers/server-mark';
 import { PlatterMark } from '@/components/common/platter-mark';
 import { StatusDot } from '@/components/common/status-pill';
 import { useBlueprintIndex } from '@/components/servers/blueprint-picker';
@@ -254,12 +254,11 @@ function ServerRows() {
               }}
               to={`/servers/${server.id}`}
             >
-              <GameIcon
+              <ServerMark
+                blueprint={blueprints.get(server.blueprintKey)}
                 blueprintKey={server.blueprintKey}
-                glyph={blueprints.get(server.blueprintKey)?.icon.glyph}
-                hue={blueprints.get(server.blueprintKey)?.icon.hue}
-                monogram={blueprints.get(server.blueprintKey)?.icon.monogram}
-                name={server.name}
+                serverId={server.id}
+                serverName={server.name}
                 size="xs"
               />
               <span className={cn('min-w-0 flex-1 truncate text-start', COLLAPSED_LABEL)}>
