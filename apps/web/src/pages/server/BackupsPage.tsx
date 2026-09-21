@@ -535,7 +535,16 @@ function BackupRow({
               value="delete"
               variant="destructive"
             >
-              {backup.locked ? 'Delete (unlock it first)' : 'Delete backup'}
+              {/*
+                A disabled control always says why. Locked was covered and mid-restore was
+                not, so the item greyed out during the one operation where somebody is most
+                likely to be clicking around waiting for something to finish.
+              */}
+              {backup.locked
+                ? 'Delete (unlock it first)'
+                : backup.status === 'restoring'
+                  ? 'Delete (restoring from it)'
+                  : 'Delete backup'}
             </MenuItem>
           </MenuContent>
         </Menu>

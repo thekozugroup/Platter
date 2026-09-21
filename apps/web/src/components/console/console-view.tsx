@@ -567,7 +567,11 @@ export function ConsoleView({
                 ? `No line matches “${trimmedQuery}”.`
                 : connectionState === 'closed'
                   ? 'The console is not connected.'
-                  : 'No output yet.'}
+                  : connectionState === 'connecting' || connectionState === 'authenticating'
+                    ? 'Connecting to the console…'
+                    : connectionState === 'reconnecting'
+                      ? 'Reconnecting. Output resumes when the console is back.'
+                      : 'No output yet.'}
             </p>
           ) : (
             <div className={cn('min-w-full', !wrap && 'w-max')}>

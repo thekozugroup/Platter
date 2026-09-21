@@ -30,6 +30,7 @@ import {
 } from '@/components/servers/server-card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import {
   Pagination,
@@ -335,11 +336,24 @@ export function ServersPage() {
       </PageHeader>
 
       <PageBody>
+        {/*
+          The skeleton has to be the shape of what replaces it. This always drew the
+          two-column card grid, so choosing list view and reloading showed a grid that
+          became a list — the layout shifting under somebody who had already told it which
+          layout they wanted.
+        */}
         {servers.isPending ? (
-          <div aria-busy="true" className="grid gap-4 md:grid-cols-2">
-            {[0, 1, 2, 3].map((index) => (
-              <ServerCardSkeleton key={index} />
-            ))}
+          <div
+            aria-busy="true"
+            className={view === 'grid' ? 'grid gap-4 md:grid-cols-2' : 'flex flex-col gap-3'}
+          >
+            {[0, 1, 2, 3].map((index) =>
+              view === 'grid' ? (
+                <ServerCardSkeleton key={index} />
+              ) : (
+                <Skeleton className="h-24 rounded-md" key={index} />
+              ),
+            )}
             <span aria-live="polite" className="sr-only" role="status">
               Loading your servers
             </span>
