@@ -157,7 +157,15 @@ export class ConsoleSocket {
         this.#setState('closed');
         return;
       }
+      /*
+       * `gone` is the close the API sends for a server this account cannot see — the same
+       * answer it gives for one that does not exist, deliberately, so probing ids tells an
+       * attacker nothing. It is terminal, and it used to be silent: the pane stopped, no
+       * notice was raised, and the only thing left on screen was the generic "The console
+       * is not connected", which invites a reload that will do the same thing again.
+       */
       if (event.code === WS_CLOSE.gone) {
+        this.#handlers.onError?.('This server is no longer available on this account.');
         this.#setState('closed');
         return;
       }
