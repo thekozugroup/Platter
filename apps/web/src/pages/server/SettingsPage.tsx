@@ -39,9 +39,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AdvancedOnly } from '@/components/common/advanced-disclosure';
+import { AdvancedHint, AdvancedOnly, EasyOnly } from '@/components/common/advanced-disclosure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Field, FieldError, FieldGroup, FieldHelper, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -137,8 +138,13 @@ export function SettingsPage() {
         failed — so a broken server shows it in either mode. Easy mode may not leave someone
         looking at a server that will not start with the repair hidden behind a preference
         they have no reason to suspect exists.
+
+        `crashed` counts for the same reason and was missing. A server whose install
+        succeeded and which then dies on every boot — a bad mod, a corrupt world — is the
+        case a reinstall over the existing data directory is *for*, and it is the one where
+        somebody is most likely to be staring at a server they cannot fix.
       */}
-      <AdvancedOnly force={server.status === 'install_failed'}>
+      <AdvancedOnly force={server.status === 'install_failed' || server.status === 'crashed'}>
         <MaintenanceCard />
       </AdvancedOnly>
 
@@ -907,6 +913,49 @@ function PeopleCard() {
   );
 }
 
+/**
+ * What inviting somebody usually means, as three answers.
+ *
+ * The matrix below is twenty checkboxes in six groups, and it is the densest thing an
+ * operator meets in easy mode — denser than anything the mode currently hides. Nobody
+ * inviting a friend to their Minecraft server wants to rule on `schedules.write`; they want
+ * to say "they can play" or "they can run it while I am away".
+ *
+ * Built from the same vocabulary the matrix edits, so the two cannot drift, and the matrix
+ * is one switch away for the cases these three do not cover.
+ */
+const PERMISSION_PRESETS = [
+  {
+    id: 'play',
+    label: 'Can play',
+    detail: 'Sees the server and reads the console. Changes nothing.',
+    permissions: ['server.view', 'console.read', 'backups.read'],
+  },
+  {
+    id: 'run',
+    label: 'Can run it',
+    detail: 'Starts, stops and restarts, sends console commands, manages players and backups.',
+    permissions: DEFAULT_SUBUSER_PERMISSIONS,
+  },
+  {
+    id: 'everything',
+    label: 'Full access, short of deleting it',
+    detail: 'Everything above, plus files, schedules and settings.',
+    permissions: SERVER_PERMISSIONS.filter((entry) => entry !== 'server.delete'),
+  },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  detail: string;
+  permissions: readonly ServerPermission[];
+}>;
+
+function samePermissions(a: readonly ServerPermission[], b: readonly ServerPermission[]): boolean {
+  if (a.length !== b.length) return false;
+  const held = new Set(a);
+  return b.every((entry) => held.has(entry));
+}
+
 function PermissionPicker({
   value,
   onChange,
@@ -917,6 +966,9 @@ function PermissionPicker({
   idPrefix: string;
 }) {
   const held = new Set(value);
+  const matched = PERMISSION_PRESETS.find((preset) =>
+    samePermissions(preset.permissions, value),
+  )?.id;
 
   function toggle(permission: ServerPermission, checked: boolean) {
     const next = new Set(held);
@@ -934,40 +986,79 @@ function PermissionPicker({
   return (
     <fieldset className="flex flex-col gap-4">
       <legend className="mb-2 text-subhead font-medium text-label">Permissions</legend>
-      <div className="grid gap-5 sm:grid-cols-2">
-        {PERMISSION_GROUPS.map((group) => (
-          <div className="flex flex-col gap-2" key={group.title}>
-            <div>
-              <p className="text-subhead font-medium text-label">{group.title}</p>
-              <p className="text-caption text-label-tertiary">{group.blurb}</p>
+
+      {/*
+        Easy mode gets the presets — unless the grant on this person does not match one of
+        them, in which case hiding the matrix would hide the only thing that can describe
+        what they currently hold. A screen must never show somebody a set of options that
+        excludes the state they are actually in.
+      */}
+      <EasyOnly className="flex flex-col gap-3">
+        {matched === undefined ? (
+          <p className="text-caption text-label-secondary">
+            These permissions were set one by one, so they are shown in full below.
+          </p>
+        ) : (
+          <>
+            <RadioGroup
+              aria-label="What this person may do"
+              className="flex flex-col gap-2"
+              onValueChange={({ value: next }) => {
+                const preset = PERMISSION_PRESETS.find((entry) => entry.id === next);
+                if (preset) onChange([...preset.permissions]);
+              }}
+              value={matched}
+            >
+              {PERMISSION_PRESETS.map((preset) => (
+                <RadioGroupItem className="items-start gap-2.5" key={preset.id} value={preset.id}>
+                  <span className="flex flex-col">
+                    <span className="text-subhead font-medium text-label">{preset.label}</span>
+                    <span className="text-caption text-label-secondary">{preset.detail}</span>
+                  </span>
+                </RadioGroupItem>
+              ))}
+            </RadioGroup>
+            <AdvancedHint hidden="To choose permissions one at a time," />
+          </>
+        )}
+      </EasyOnly>
+
+      <AdvancedOnly className="contents" force={matched === undefined}>
+        <div className="grid gap-5 sm:grid-cols-2">
+          {PERMISSION_GROUPS.map((group) => (
+            <div className="flex flex-col gap-2" key={group.title}>
+              <div>
+                <p className="text-subhead font-medium text-label">{group.title}</p>
+                <p className="text-caption text-label-tertiary">{group.blurb}</p>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {group.permissions.map((permission) => {
+                  const id = `${idPrefix}-${permission.key}`;
+                  return (
+                    <li className="flex items-start gap-2.5" key={permission.key}>
+                      <Checkbox
+                        aria-describedby={`${id}-detail`}
+                        checked={held.has(permission.key)}
+                        className="hit-target mt-0.5"
+                        id={id}
+                        onCheckedChange={({ checked }) => toggle(permission.key, checked === true)}
+                      />
+                      <div className="min-w-0">
+                        <label className="text-footnote font-medium text-label" htmlFor={id}>
+                          {permission.label}
+                        </label>
+                        <p className="text-caption text-label-tertiary" id={`${id}-detail`}>
+                          {permission.detail}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul className="flex flex-col gap-2">
-              {group.permissions.map((permission) => {
-                const id = `${idPrefix}-${permission.key}`;
-                return (
-                  <li className="flex items-start gap-2.5" key={permission.key}>
-                    <Checkbox
-                      aria-describedby={`${id}-detail`}
-                      checked={held.has(permission.key)}
-                      className="hit-target mt-0.5"
-                      id={id}
-                      onCheckedChange={({ checked }) => toggle(permission.key, checked === true)}
-                    />
-                    <div className="min-w-0">
-                      <label className="text-footnote font-medium text-label" htmlFor={id}>
-                        {permission.label}
-                      </label>
-                      <p className="text-caption text-label-tertiary" id={`${id}-detail`}>
-                        {permission.detail}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </AdvancedOnly>
     </fieldset>
   );
 }

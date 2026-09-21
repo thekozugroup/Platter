@@ -486,3 +486,46 @@ describe('buildEnvironment', () => {
     expect(Number(environment['MAX_RAM']?.replace(/m$/, ''))).toBeLessThan(8192);
   });
 });
+
+/**
+ * Settings that easy mode must never be able to hide.
+ *
+ * `advanced: true` on a variable is what removes it from the form for anybody who has not
+ * turned advanced mode on, and the flag is set per blueprint by hand. These four are the
+ * ones where hiding turns a five-second fix into a failure nobody can diagnose:
+ *
+ *   - `EULA` is required. A server that cannot be created is not an advanced problem.
+ *   - `ENABLE_WHITELIST` is how somebody keeps strangers off a server that is already being
+ *     joined by strangers, which is exactly when they will go looking for it.
+ *   - `ONLINE_MODE` is the supported answer when a friend's account will not authenticate,
+ *     or the server is on a LAN that cannot reach Mojang. Editing `server.properties` by
+ *     hand does not survive a restart — the image re-derives the value from the environment
+ *     on every boot — so with the field hidden there is no route to it at all.
+ *
+ * A test rather than a comment because the flag is one word on one line, and the cost of
+ * getting it wrong is paid by the person least able to work out what happened.
+ */
+describe('variables easy mode must not hide', () => {
+  const PINNED = ['EULA', 'ENABLE_WHITELIST', 'ONLINE_MODE'] as const;
+
+  for (const blueprint of blueprints) {
+    for (const key of PINNED) {
+      const variable = blueprint.variables.find((entry) => entry.key === key);
+      if (!variable) continue;
+
+      it(`keeps ${key} visible on ${blueprint.key}`, () => {
+        expect(variable.advanced ?? false).toBe(false);
+      });
+    }
+  }
+
+  it('never marks a required variable advanced, on any blueprint', () => {
+    const hidden = blueprints.flatMap((blueprint) =>
+      blueprint.variables
+        .filter((variable) => variable.required === true && variable.advanced === true)
+        .map((variable) => `${blueprint.key}.${variable.key}`),
+    );
+
+    expect(hidden, 'a required field behind a preference cannot be filled in').toEqual([]);
+  });
+});
