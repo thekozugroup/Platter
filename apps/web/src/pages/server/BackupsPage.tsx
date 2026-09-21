@@ -76,14 +76,15 @@ const STATUS_COPY: Record<BackupStatus, { label: string; hint: string }> = {
   restoring: { label: 'Restoring', hint: 'Unpacking this archive back onto the volume.' },
 };
 
-const STATUS_TONE: Record<BackupStatus, string> = {
-  pending: 'text-warning',
-  running: 'text-warning',
-  completed: 'text-success',
-  failed: 'text-danger',
-  restoring: 'text-warning',
-};
-
+/**
+ * The dot carries the tone; the word does not.
+ *
+ * This used to paint the label itself — `text-warning` at 12px measures 3.77:1 on the
+ * surface and `text-success` 3.31:1, both under AA — and it is the only place a backup's
+ * state is written, so the reading of it was the part failing. Same rule the shared
+ * `StatusCapsule` documents; this is a bare row rather than a pill, so it borrows the rule
+ * rather than the component.
+ */
 const DOT_TONE: Record<BackupStatus, string> = {
   pending: 'bg-warning-dot',
   running: 'bg-warning-dot status-pulse',
@@ -420,7 +421,7 @@ function BackupRow({
         </div>
 
         <p className="tabular flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-caption text-label-tertiary">
-          <span className={cn('inline-flex items-center gap-1.5', STATUS_TONE[backup.status])}>
+          <span className="inline-flex items-center gap-1.5 text-label-secondary">
             <span aria-hidden className={cn('size-2 rounded-full', DOT_TONE[backup.status])} />
             {copy.label}
           </span>

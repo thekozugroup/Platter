@@ -1,4 +1,5 @@
 import { formatDuration, formatRelativeTime, hueFromString } from '@platter/shared';
+import { StatusCapsule } from '@/components/common/status-pill';
 import {
   PlayerActions,
   type PlayerRecord,
@@ -147,11 +148,16 @@ export function PlayerRow({
               A dot beside the name would be colour-only. The word travels with it, exactly
               like the server status pill.
             */}
+            {/*
+              Through the shared capsule, not a copy of it. This was hand-rolled with the
+              label painted `text-success`, which is 3.3:1 on the pill at 12px — the exact
+              failure StatusCapsule documents and exists to prevent. The dot carries the
+              colour; the word stays readable.
+            */}
             {player.online ? (
-              <span className="inline-flex items-center gap-1.5 rounded-pill border border-pill-border bg-pill px-2 py-0.5 text-caption font-medium text-success">
-                <span aria-hidden className="size-1.5 rounded-full bg-success-dot status-pulse" />
+              <StatusCapsule pulse tone="success">
                 Online
-              </span>
+              </StatusCapsule>
             ) : null}
             {badges.map((badge) => (
               <span

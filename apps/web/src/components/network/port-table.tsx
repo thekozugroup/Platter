@@ -31,6 +31,8 @@ import {
   useReachabilityCheck,
   useServerAllocations,
 } from '@/hooks';
+import { AdvancedHint } from '@/components/common/advanced-disclosure';
+import { useAdvancedMode } from '@/lib/advanced-mode';
 import { ApiError, errorMessage } from '@/lib/api-client.js';
 import { cn } from '@/lib/utils';
 
@@ -81,10 +83,17 @@ function purposeFor(name: string): PortPurpose {
 
 // ---------------------------------------------------------------------------------------
 
+/**
+ * Tint and border carry the verdict; the label stays readable.
+ *
+ * Status-coloured text on a status-coloured tint measured 3.1–3.5:1 at 12px across these
+ * four — the tint darkens the background and the coloured text was never far from it to
+ * begin with. The surface says which way the answer went; the sentence says what it is.
+ */
 const TONE_PILL = {
-  success: 'border-success/25 bg-success-subtle text-success',
-  warning: 'border-warning/25 bg-warning-subtle text-warning',
-  danger: 'border-danger/25 bg-danger-subtle text-danger',
+  success: 'border-success/25 bg-success-subtle text-label',
+  warning: 'border-warning/25 bg-warning-subtle text-label',
+  danger: 'border-danger/25 bg-danger-subtle text-label',
   neutral: 'border-pill-border bg-pill text-label-secondary',
 } as const;
 
@@ -152,6 +161,7 @@ export interface PortTableProps {
 
 export function PortTable({ serverId, className }: PortTableProps) {
   const query = useServerAllocations(serverId);
+  const { advanced } = useAdvancedMode();
   const isWide = useMediaQuery('(min-width: 768px)');
   const [editing, setEditing] = useState<ServerAllocation | null>(null);
 
@@ -181,7 +191,22 @@ export function PortTable({ serverId, className }: PortTableProps) {
     );
   }
 
-  const allocations = query.data.data;
+  const all = query.data.data;
+
+  /*
+   * Easy mode shows the one port that matters: the one a player types and the one that goes
+   * in a router forward. The rest are RCON and Query — internal plumbing Platter manages
+   * itself, which the table invited every user to change, and which the page's own copy
+   * says never to expose.
+   *
+   * Anything unreachable or already moved off its allocation is shown regardless. A hidden
+   * row is only acceptable while there is nothing to decide about it.
+   */
+  const notable = all.filter(
+    (allocation) => allocation.primary || allocation.hostPort !== allocation.containerPort,
+  );
+  const allocations = advanced || notable.length === 0 ? all : notable;
+  const hiddenCount = all.length - allocations.length;
 
   if (allocations.length === 0) {
     return (
@@ -305,6 +330,12 @@ export function PortTable({ serverId, className }: PortTableProps) {
           })}
         </ul>
       )}
+
+      {hiddenCount > 0 ? (
+        <AdvancedHint
+          hidden={`${hiddenCount} internal ${hiddenCount === 1 ? 'port is' : 'ports are'} hidden — Platter manages them and they should not be forwarded.`}
+        />
+      ) : null}
 
       <ChangePortDialog allocation={editing} onClose={() => setEditing(null)} serverId={serverId} />
     </div>
